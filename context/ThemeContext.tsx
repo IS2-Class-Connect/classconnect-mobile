@@ -30,7 +30,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const theme = {...colors.dark, dark: true};
 
   // default to light mode
-  //const theme = {...colors.light, dark: light};
+//   const theme = {...colors.light, dark: false};
 
   return (
     <ThemeContext.Provider value={theme}>
