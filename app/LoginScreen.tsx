@@ -1,18 +1,18 @@
 import React, { useEffect } from 'react';
 import {
   View,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
   Text,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
   Image,
+  ViewStyle,
+  TextStyle,
+  ImageStyle,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import { fonts } from '../constants/fonts';
-import { spacing } from '../constants/spacing';
 
 import Animated, {
   useSharedValue,
@@ -22,22 +22,29 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-const LOGO_SIZE = 180;
+import { useTheme } from '../context/ThemeContext';
+import { fonts } from '../constants/fonts';
+import { spacing } from '../constants/spacing';
+
+const LOGO_SIZE = 220;
 
 export default function Login() {
   const theme = useTheme();
 
   const rotation = useSharedValue(0);
+  const fadeIn = useSharedValue(0);
 
   useEffect(() => {
     rotation.value = withRepeat(
       withTiming(360, {
-        duration: 6000,
+        duration: 12000,
         easing: Easing.linear,
       }),
       -1,
       false
     );
+
+    fadeIn.value = withTiming(1, { duration: 1000 });
   }, []);
 
   const frontStyle = useAnimatedStyle(() => ({
@@ -51,6 +58,11 @@ export default function Login() {
     backfaceVisibility: 'hidden',
   }));
 
+  const fadeInStyle = useAnimatedStyle(() => ({
+    opacity: fadeIn.value,
+    transform: [{ translateY: withTiming(fadeIn.value === 1 ? 0 : 30) }],
+  }));
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -61,7 +73,6 @@ export default function Login() {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 🌀 3D Spinning logo with front and back */}
         <View style={styles.logoWrapper}>
           <Animated.Image
             source={require('../assets/images/app_logo.png')}
@@ -75,8 +86,16 @@ export default function Login() {
           />
         </View>
 
-        {/* 📩 Login Form */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Animated.View
+          style={[
+            styles.card,
+            fadeInStyle,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
           <TextInput
             placeholder="Email"
             style={[styles.input, { color: theme.text, borderColor: theme.border }]}
@@ -91,13 +110,23 @@ export default function Login() {
           <TouchableOpacity style={[styles.button, { backgroundColor: theme.tint }]}>
             <Text style={styles.buttonText}>Log In</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+// Styles fixed for cross-platform including web
+const styles = StyleSheet.create<{
+  container: ViewStyle;
+  scrollContainer: ViewStyle;
+  logoWrapper: ViewStyle;
+  logo: ImageStyle;
+  card: ViewStyle;
+  input: TextStyle;
+  button: ViewStyle;
+  buttonText: TextStyle;
+}>({
   container: {
     flex: 1,
   },
@@ -113,11 +142,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
+    perspective: '1000', // must be a string for web compatibility
   },
   logo: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     position: 'absolute',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    // elevation removed for web
   },
   card: {
     width: '100%',
@@ -127,7 +161,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 4,
   },
   input: {
     width: '100%',
