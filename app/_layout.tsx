@@ -1,24 +1,26 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppProviders } from '../context/providers';
 
 function LayoutContent() {
-  const themeColors = useTheme();
+  const theme = useTheme();
 
   return (
     <>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: themeColors.background },
-          headerTintColor: themeColors.text,
+          headerStyle: { backgroundColor: theme.background },
+          headerTintColor: theme.text,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+
       <StatusBar
-        backgroundColor={themeColors.background}
-        style={themeColors.dark ? 'light' : 'dark'}
+        backgroundColor={theme.background}
+        style={theme.dark ? 'light' : 'dark'}
       />
     </>
   );
@@ -26,8 +28,8 @@ function LayoutContent() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
+    <AppProviders>
       <LayoutContent />
-    </ThemeProvider>
+    </AppProviders>
   );
 }

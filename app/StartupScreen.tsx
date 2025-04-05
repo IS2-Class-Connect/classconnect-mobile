@@ -2,25 +2,27 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { useAuth } from "../hooks/useAuth";
+import { useTheme } from "../context/ThemeContext";
 
 export default function StartupScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const theme = useTheme();
 
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        //router.replace("/HomeScreen"); // Redirige a HomeScreen si hay un usuario
+        router.replace("/HomeScreen"); 
       } else {
-        router.replace("/LoginScreen"); // Redirige a LoginScreen si no hay usuario
+        router.replace("/LoginScreen");
       }
     }
   }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#000" />
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.tint} />
       </View>
     );
   }
