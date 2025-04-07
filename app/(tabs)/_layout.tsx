@@ -14,10 +14,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: theme.background },
       }}
     >
-      <Tabs.Screen
-        name="HomeScreen"
-        options={{ title: 'Inicio' }}
-      />
+      <Tabs.Screen name="HomeScreen" options={{ title: 'Inicio' }} />
     </Tabs>
   );
 }

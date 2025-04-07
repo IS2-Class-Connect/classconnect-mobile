@@ -12,9 +12,9 @@ export default function StartupScreen() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.replace("/HomeScreen"); 
+        router.replace("/auth/login"); 
       } else {
-        router.replace("/LoginScreen");
+        router.replace("/auth/login");
       }
     }
   }, [user, isLoading, router]);

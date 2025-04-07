@@ -20,15 +20,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
 
     // if you descomment this the system detect the color scheme
-   const colorScheme = useColorScheme();
+  //  const colorScheme = useColorScheme();
   
-   const theme = colorScheme === 'dark'
-     ? { ...colors.dark, dark: true }
-     : { ...colors.light, dark: false };
+  //  const theme = colorScheme === 'dark'
+  //    ? { ...colors.dark, dark: true }
+  //    : { ...colors.light, dark: false };
 
-    // default to dark mode
-  //const theme = {...colors.dark, dark: true};
-
+     //default to dark mode
+   const theme = {...colors.dark, dark: true};
   // default to light mode
  //const theme = {...colors.light, dark: false};
 

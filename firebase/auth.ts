@@ -12,9 +12,8 @@ import {
   
   import * as Google from 'expo-auth-session/providers/google';
   import * as WebBrowser from 'expo-web-browser';
+  import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
   import { Platform } from 'react-native';
-  import { makeRedirectUri } from 'expo-auth-session';
-  
   import { auth } from './config';
   
   // Finalize any pending browser session
@@ -47,26 +46,48 @@ import {
     return sendPasswordResetEmail(auth, email);
   }
   
-  // 🔐 Google Sign-In with Expo Auth Session
   export function useGoogleSignIn() {
-    const [request, response, promptAsync] = Google.useAuthRequest({
-      clientId: Platform.select({
-        android: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-        ios: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-        default: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-      }),
-      redirectUri: makeRedirectUri(),
-    });
+    const redirectUri = makeRedirectUri({
+        // @ts-ignore
+        useProxy: true,
+      });
+      console.log('🔴 Redirect URI:', redirectUri); // debería ser https://auth.expo.io/...
+          
+
+  
+    const [request, response, promptAsync] = useAuthRequest(
+      {
+        clientId: Platform.select({
+          android: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
+          ios: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
+          default: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
+        }),
+        redirectUri,
+        scopes: ['openid', 'profile', 'email'], // ✅ ESTA LÍNEA ES CLAVE
+      },
+      Google.discovery
+    );
   
     async function handleGoogleResponse() {
-      if (response?.type === 'success') {
-        const { idToken } = response.authentication!;
-        if (idToken) {
-          const credential = GoogleAuthProvider.credential(idToken);
-          return await signInWithCredential(auth, credential);
+        try {
+          if (response?.type === 'success') {
+            console.log('✅ Google login success response:', response);
+            const { idToken } = response.authentication!;
+            if (idToken) {
+              const credential = GoogleAuthProvider.credential(idToken);
+              const result = await signInWithCredential(auth, credential);
+              console.log('🔥 Firebase login success:', result.user.email);
+            }
+          } else {
+            console.log('⚠️ Google response not successful:', response?.type);
+          }
+        } catch (e) {
+          console.error('❌ Error handling Google login:', e);
         }
       }
-    }
+      
   
-    return { request, promptAsync, response, handleGoogleResponse };
+    return { request, response, promptAsync, handleGoogleResponse };
   }
+  
+  

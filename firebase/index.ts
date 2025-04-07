@@ -1,4 +1,6 @@
 // firebase/index.ts
-export * from './init'; // app and auth
-export * from './auth'; // login, logout, register, etc
-
+// Centralized Firebase exports:
+// ✅ auth functions (login, register, logout...)
+// ✅ Firebase app and config
+export * from './auth';
+export * from './config';
