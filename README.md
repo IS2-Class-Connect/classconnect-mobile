@@ -1,56 +1,94 @@
-# Welcome to your Expo app 👋
+# 📱 ClassConnect Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Mobile frontend for the ClassConnect application**, built with **React Native** and **Expo**.  
+Designed for both **students and teachers**, this app enables the management of **classes, assignments, exams, messaging**, and **educational resources**.
 
-## Get started
+ClassConnect integrates with multiple **microservices** and uses **Firebase** for authentication and persistent storage.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 📚 Table of Contents
 
-2. Start the app
+- [🚀 Features](#-features)
+- [📦 Tech Stack](#-tech-stack)
+- [🔧 Installation](#-installation)
+- [🧪 Development](#-development)
+- [📱 App Structure](#-app-structure)
+- [🖼️ Screenshots](#-screenshots)
+- [🤝 Contributing](#-contributing)
+- [🛡 License](#-license)
 
-   ```bash
-   npx expo start
-   ```
+---
 
-<!-- Options for running the app -->
-In the output, you'll find options to open the app in a:
+## 🚀 Features
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo.
+- 🔐 **Google & Email authentication** via Firebase
+- 🧑‍🏫 **Role-based flows** for students and teachers
+- 📅 **Class schedule & assignments**
+- ✍️ **Exam and task submissions**
+- 💬 **Messaging system**
+- 📁 **Resource sharing**
+- ☁️ **Cloud sync** and persistent sessions
 
-<!-- Instructions for editing the project -->
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction/).
+---
 
-## Get a fresh project
+## 📦 Tech Stack
 
-<!-- Command to reset the project -->
-When you're ready, run:
+- **React Native** with [Expo](https://expo.dev/)
+- **TypeScript** for type safety
+- **Firebase** (Auth, Firestore)
+- **Expo Router** for navigation
+- **AsyncStorage** for local persistence
+- **ShadCN-style UI** with custom theming
+- **Microservice backend** integration via REST
+
+---
+
+## 🔧 Installation
 
 ```bash
-npm run reset-project
+git clone https://github.com/your-org/classconnect-mobile.git
+cd classconnect-mobile
+npm install
 ```
 
-<!-- Explanation of the reset command -->
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 🧪 Development
 
-<!-- Resources for learning more about Expo -->
-To learn more about developing your project with Expo, look at the following resources:
+Start the project with:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides/).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start --tunnel
+```
 
-## Join the community
+Scan the QR code with **Expo Go** on your phone.
 
-<!-- Links to join the Expo developer community -->
-Join our community of developers creating universal apps.
+> ⚠️ For Google Sign-In to work, use `--tunnel` and ensure your redirect URI is registered in Firebase.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 📱 App Structure
+
+```
+.
+├── app/                     # Screens and routing
+├── components/ui/           # Shared UI components (buttons, forms, etc.)
+├── constants/               # Fonts, colors, spacing
+├── context/                 # Theme and Auth providers
+├── firebase/                # Firebase setup and methods
+├── hooks/                   # Custom hooks (e.g., useAuth)
+├── assets/                  # Images and icons
+```
+
+---
+
+## 🖼️ Screenshots
+
+_Coming soon..._
+
+---
+
+## 🛡 License
+
+MIT © [ClassConnect Team](https://github.com/your-org)
