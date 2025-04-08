@@ -49,11 +49,18 @@ export default function LoginScreen() {
   }, []);
 
   useEffect(() => {
-    if (response) {
-      console.log('🔁 Google response detected:', response);
+    console.log('🧪 useEffect response:', response)
+    if (response?.type === 'success' && response.authentication) {
       handleGoogleResponse();
+    } else if (response?.type === 'error') {
+      console.error('❌ Google sign-in error:', response.error);
+    } else if (response?.type === 'dismiss') {
+      console.log('🚫 Google login dismissed by user');
     }
   }, [response]);
+  
+  
+  
   
 
   const frontStyle = useAnimatedStyle(() => ({
@@ -116,8 +123,12 @@ export default function LoginScreen() {
               <IconButton
                 title="Continue with Google"
                 icon={require('../assets/icons/google-blue.png')}
-                onPress={() => promptAsync()}
+                onPress={async () => {
+                  const res = await promptAsync();
+                  console.log('🧪 promptAsync result:', res);
+                }}
               />
+
             </>
           )}
         </View>

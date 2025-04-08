@@ -48,27 +48,23 @@ export function resetPassword(email: string) {
 
 // 🔐 Google Sign-In with Expo Auth Session
 export function useGoogleSignIn() {
-	const redirectUri = makeRedirectUri({
-		// @ts-ignore
-		useProxy: true,
-	});
-	console.log('🔴 Redirect URI:', redirectUri); // Should be https://auth.expo.io/...
-
+	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile"; 
+	
 	const [request, response, promptAsync] = useAuthRequest(
 		{
-			clientId: Platform.select({
-				android: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-				ios: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-				default: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com',
-			}),
+			clientId: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com', 
 			redirectUri,
-			scopes: ['openid', 'profile', 'email'], // ✅ This line is crucial
+			scopes: ['openid', 'profile', 'email'],
 		},
 		Google.discovery
 	);
 
+
+	console.log('🔁 Google response detected:', JSON.stringify(response, null, 2));
+	
 	async function handleGoogleResponse() {
 		try {
+			console.log('🔁 Google response detected:', JSON.stringify(response, null, 2));
 			if (response?.type === 'success') {
 				console.log('✅ Google login success response:', response);
 				const { idToken } = response.authentication!;
@@ -87,4 +83,5 @@ export function useGoogleSignIn() {
 
 	return { request, response, promptAsync, handleGoogleResponse };
 }
+
 
