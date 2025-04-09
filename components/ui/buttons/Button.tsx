@@ -1,6 +1,6 @@
 // ✅ components/ui/Button.tsx
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
@@ -10,20 +10,51 @@ interface ButtonProps {
   onPress: () => void;
   variant?: 'primary' | 'secondary';
   textColor?: string;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
-export default function Button({ title, onPress, variant = 'primary', textColor }: ButtonProps) {
+export default function Button({ 
+  title, 
+  onPress, 
+  variant = 'primary', 
+  textColor,
+  disabled = false,
+  loading = false 
+}: ButtonProps) {
   const theme = useTheme();
 
-  const backgroundColor =
-    variant === 'primary' ? theme.buttonPrimary : theme.buttonSecondary;
+  const backgroundColor = variant === 'primary' 
+    ? theme.buttonPrimary 
+    : theme.buttonSecondary;
+
+  const buttonStyles = [
+    styles.button,
+    { backgroundColor },
+    disabled && { opacity: 0.6 }
+  ];
+
+  const textStyles = [
+    styles.text,
+    { color: textColor || '#fff' },
+    disabled && { opacity: 0.8 }
+  ];
 
   return (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor }]}
+      style={buttonStyles}
       onPress={onPress}
+      disabled={disabled || loading}
+      activeOpacity={0.7}
     >
-      <Text style={[styles.text, { color: textColor || '#fff' }]}>{title}</Text>
+      {loading ? (
+        <ActivityIndicator 
+          color={textColor || '#fff'} 
+          size="small"
+        />
+      ) : (
+        <Text style={textStyles}>{title}</Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -34,6 +65,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 8,
     alignItems: 'center',
+    minHeight: 44, 
+    justifyContent: 'center',
   },
   text: {
     fontWeight: fonts.weight.bold as '700',

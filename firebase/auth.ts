@@ -52,7 +52,7 @@ export function useGoogleSignIn() {
 	
 	const [request, response, promptAsync] = useAuthRequest(
 		{
-			clientId: '737983419302-id5c09jpdukkqej357sc9si1ltahtjj7.apps.googleusercontent.com', 
+			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com', 
 			redirectUri,
 			scopes: ['openid', 'profile', 'email'],
 		},

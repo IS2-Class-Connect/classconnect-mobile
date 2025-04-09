@@ -1,2 +1,2 @@
 // app/auth/login.tsx
-export { default } from '../LoginScreen';
+export { default } from '../../screens/LoginScreen';

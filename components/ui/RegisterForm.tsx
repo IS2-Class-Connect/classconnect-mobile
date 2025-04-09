@@ -1,6 +1,7 @@
 // components/ui/RegisterForm.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, { FadeInRight } from 'react-native-reanimated';
 import { registerWithEmail } from '../../firebase/auth';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing } from '../../constants/spacing';
@@ -11,6 +12,7 @@ import Button from './buttons/Button';
 
 export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const theme = useTheme();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,6 +20,11 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
   const handleRegister = async () => {
     setError('');
+
+    if (!name.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters long.');
@@ -31,7 +38,7 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
     try {
       const res = await registerWithEmail(email, password);
-      notifyRegisterToDB(res.user); // optional backend hook
+      notifyRegisterToDB({ ...res.user, displayName: name }); // optional backend hook
       onCancel(); // return to login form
     } catch (e: any) {
       setError(e.message || 'Registration failed');
@@ -39,7 +46,14 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   };
 
   return (
-    <View>
+    <Animated.View entering={FadeInRight.duration(400)}>
+      <Text style={[styles.title, { color: theme.text }]}>Register</Text>
+
+      <TextField
+        placeholder="Name"
+        value={name}
+        onChangeText={setName}
+      />
       <TextField
         placeholder="Email"
         value={email}
@@ -68,11 +82,17 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
           Back to login
         </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  title: {
+    fontSize: fonts.size.xl,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
   link: {
     marginTop: spacing.sm,
     alignItems: 'center',
