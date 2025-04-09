@@ -19,7 +19,6 @@ type AuthContextType = {
   logout: () => Promise<void>;
 };
 
-// ✅ Exportación agregada
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
@@ -31,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
+    logout(); //ONLY FOR DEVELOPMENT
     const unsubscribe = onAuthStateChangedListener((usr) => {
       setUser(usr);
       setLoading(false);

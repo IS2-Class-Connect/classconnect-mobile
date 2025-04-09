@@ -84,8 +84,9 @@ export default function LoginScreen() {
       setIsLoading(true);
       const result = await loginWithEmail(email, password);
       console.log('✅ Logged in user:', result.user.email);
+      router.replace('/(tabs)');
+
     } catch (error: any) {
-      console.error('❌ Email login error:', error);
       Alert.alert('Login Failed', error.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
