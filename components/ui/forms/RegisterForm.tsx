@@ -1,22 +1,29 @@
 // components/ui/RegisterForm.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Modal } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
-import { registerWithEmail } from '../../firebase/auth';
-import { useTheme } from '../../context/ThemeContext';
-import { spacing } from '../../constants/spacing';
-import { fonts } from '../../constants/fonts';
-import { notifyRegisterToDB } from '../../services/userApi';
-import TextField from './fields/TextField';
-import Button from './buttons/Button';
+import { registerWithEmail } from '../../../firebase/auth';
+import { useTheme } from '../../../context/ThemeContext';
+import { spacing } from '../../../constants/spacing';
+import { fonts } from '../../../constants/fonts';
+import { notifyRegisterToDB } from '../../../services/userApi';
+import TextField from '../fields/TextField';
+import Button from '../buttons/Button';
+import Dialog from '../alerts/Dialog';
+import SetLocationForm from './SetLocationForm';
+import { useRouter } from 'expo-router';
 
 export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const theme = useTheme();
+  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [showServerError, setShowServerError] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleRegister = async () => {
     setError('');
@@ -38,11 +45,17 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
     try {
       const res = await registerWithEmail(email, password);
-      notifyRegisterToDB({ ...res.user, displayName: name }); // optional backend hook
-      onCancel(); // return to login form
+      notifyRegisterToDB({ ...res.user, displayName: name });
+      setShowLocationModal(true);
     } catch (e: any) {
-      setError(e.message || 'Registration failed');
+      console.error('❌ Registration error:', e);
+      setShowServerError(true);
     }
+  };
+
+  const handleLocationFinished = () => {
+    setShowLocationModal(false);
+    setShowSuccess(true);
   };
 
   return (
@@ -82,6 +95,32 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
           Back to login
         </Text>
       </View>
+
+      <Dialog
+        visible={showServerError}
+        message="There was a problem registering. Please try again."
+        onClose={() => setShowServerError(false)}
+        type="error"
+      />
+
+      <Dialog
+        visible={showSuccess}
+        message="Registration successful! Please check your email inbox to verify your account before logging in."
+        onClose={() => {
+          setShowSuccess(false);
+          onCancel();
+        }}
+        type="success"
+      />
+
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showLocationModal}
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <SetLocationForm onClose={handleLocationFinished} />
+      </Modal>
     </Animated.View>
   );
 }

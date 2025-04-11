@@ -1,0 +1,128 @@
+✅ Paso a paso para verificar el token en el backend (NestJS)
+
+1. 📄 Crear un archivo con la Service Account de Firebase  
+   Desde la consola de Firebase:  
+   - Ir a **Configuración del proyecto → Cuentas de servicio**  
+   - Clic en **"Generar nueva clave privada"**  
+   - Guardá el archivo `.json` (ej: `firebase-admin.json`) en `src/firebase/`  
+
+   ⚠️ **No subas este archivo a Git. Añadilo al `.gitignore`.**
+
+2. ⚙️ Crear `firebase.module.ts` para inicializar Firebase Admin  
+
+```typescript
+// src/firebase/firebase.module.ts
+import { Global, Module } from '@nestjs/common';
+import * as admin from 'firebase-admin';
+import * as serviceAccount from './firebase-admin.json'; // ⚠️ Este es tu archivo de clave
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: 'FIREBASE_ADMIN',
+      useFactory: () => {
+        return admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+        });
+      },
+    },
+  ],
+  exports: ['FIREBASE_ADMIN'],
+})
+export class FirebaseModule {}
+```
+
+   Luego lo importás en `AppModule`:
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { FirebaseModule } from './firebase/firebase.module';
+import { UsersModule } from './users/users.module';
+
+@Module({
+  imports: [FirebaseModule, UsersModule],
+})
+export class AppModule {}
+```
+
+3. 🛡️ Crear `FirebaseAuthGuard` para verificar el token  
+
+```typescript
+// src/auth/firebase-auth.guard.ts
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import * as admin from 'firebase-admin';
+import { Request } from 'express';
+
+@Injectable()
+export class FirebaseAuthGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<Request>();
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Missing or invalid token');
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+
+      // Attach user to request
+      req['user'] = {
+        uid: decoded.uid,
+        email: decoded.email,
+        name: decoded.name,
+        picture: decoded.picture,
+      };
+
+      return true;
+    } catch (error) {
+      console.error('❌ Firebase token verification failed', error);
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+}
+```
+
+4. 🧪 Usarlo en un controlador  
+
+```typescript
+// src/users/users.controller.ts
+import { Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { Request } from 'express';
+
+@Controller('api/users')
+export class UsersController {
+  @Post('sync')
+  @UseGuards(FirebaseAuthGuard)
+  async sync(@Req() req: Request) {
+    const user = req['user']; // viene del guard
+
+    // Aquí podés guardar el usuario en tu DB si querés
+    console.log('✅ Usuario verificado desde Firebase:', user);
+
+    return {
+      message: 'Usuario autenticado con éxito',
+      user,
+    };
+  }
+}
+```
+
+🧠 **Recapitulando**  
+
+| Parte                        | Archivo                              | Rol                          |
+|------------------------------|--------------------------------------|------------------------------|
+| Clave privada de Firebase    | `src/firebase/firebase-admin.json`  | Permite verificar tokens     |
+| Módulo de Firebase           | `src/firebase/firebase.module.ts`   | Inicializa Admin SDK         |
+| Guard                        | `src/auth/firebase-auth.guard.ts`   | Verifica el token del header |
+| Uso del guard                | `@UseGuards(FirebaseAuthGuard)` en controller | Protege la ruta |

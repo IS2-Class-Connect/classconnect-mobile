@@ -13,7 +13,7 @@ import { fonts } from '../constants/fonts';
 import { spacing } from '../constants/spacing';
 import { useRouter } from 'expo-router';
 
-import RegisterForm from '../components/ui/RegisterForm';
+import RegisterForm from '../components/ui/forms/RegisterForm';
 import TextField from '../components/ui/fields/TextField';
 import IconButton from '../components/ui/buttons/IconButton';
 import Button from '../components/ui/buttons/Button';

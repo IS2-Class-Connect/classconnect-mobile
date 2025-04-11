@@ -3,7 +3,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
-import RegisterForm from '../components/ui/RegisterForm';
+import RegisterForm from '../components/ui/forms/RegisterForm';
 import { useRouter } from 'expo-router';
 
 export default function RegisterScreen() {

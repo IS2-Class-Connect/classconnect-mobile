@@ -16,13 +16,15 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  // Podés alternar esto según sistema o dejar fijo como tenés ahora
   // const colorScheme = useColorScheme();
   // const theme = colorScheme === 'dark'
   //   ? { ...colors.dark, dark: true }
   //   : { ...colors.light, dark: false };
 
-  const theme = { ...colors.dark, dark: true }; // o light si preferís
+
+  //const theme = { ...colors.light, dark: false };
+
+  const theme = { ...colors.dark, dark: true };
 
   return (
     <ThemeContext.Provider value={theme}>

@@ -48,20 +48,17 @@ export function resetPassword(email: string) {
 
 // 🔐 Google Sign-In with Expo Auth Session
 export function useGoogleSignIn() {
-	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile"; 
+	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile"; // Redirect URI for Google Sign-In
 	
 	const [request, response, promptAsync] = useAuthRequest(
 		{
-			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com', 
+			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com', // Google Client ID
 			redirectUri,
-			scopes: ['openid', 'profile', 'email'],
+			scopes: ['openid', 'profile', 'email'], // Required scopes
 		},
 		Google.discovery
 	);
 
-
-	console.log('🔁 Google response detected:', JSON.stringify(response, null, 2));
-	
 	async function handleGoogleResponse() {
 		try {
 			console.log('🔁 Google response detected:', JSON.stringify(response, null, 2));
