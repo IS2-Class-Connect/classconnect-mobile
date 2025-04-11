@@ -1,50 +1,171 @@
-# Welcome to your Expo app 👋
+# 📱 ClassConnect Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**ClassConnect Mobile** is the mobile frontend of the ClassConnect educational platform, built with React Native and Expo (TypeScript). This app provides students and teachers with a seamless mobile experience to manage their academic interactions, access resources, submit assignments, and receive feedback in real time.
 
-## Get started
+---
 
-1. Install dependencies
+## 📑 Table of Contents
 
-   ```bash
-   npm install
-   ```
+- [🌐 Tech Stack](#-tech-stack)
+- [🚀 Getting Started](#-getting-started)
+- [📁 Project Structure](#-project-structure)
+- [🧪 Testing & Quality](#-testing--quality)
+- [📦 Environment Variables](#-environment-variables)
+- [🔐 Security](#-security)
+- [✅ Implemented User Stories](#-implemented-user-stories)
+- [🧠 Authors](#-authors)
+- [📄 License](#-license)
+- [📌 Note](#-note)
 
-2. Start the app
+---
 
-   ```bash
-    npx expo start
-   ```
+## 🌐 Tech Stack
 
-In the output, you'll find options to open the app in a
+**Frontend:**
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- React Native (Expo - TypeScript)
+- Firebase Authentication
+- Firebase Storage (for profile pictures and resources)
+- React Navigation
+- React Query / Axios (for backend integration)
+- Firebase Realtime DB / FCM (for notifications)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Backend Services (external):**
 
-## Get a fresh project
+- Nest.js microservices
+- PostgreSQL & MongoDB databases
 
-When you're ready, run:
+**Microservices connected:**
+
+- `users` – authentication, profile, roles
+- `education` – courses, assignments, exams, feedback
+- `communication` – chat and push/email notifications
+- `gateway` – routes frontend requests to microservices
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
 
 ```bash
-npm run reset-project
+git clone https://github.com/<your-org>/classconnect-mobile.git
+cd classconnect-mobile
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Install dependencies
 
-## Learn more
+```bash
+npm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Start the app in Expo Go
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start
+```
 
-## Join the community
+> **Note**: Use Expo Go on your mobile device to scan the QR code.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📁 Project Structure
+
+```bash
+classconnect-mobile/
+├── assets/               # Images, icons, fonts
+├── components/           # Reusable components
+├── screens/              # Application screens (Login, Home, etc.)
+├── navigation/           # React Navigation configs
+├── constants/            # Colors, spacing, fonts
+├── hooks/                # Custom hooks
+├── services/             # Firebase, API integrations
+├── context/              # React contexts (Auth, Theme, etc.)
+├── utils/                # Helper functions
+├── types/                # TypeScript interfaces & types
+├── App.tsx               # Entry point
+└── app.json              # Expo configuration
+```
+
+---
+
+## 🧪 Testing & Quality
+
+- Type-checking with TypeScript
+- ESLint + Prettier for code quality
+- Jest (planned for logic testing)
+- Expo Go or dev build testing for auth flows (Google login, etc.)
+
+---
+
+## 📦 Environment Variables
+
+Store them in a `.env` file (use `dotenv` or Expo `extra` config):
+
+```env
+FIREBASE_API_KEY=...
+FIREBASE_AUTH_DOMAIN=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_STORAGE_BUCKET=...
+FIREBASE_MESSAGING_SENDER_ID=...
+FIREBASE_APP_ID=...
+```
+
+---
+
+## 🔐 Security
+
+- **Authentication**: Firebase Auth (email/password + federated providers)
+- **Authorization**: Based on roles from backend microservices
+- **Storage rules**: Firebase Storage configured to allow only authenticated uploads
+- **Sensitive data**: Managed via environment variables, not committed
+
+---
+
+## ✅ Implemented User Stories (Frontend Mobile)
+
+### 🔐 Authentication & Users
+
+-
+
+### 👤 Profile Management
+
+-
+
+### 📚 Course Management
+
+-
+
+### 📝 Assignments & Exams
+
+-
+
+### 💬 Communication & Notifications
+
+-
+
+### 📊 Metrics & Analysis
+
+-
+
+---
+
+## 🧠 Authors
+
+Made with ❤️ by Marcos, Manuel, Sol, Martín, and Lorenzo\
+For the Software Engineering II course – 2025 (UBA)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+---
+
+## 📌 Note
+
+This is a university project developed for academic purposes. Some features like AI-based feedback generation and plagiarism detection are under active development or optional in the scope of the project.
+
+For diagrams and additional technical documentation, refer to the ClassConnect Architecture repository.
+
