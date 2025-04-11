@@ -14,9 +14,10 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅
+
 import { auth } from './config';
 
-// Finalize any pending browser session
 WebBrowser.maybeCompleteAuthSession();
 
 // 🔁 Listen for session changes
@@ -28,12 +29,15 @@ export function onAuthStateChangedListener(callback: (user: User | null) => void
 export async function registerWithEmail(email: string, password: string) {
 	const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 	await sendEmailVerification(userCredential.user);
+	await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
 	return userCredential;
 }
 
 // 🔓 Login with email
-export function loginWithEmail(email: string, password: string) {
-	return signInWithEmailAndPassword(auth, email, password);
+export async function loginWithEmail(email: string, password: string) {
+	const userCredential = await signInWithEmailAndPassword(auth, email, password);
+	await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
+	return userCredential;
 }
 
 // 🔒 Logout
@@ -48,13 +52,13 @@ export function resetPassword(email: string) {
 
 // 🔐 Google Sign-In with Expo Auth Session
 export function useGoogleSignIn() {
-	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile"; // Redirect URI for Google Sign-In
-	
+	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile";
+
 	const [request, response, promptAsync] = useAuthRequest(
 		{
-			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com', // Google Client ID
+			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com',
 			redirectUri,
-			scopes: ['openid', 'profile', 'email'], // Required scopes
+			scopes: ['openid', 'profile', 'email'],
 		},
 		Google.discovery
 	);
@@ -69,6 +73,8 @@ export function useGoogleSignIn() {
 					const credential = GoogleAuthProvider.credential(idToken);
 					const result = await signInWithCredential(auth, credential);
 					console.log('🔥 Firebase login success:', result.user.email);
+
+					await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
 				}
 			} else {
 				console.log('⚠️ Google response not successful:', response?.type);
@@ -80,5 +86,3 @@ export function useGoogleSignIn() {
 
 	return { request, response, promptAsync, handleGoogleResponse };
 }
-
-
