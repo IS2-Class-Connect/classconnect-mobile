@@ -1,4 +1,3 @@
-// components/ui/RegisterForm.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
@@ -22,6 +21,7 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [showServerError, setShowServerError] = useState(false);
+  const [showEmailExistsError, setShowEmailExistsError] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -48,8 +48,12 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
       notifyRegisterToDB({ ...res.user, displayName: name });
       setShowLocationModal(true);
     } catch (e: any) {
-      console.error('❌ Registration error:', e);
-      setShowServerError(true);
+      const code = e.code || '';
+      if (code === 'auth/email-already-in-use') {
+        setShowEmailExistsError(true);
+      } else {
+        setShowServerError(true);
+      }
     }
   };
 
@@ -95,6 +99,13 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
           Back to login
         </Text>
       </View>
+
+      <Dialog
+        visible={showEmailExistsError}
+        message="An account with this email already exists."
+        onClose={() => setShowEmailExistsError(false)}
+        type="error"
+      />
 
       <Dialog
         visible={showServerError}
