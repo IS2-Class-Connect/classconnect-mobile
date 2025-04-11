@@ -5,11 +5,12 @@ import { useColorScheme } from 'react-native';
 // Define a type that includes the dark property
 type ThemeType = typeof colors.light & { dark: boolean };
 
-// ✅ Exportación corregida
+
 export const ThemeContext = createContext<ThemeType>({
   ...colors.light,
   dark: false,
 });
+
 
 interface ThemeProviderProps {
   children: ReactNode;
