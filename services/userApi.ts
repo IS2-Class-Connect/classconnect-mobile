@@ -85,7 +85,6 @@ export type LoginPayload = {
   email: string;
 };
 
-
 /**
  * Update the user's location in the backend (requires Firebase token)
  */
@@ -108,4 +107,12 @@ export async function increaseFailedAttempts(userId: number) {
 export async function checkLockStatus(userId: number) {
   console.log('🔒 Checking account lock status...');
   return getFromGateway(`/users/${userId}/check-lock-status`);
+}
+
+/**
+ * Retrieves the currently authenticated user's data using a Firebase token
+ */
+export async function getCurrentUserFromBackend(token: string) {
+  console.log('👤 Fetching current user from backend with token...');
+  return getFromGateway('/users/id', token); 
 }
