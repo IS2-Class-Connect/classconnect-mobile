@@ -27,25 +27,34 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
   const handleRegister = async () => {
     setError('');
-
+  
     if (!name.trim()) {
       setError('Please enter your name.');
       return;
     }
-
+  
     if (password.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
     }
-
+  
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-
+  
     try {
       const res = await registerWithEmail(email, password);
-      notifyRegisterToDB({ ...res.user, displayName: name });
+    
+      const userCreated = await notifyRegisterToDB({
+        email: res.user.email!,
+        name: name,
+        urlProfilePhoto: res.user.photoURL ?? 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=Amaya',
+        provider: res.user.providerData?.[0]?.providerId ?? 'password',
+      });
+    
+      console.log('✅ User registered in backend:', userCreated);
+    
       setShowLocationModal(true);
     } catch (e: any) {
       const code = e.code || '';
@@ -55,7 +64,12 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
         setShowServerError(true);
       }
     }
+    
   };
+  
+    
+    
+    
 
   const handleLocationFinished = () => {
     setShowLocationModal(false);
