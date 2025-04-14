@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
@@ -9,6 +9,7 @@ import IconButton from '../buttons/IconButton';
 import { useGoogleSignIn } from '../../../firebase';
 import { loginWithEmail } from '../../../firebase/auth';
 import Dialog from '../alerts/Dialog';
+import ResetPasswordModal from '../modals/ResetPasswordModal'; // ✅ import correcto
 
 export default function LoginForm({
   isLoading,
@@ -20,10 +21,13 @@ export default function LoginForm({
   onShowRegister: () => void;
 }) {
   const router = useRouter();
+  const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorType, setErrorType] = useState<'auth' | 'server' | null>(null);
-  const { promptAsync, handleGoogleResponse, response } = useGoogleSignIn();
+  const [resetVisible, setResetVisible] = useState(false);
+
+  const { promptAsync, handleGoogleResponse } = useGoogleSignIn();
 
   const handleEmailLogin = async () => {
     try {
@@ -32,17 +36,13 @@ export default function LoginForm({
       console.log('✅ Logged in user:', result.user.email);
       router.replace('/(tabs)');
     } catch (error: any) {
-      if (typeof error === 'object' && 'code' in error) {
-        const code = error.code;
-        if (
-          code === 'auth/user-not-found' ||
-          code === 'auth/wrong-password' ||
-          code === 'auth/invalid-login-credentials'
-        ) {
-          setErrorType('auth');
-        } else {
-          setErrorType('server');
-        }
+      const code = error?.code;
+      if (
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/invalid-login-credentials'
+      ) {
+        setErrorType('auth');
       } else {
         setErrorType('server');
       }
@@ -54,8 +54,7 @@ export default function LoginForm({
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
-      const result = await promptAsync();
-      console.log('🔄 Google Sign In result:', result);
+      await promptAsync();
     } catch (error) {
       console.error('❌ Google login error:', error);
       setErrorType('server');
@@ -101,6 +100,19 @@ export default function LoginForm({
         loading={isLoading}
       />
 
+      <Text
+        style={styles.resetLink}
+        onPress={() => setResetVisible(true)}
+      >
+        Forgot your password? Reset here
+      </Text>
+
+      {/* ✅ Nuevo uso del modal */}
+      <ResetPasswordModal
+        visible={resetVisible}
+        onClose={() => setResetVisible(false)}
+      />
+
       <Dialog
         visible={errorType === 'auth'}
         message="Invalid email or password. Please try again."
@@ -118,4 +130,11 @@ export default function LoginForm({
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  resetLink: {
+    marginTop: spacing.md,
+    textAlign: 'center',
+    color: '#007AFF',
+    textDecorationLine: 'underline',
+  },
+});

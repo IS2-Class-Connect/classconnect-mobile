@@ -85,13 +85,6 @@ export type LoginPayload = {
   email: string;
 };
 
-/**
- * Notify the backend about a user login
- */
-export async function notifyLoginToDB(user: LoginPayload) {
-  console.log('📡 Notify backend of login:', user.email);
-  return postToGateway('/users/login', user);
-}
 
 /**
  * Update the user's location in the backend (requires Firebase token)

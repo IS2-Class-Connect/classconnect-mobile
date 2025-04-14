@@ -45,10 +45,20 @@ export function logout() {
 	return signOut(auth);
 }
 
-// 🔁 Reset password
-export function resetPassword(email: string) {
-	return sendPasswordResetEmail(auth, email);
+// 🛠 Reset password by sending a reset email
+export async function sendPasswordReset(email: string) {
+	if (!email) {
+		throw new Error('Email is required to reset password.');
+	}
+	try {
+		await sendPasswordResetEmail(auth, email);
+		console.log('📩 Password reset email sent to:', email);
+	} catch (error) {
+		console.error('❌ Error sending reset email:', error);
+		throw error;
+	}
 }
+
 
 // 🔐 Google Sign-In with Expo Auth Session
 export function useGoogleSignIn() {
