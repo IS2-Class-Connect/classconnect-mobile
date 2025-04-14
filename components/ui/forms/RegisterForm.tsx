@@ -11,6 +11,7 @@ import Button from '../buttons/Button';
 import Dialog from '../alerts/Dialog';
 import SetLocationForm from './SetLocationForm';
 import { useRouter } from 'expo-router';
+import { getIdToken } from 'firebase/auth';
 
 export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const theme = useTheme();
@@ -24,37 +25,42 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const [showEmailExistsError, setShowEmailExistsError] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const handleRegister = async () => {
     setError('');
-  
+
     if (!name.trim()) {
       setError('Please enter your name.');
       return;
     }
-  
+
     if (password.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
     }
-  
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-  
+
     try {
       const res = await registerWithEmail(email, password);
-    
+      const idToken = await getIdToken(res.user); // Get Firebase token
+
       const userCreated = await notifyRegisterToDB({
         email: res.user.email!,
         name: name,
         urlProfilePhoto: res.user.photoURL ?? 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=Amaya',
         provider: res.user.providerData?.[0]?.providerId ?? 'password',
       });
-    
+
       console.log('✅ User registered in backend:', userCreated);
-    
+
+      setUserId(userCreated.id); // Save ID for SetLocationForm
+      setToken(idToken); // Save Firebase token
       setShowLocationModal(true);
     } catch (e: any) {
       const code = e.code || '';
@@ -64,12 +70,7 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
         setShowServerError(true);
       }
     }
-    
   };
-  
-    
-    
-    
 
   const handleLocationFinished = () => {
     setShowLocationModal(false);
@@ -80,29 +81,10 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
     <Animated.View entering={FadeInRight.duration(400)}>
       <Text style={[styles.title, { color: theme.text }]}>Register</Text>
 
-      <TextField
-        placeholder="Name"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextField
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-      />
-      <TextField
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextField
-        placeholder="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+      <TextField placeholder="Name" value={name} onChangeText={setName} />
+      <TextField placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
+      <TextField placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
+      <TextField placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
       {error !== '' && <Text style={[styles.error, { color: theme.error }]}>{error}</Text>}
 
@@ -138,13 +120,8 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
         type="success"
       />
 
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={showLocationModal}
-        onRequestClose={() => setShowLocationModal(false)}
-      >
-        <SetLocationForm onClose={handleLocationFinished} />
+      <Modal animationType="slide" transparent={false} visible={showLocationModal} onRequestClose={() => setShowLocationModal(false)}>
+        {userId && token && <SetLocationForm userId={userId} token={token} onClose={handleLocationFinished} />}
       </Modal>
     </Animated.View>
   );
