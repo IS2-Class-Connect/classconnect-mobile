@@ -5,6 +5,7 @@ const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://localhost:300
  * Common POST helper for sending data to the Gateway
  */
 async function postToGateway(endpoint: string, data: any) {
+
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: 'POST',
     headers: {
@@ -13,18 +14,22 @@ async function postToGateway(endpoint: string, data: any) {
     body: JSON.stringify(data),
   });
 
+
   if (!res.ok) {
     const error = await res.text();
+    console.log('🚨 Error in POST request:', error);
     throw new Error(`Error ${res.status}: ${error}`);
   }
 
-  return await res.json();
+  const responseData = await res.json();
+  return responseData;
 }
 
 /**
  * Common PATCH helper with optional Firebase token support
  */
 async function patchToGateway(endpoint: string, data: any, token?: string) {
+
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: 'PATCH',
     headers: {
@@ -39,13 +44,15 @@ async function patchToGateway(endpoint: string, data: any, token?: string) {
     throw new Error(`Error ${res.status}: ${error}`);
   }
 
-  return await res.json();
+  const responseData = await res.json();
+  return responseData;
 }
 
 /**
  * Common GET helper with optional Firebase token support
  */
 async function getFromGateway(endpoint: string, token?: string) {
+
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -54,16 +61,19 @@ async function getFromGateway(endpoint: string, token?: string) {
 
   if (!res.ok) {
     const error = await res.text();
+    console.log('🚨 Error in GET request:', error);
     throw new Error(`Error ${res.status}: ${error}`);
   }
 
-  return await res.json();
+  const responseData = await res.json();
+  return responseData;
 }
 
 /**
  * Payload shape for registering a new user in the backend
  */
 export type RegisterPayload = {
+  uuid: string; // New field to store Firebase user UID
   email: string;
   name: string;
   urlProfilePhoto: string;
@@ -75,7 +85,13 @@ export type RegisterPayload = {
  */
 export async function notifyRegisterToDB(user: RegisterPayload) {
   console.log('📡 Notify backend of new user:', user.email);
-  return postToGateway('/users', user);
+  try {
+    const response = await postToGateway('/users', user);
+    console.log('✅ Backend response for user registration:', response);
+    return response;
+  } catch (error) {
+    console.log('🚨 Error notifying backend of new user:', error);
+  }
 }
 
 /**
@@ -88,31 +104,51 @@ export type LoginPayload = {
 /**
  * Update the user's location in the backend (requires Firebase token)
  */
-export async function updateUserLocation(userId: number, latitude: number, longitude: number, token: string) {
-  console.log('📍 Updating user location...');
-  return patchToGateway(`/users/${userId}/location`, { latitude, longitude }, token);
+export async function updateUserLocation(userId: String, latitude: number, longitude: number, token: string) {
+  try {
+    const response = await patchToGateway(`/users/${userId}/location`, { latitude, longitude }, token);
+    console.log('✅ Location updated successfully:', response);
+    return response;
+  } catch (error) {
+    console.log('🚨 Error updating user location:', error);
+  }
 }
 
 /**
  * Increments failed login attempts for the given user (no auth required)
  */
 export async function increaseFailedAttempts(userId: number) {
-  console.log('⚠️ Increasing failed login attempts...');
-  return patchToGateway(`/users/${userId}/failed-attempts`, {});
+  try {
+    const response = await patchToGateway(`/users/${userId}/failed-attempts`, {});
+    console.log('✅ Failed attempts increased:', response);
+    return response;
+  } catch (error) {
+    console.log('🚨 Error increasing failed attempts:', error);
+  }
 }
 
 /**
  * Checks if the user account is locked (no auth required)
  */
 export async function checkLockStatus(userId: number) {
-  console.log('🔒 Checking account lock status...');
-  return getFromGateway(`/users/${userId}/check-lock-status`);
+  try {
+    const response = await getFromGateway(`/users/${userId}/check-lock-status`);
+    console.log('✅ Account lock status:', response);
+    return response;
+  } catch (error) {
+    console.log('🚨 Error checking account lock status:', error);
+  }
 }
 
 /**
  * Retrieves the currently authenticated user's data using a Firebase token
  */
 export async function getCurrentUserFromBackend(token: string) {
-  console.log('👤 Fetching current user from backend with token...');
-  return getFromGateway('/users/id', token); 
+  try {
+    const response = await getFromGateway('/users/id', token);
+    console.log('✅ Current user data:', response);
+    return response;
+  } catch (error) {
+    console.log('🚨 Error fetching current user from backend:', error);
+  }
 }

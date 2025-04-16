@@ -12,7 +12,6 @@ export default function StartupScreen() {
 
   useEffect(() => {
     const checkSession = async () => {
-      console.log("👤 Usuario actual:", user);
 
       if (!isLoading) {
         const lastLoginStr = await AsyncStorage.getItem('lastLogin');

@@ -10,7 +10,7 @@ import { updateUserLocation } from '../../../services/userApi';
 
 type Props = {
   onClose: () => void;
-  userId: number;
+  userId: string;  // Use string to store Firebase UID
   token: string;
 };
 
@@ -41,6 +41,7 @@ export default function SetLocationForm({ onClose, userId, token }: Props) {
   const handleShareLocation = async () => {
     if (!location) return;
     try {
+      // Send the location data to the backend along with userId and token
       await updateUserLocation(userId, location.coords.latitude, location.coords.longitude, token);
       console.log('📍 Location updated in backend successfully');
       onClose();
@@ -48,7 +49,6 @@ export default function SetLocationForm({ onClose, userId, token }: Props) {
       setErrorMsg('Failed to send location to backend');
     }
   };
-  
 
   useEffect(() => {
     requestLocation();

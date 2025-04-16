@@ -25,7 +25,7 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
   const [showEmailExistsError, setShowEmailExistsError] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [userId, setUserId] = useState<number | null>(null);
+  const [userId, setUserId] = useState<string | null>(null); // Change to string to store the Firebase uid
   const [token, setToken] = useState<string | null>(null);
 
   const handleRegister = async () => {
@@ -48,9 +48,11 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
     try {
       const res = await registerWithEmail(email, password);
+      console.log('✅ User registered in firebase:', res.user);
       const idToken = await getIdToken(res.user); // Get Firebase token
-
+      
       const userCreated = await notifyRegisterToDB({
+        uuid: res.user.uid, // Pass the Firebase UID
         email: res.user.email!,
         name: name,
         urlProfilePhoto: res.user.photoURL ?? 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=Amaya',
@@ -59,10 +61,11 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
       console.log('✅ User registered in backend:', userCreated);
 
-      setUserId(userCreated.id); // Save ID for SetLocationForm
+      setUserId(res.user.uid); // Save Firebase UID
       setToken(idToken); // Save Firebase token
       setShowLocationModal(true);
     } catch (e: any) {
+      console.log('🚨 Registration error:', e);
       const code = e.code || '';
       if (code === 'auth/email-already-in-use') {
         setShowEmailExistsError(true);
