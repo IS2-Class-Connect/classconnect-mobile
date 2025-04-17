@@ -129,27 +129,31 @@ export default function LoginForm({
     }
   };
 
-  /**
-   * Map error types to user-friendly messages
-   */
-  const getErrorMessage = (errorType: AuthError): string => {
-    switch (errorType) {
-      case 'invalid-credentials':
-        return 'Invalid email or password. Please try again.';
-      case 'user-not-found':
-        return 'User not found. Please check your email or register.';
-      case 'too-many-requests':
-        return 'Too many login attempts. Please try again later.';
-      case 'account-locked':
-        return `Your account has been temporarily locked due to too many failed login attempts. Please try again in ${formatLockTime()}.`;
-      case 'network-error':
-        return 'Network error. Please check your internet connection and try again.';
-      case 'server-error':
-        return 'Could not retrieve your account information. Please try again or contact support.';
-      default:
-        return 'Something went wrong. Please try again later.';
-    }
-  };
+/**
+ * Map error types to user-friendly messages
+ */
+const getErrorMessage = (errorType: AuthError): string => {
+  switch (errorType) {
+    case 'invalid-credentials':
+      return 'Invalid email or password. Please try again.';
+    case 'user-not-found':
+      return 'User not found. Please check your email or register.';
+    case 'too-many-requests':
+      return 'Too many login attempts. Please try again later.';
+    case 'account-locked':
+      return `Your account has been temporarily locked due to too many failed login attempts. Please try again in ${formatLockTime()}.`;
+    case 'user-disabled':
+      return 'Your account has been disabled by an administrator. Please contact support for assistance.';
+    case 'email-not-verified':
+      return 'Please verify your email address before logging in. Check your inbox for a verification link.';
+    case 'network-error':
+      return 'Network error. Please check your internet connection and try again.';
+    case 'server-error':
+      return 'Could not retrieve your account information. Please try again or contact support.';
+    default:
+      return 'Something went wrong. Please try again later.';
+  }
+};
 
   return (
     <View>

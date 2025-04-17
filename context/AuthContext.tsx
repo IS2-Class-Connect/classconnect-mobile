@@ -6,8 +6,8 @@ import React, {
   ReactNode,
   useCallback,
 } from 'react';
-import { onAuthStateChangedListener, logout as firebaseLogout } from '../firebase';
-import { User, getCurrentUserFromBackend, increaseFailedAttempts , checkLockStatus} from '../services/userApi';
+import { onAuthStateChangedListener, logout as firebaseLogout, isEmailVerified } from '../firebase';
+import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatus } from '../services/userApi';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
 
@@ -17,6 +17,8 @@ export type AuthError =
   | 'user-not-found' 
   | 'too-many-requests' 
   | 'account-locked'
+  | 'user-disabled'
+  | 'email-not-verified'  // New error type for unverified emails
   | 'network-error'
   | 'server-error'
   | 'unknown-error';
@@ -106,111 +108,133 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authToken, fetchUserData]);
 
-  // In AuthContext.tsx
-const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
-  setLoading(true);
-  
-  try {
-    // Step 1: Attempt to authenticate with Firebase first
+  const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
+    setLoading(true);
+    
     try {
-      const auth = getAuth();
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log('✅ Firebase authentication successful:', result.user.email);
-      
-      // Get token
-      const token = await result.user.getIdToken();
-      setAuthToken(token);
-      
-      // Step 2: Now check if the account is locked in the backend
+      // Step 1: Attempt to authenticate with Firebase first
       try {
-        const lockStatus = await checkLockStatus(email);
+        const auth = getAuth();
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        console.log('✅ Firebase authentication successful:', result.user.email);
         
-        if (lockStatus.accountLocked) {
-          console.log('❌ Account is locked, preventing login completion');
-          // Log out from Firebase since the account is locked
+        // Get token
+        const token = await result.user.getIdToken();
+        setAuthToken(token);
+        
+        // Step 1.5: Check if email is verified
+        const emailVerified = await isEmailVerified(result.user);
+        if (!emailVerified) {
+          console.log('❌ Email not verified, preventing login completion');
+          // Log out from Firebase since email is not verified
           await firebaseLogout();
           setAuthToken(null);
           setUser(null);
           
           return { 
             success: false, 
-            error: 'account-locked' as AuthError,
-            lockInfo: lockStatus
+            error: 'email-not-verified' as AuthError
           };
         }
         
-        console.log('✅ Account is not locked, proceeding with login');
-      } catch (lockError) {
-        // If checking lock status fails, we'll assume the account is not locked
-        // This could happen if the user doesn't exist in the backend yet
-        console.log('⚠️ Could not check lock status, assuming not locked:', lockError);
-      }
-      
-      // Step 3: Fetch user data from backend
-      try {
-        const userData = await fetchUserData(token);
-        if (!userData) {
-          throw new Error('Backend returned no user data');
-        }
+        console.log('✅ Email is verified, proceeding with login');
         
-        console.log('✅ Backend user data retrieved successfully');
-        return { success: true };
-      } catch (backendError) {
-        console.error('❌ Backend error after successful Firebase login:', backendError);
-        await firebaseLogout();
-        setAuthToken(null);
-        setUser(null);
-        return { success: false, error: 'server-error' as AuthError };
-      }
-    } catch (firebaseError: any) {
-      console.error('❌ Firebase authentication error:', firebaseError?.code);
-      
-      // Handle Firebase authentication errors
-      if (firebaseError?.code === 'auth/invalid-login-credentials' || 
-          firebaseError?.code === 'auth/wrong-password' || 
-          firebaseError?.code === 'auth/user-not-found') {
-        
-        // Record failed login attempt in backend
+        // Step 2: Now check if the account is locked in the backend
         try {
-          // This will fail silently if the user doesn't exist in the backend
-          const updatedLockStatus = await increaseFailedAttempts(email);
+          const lockStatus = await checkLockStatus(email);
           
-          // Check if account just got locked
-          if (updatedLockStatus.accountLocked) {
+          if (lockStatus.accountLocked) {
+            console.log('❌ Account is locked, preventing login completion');
+            // Log out from Firebase since the account is locked
+            await firebaseLogout();
+            setAuthToken(null);
+            setUser(null);
+            
             return { 
               success: false, 
               error: 'account-locked' as AuthError,
-              lockInfo: updatedLockStatus
-            };
-          } else {
-            return { 
-              success: false, 
-              error: 'invalid-credentials' as AuthError,
-              lockInfo: updatedLockStatus
+              lockInfo: lockStatus
             };
           }
-        } catch (failedAttemptError) {
-          // If recording failed attempt fails, just show auth error
+          
+          console.log('✅ Account is not locked, proceeding with login');
+        } catch (lockError) {
+          // If checking lock status fails, we'll assume the account is not locked
           // This could happen if the user doesn't exist in the backend yet
-          console.log('⚠️ Could not record failed attempt, user may not exist:', failedAttemptError);
-          return { success: false, error: 'invalid-credentials' as AuthError };
+          console.log('⚠️ Could not check lock status, assuming not locked:', lockError);
         }
-      } else if (firebaseError?.code === 'auth/too-many-requests') {
-        // Firebase's own rate limiting
-        return { success: false, error: 'too-many-requests' as AuthError };
-      } else if (firebaseError?.code === 'auth/network-request-failed') {
-        return { success: false, error: 'network-error' as AuthError };
-      } else {
-        return { success: false, error: 'unknown-error' as AuthError };
+        
+        // Step 3: Fetch user data from backend
+        try {
+          const userData = await fetchUserData(token);
+          if (!userData) {
+            throw new Error('Backend returned no user data');
+          }
+          
+          console.log('✅ Backend user data retrieved successfully');
+          return { success: true };
+        } catch (backendError) {
+          console.error('❌ Backend error after successful Firebase login:', backendError);
+          await firebaseLogout();
+          setAuthToken(null);
+          setUser(null);
+          return { success: false, error: 'server-error' as AuthError };
+        }
+      } catch (firebaseError: any) {
+        console.error('❌ Firebase authentication error:', firebaseError?.code);
+        
+        // Check for admin-disabled account first
+        if (firebaseError?.code === 'auth/user-disabled') {
+          console.log('❌ User account has been disabled by an administrator');
+          return { success: false, error: 'user-disabled' as AuthError };
+        }
+        
+        // Handle other Firebase authentication errors
+        if (firebaseError?.code === 'auth/invalid-login-credentials' || 
+            firebaseError?.code === 'auth/wrong-password' || 
+            firebaseError?.code === 'auth/user-not-found') {
+          
+          // Record failed login attempt in backend
+          try {
+            // This will fail silently if the user doesn't exist in the backend
+            const updatedLockStatus = await increaseFailedAttempts(email);
+            
+            // Check if account just got locked
+            if (updatedLockStatus.accountLocked) {
+              return { 
+                success: false, 
+                error: 'account-locked' as AuthError,
+                lockInfo: updatedLockStatus
+              };
+            } else {
+              return { 
+                success: false, 
+                error: 'invalid-credentials' as AuthError,
+                lockInfo: updatedLockStatus
+              };
+            }
+          } catch (failedAttemptError) {
+            // If recording failed attempt fails, just show auth error
+            // This could happen if the user doesn't exist in the backend yet
+            console.log('⚠️ Could not record failed attempt, user may not exist:', failedAttemptError);
+            return { success: false, error: 'invalid-credentials' as AuthError };
+          }
+        } else if (firebaseError?.code === 'auth/too-many-requests') {
+          // Firebase's own rate limiting
+          return { success: false, error: 'too-many-requests' as AuthError };
+        } else if (firebaseError?.code === 'auth/network-request-failed') {
+          return { success: false, error: 'network-error' as AuthError };
+        } else {
+          return { success: false, error: 'unknown-error' as AuthError };
+        }
       }
+    } catch (error) {
+      console.error('❌ Unexpected error during login:', error);
+      return { success: false, error: 'unknown-error' as AuthError };
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('❌ Unexpected error during login:', error);
-    return { success: false, error: 'unknown-error' as AuthError };
-  } finally {
-    setLoading(false);
-  }
-}, [fetchUserData]);
+  }, [fetchUserData]);
 
   // Function to log in with Google
   const loginWithGoogle = useCallback(async () => {
@@ -228,6 +252,17 @@ const loginWithEmailAndPassword = useCallback(async (email: string, password: st
         const auth = getAuth();
         if (!auth.currentUser) {
           throw new Error('Google authentication failed: No user found after sign-in');
+        }
+        
+        // Check if email is verified (Google accounts are usually pre-verified)
+        const emailVerified = await isEmailVerified(auth.currentUser);
+        if (!emailVerified) {
+          console.log('❌ Email not verified after Google login, preventing login completion');
+          await firebaseLogout();
+          return { 
+            success: false, 
+            error: 'email-not-verified' as AuthError 
+          };
         }
         
         // Get token

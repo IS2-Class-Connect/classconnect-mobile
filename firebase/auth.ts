@@ -8,6 +8,7 @@ import {
 	signInWithCredential,
 	onAuthStateChanged,
 	User,
+	reload
 } from 'firebase/auth';
 
 import * as Google from 'expo-auth-session/providers/google';
@@ -33,6 +34,31 @@ export async function registerWithEmail(email: string, password: string) {
 	return userCredential;
 }
 
+// 📧 Check if email is verified
+export async function isEmailVerified(user?: User | null): Promise<boolean> {
+	try {
+	  // If no user is provided, use the current authenticated user
+	  const currentUser = user || auth.currentUser;
+	  
+	  if (!currentUser) {
+		console.log('❌ No user is currently logged in to check email verification');
+		return false;
+	  }
+	  
+	  // Reload the user to get the most up-to-date information from Firebase
+	  await reload(currentUser);
+	  
+	  // Check if email is verified
+	  const isVerified = currentUser.emailVerified;
+	  console.log(`📧 Email verification status for ${currentUser.email}: ${isVerified ? '✅ Verified' : '❌ Not verified'}`);
+	  
+	  return isVerified;
+	} catch (error) {
+	  console.error('❌ Error checking email verification status:', error);
+	  return false;
+	}
+  }
+  
 // 🔓 Login with email
 export async function loginWithEmail(email: string, password: string) {
 	const userCredential = await signInWithEmailAndPassword(auth, email, password);
