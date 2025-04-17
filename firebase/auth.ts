@@ -8,6 +8,7 @@ import {
 	signInWithCredential,
 	onAuthStateChanged,
 	User,
+	reload
 } from 'firebase/auth';
 
 import * as Google from 'expo-auth-session/providers/google';
@@ -33,6 +34,31 @@ export async function registerWithEmail(email: string, password: string) {
 	return userCredential;
 }
 
+// 📧 Check if email is verified
+export async function isEmailVerified(user?: User | null): Promise<boolean> {
+	try {
+	  // If no user is provided, use the current authenticated user
+	  const currentUser = user || auth.currentUser;
+	  
+	  if (!currentUser) {
+		console.log('❌ No user is currently logged in to check email verification');
+		return false;
+	  }
+	  
+	  // Reload the user to get the most up-to-date information from Firebase
+	  await reload(currentUser);
+	  
+	  // Check if email is verified
+	  const isVerified = currentUser.emailVerified;
+	  console.log(`📧 Email verification status for ${currentUser.email}: ${isVerified ? '✅ Verified' : '❌ Not verified'}`);
+	  
+	  return isVerified;
+	} catch (error) {
+	  console.log('❌ Error checking email verification status:', error);
+	  return false;
+	}
+  }
+  
 // 🔓 Login with email
 export async function loginWithEmail(email: string, password: string) {
 	const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -45,10 +71,20 @@ export function logout() {
 	return signOut(auth);
 }
 
-// 🔁 Reset password
-export function resetPassword(email: string) {
-	return sendPasswordResetEmail(auth, email);
+// 🛠 Reset password by sending a reset email
+export async function sendPasswordReset(email: string) {
+	if (!email) {
+		throw new Error('Email is required to reset password.');
+	}
+	try {
+		await sendPasswordResetEmail(auth, email);
+		console.log('📩 Password reset email sent to:', email);
+	} catch (error) {
+		console.log('❌ Error sending reset email:', error);
+		throw error;
+	}
 }
+
 
 // 🔐 Google Sign-In with Expo Auth Session
 export function useGoogleSignIn() {
@@ -80,7 +116,7 @@ export function useGoogleSignIn() {
 				console.log('⚠️ Google response not successful:', response?.type);
 			}
 		} catch (e) {
-			console.error('❌ Error handling Google login:', e);
+			console.log('❌ Error handling Google login:', e);
 		}
 	}
 
