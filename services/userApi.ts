@@ -130,33 +130,59 @@ export async function updateUserLocation(userId: string, latitude: number, longi
 }
 
 /**
- * Increments failed login attempts for the given user (no auth required)
+ * Increments failed login attempts for the given user by email (no auth required)
+ * @param email The email address of the user
  */
-export async function increaseFailedAttempts(userId: number): Promise<User> {
-  try {
-    const response = await patchToGateway(`/users/${userId}/failed-attempts`, {});
-    console.log('✅ Failed attempts increased:', response);
-    return response as User;
-  } catch (error) {
-    console.log('🚨 Error increasing failed attempts:', error);
-    throw error;
-  }
-}
-
-/**
- * Checks if the user account is locked (no auth required)
- */
-export async function checkLockStatus(userId: number): Promise<{
+export async function increaseFailedAttempts(email: string): Promise<{
   accountLocked: boolean;
   lockUntil: Date | null;
   failedAttempts: number;
 }> {
   try {
-    const response = await getFromGateway(`/users/${userId}/check-lock-status`);
-    console.log('✅ Account lock status:', response);
+    // URL encode the email to handle special characters
+    const encodedEmail = encodeURIComponent(email);
+    // Updated to match the controller's endpoint pattern
+    const response = await patchToGateway(`/users/${encodedEmail}/failed-attempts`, {});
+    console.log('✅ Failed attempts increased for email:', email);
     return response;
   } catch (error) {
-    console.log('🚨 Error checking account lock status:', error);
+    console.log(`🚨 Error increasing failed attempts for email ${email}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Checks if the user account is locked by email (no auth required)
+ * @param email The email address of the user
+ */
+export async function checkLockStatus(email: string): Promise<{
+  accountLocked: boolean;
+  lockUntil: Date | null;
+  failedAttempts: number;
+}> {
+  try {
+    // URL encode the email to handle special characters
+    const encodedEmail = encodeURIComponent(email);
+    // Updated to match the controller's endpoint pattern
+    const response = await getFromGateway(`/users/${encodedEmail}/check-lock-status`);
+    
+    // Handle the response format from the controller
+    if (response.isLocked === -1) {
+      // User not found or error
+      throw new Error(response.message);
+    }
+    
+    // Convert the controller response to the expected format
+    const result = {
+      accountLocked: response.isLocked === 1,
+      lockUntil: response.lockedDate,
+      failedAttempts: response.failedAttempts || 0 // Assuming the controller might not return this
+    };
+    
+    console.log('✅ Account lock status for email:', email, result);
+    return result;
+  } catch (error) {
+    console.log(`🚨 Error checking account lock status for email ${email}:`, error);
     throw error;
   }
 }

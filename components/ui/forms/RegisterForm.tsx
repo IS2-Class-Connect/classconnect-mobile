@@ -55,7 +55,7 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
         uuid: res.user.uid, // Pass the Firebase UID
         email: res.user.email!,
         name: name,
-        urlProfilePhoto: res.user.photoURL ?? 'https://api.dicebear.com/9.x/lorelei-neutral/svg?seed=Amaya',
+        urlProfilePhoto: res.user.photoURL ?? `https://api.dicebear.com/7.x/personas/png?seed=${name}`,
         provider: res.user.providerData?.[0]?.providerId ?? 'password',
       });
 

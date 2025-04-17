@@ -3,14 +3,13 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
-import { useAuth } from '../hooks/useAuth';
-import { logout } from '../firebase/auth';
+import { useAuth } from '../context/AuthContext'; // Asegúrate de que la ruta sea correcta
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth(); // Ahora obtenemos logout directamente del contexto
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -23,9 +22,9 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.spacer} />
         <View style={styles.right}>
-          {user?.photoURL && (
+          {user?.urlProfilePhoto && (
             <Image
-              source={{ uri: user.photoURL }}
+              source={{ uri: user.urlProfilePhoto }} // Cambiado de photoURL a urlProfilePhoto
               style={styles.avatar}
             />
           )}
@@ -37,7 +36,7 @@ export default function HomeScreen() {
 
       <View style={styles.center}>
         <Text style={[styles.hello, { color: theme.text }]}>
-          {user?.displayName ? `Hello, ${user.displayName}` : 'Hello!'}
+          {user?.name ? `Hello, ${user.name}` : 'Hello!'} {/* Cambiado de displayName a name */}
         </Text>
         <Text style={[styles.title, { color: theme.text }]}>
           Welcome to ClassConnect 👋

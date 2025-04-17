@@ -6,21 +6,38 @@ import React, {
   ReactNode,
   useCallback,
 } from 'react';
-import {
-  onAuthStateChangedListener,
-  logout as firebaseLogout,
-} from '../firebase';
+import { onAuthStateChangedListener, logout as firebaseLogout } from '../firebase';
+import { User, getCurrentUserFromBackend, increaseFailedAttempts , checkLockStatus} from '../services/userApi';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { useGoogleSignIn } from '../firebase';
 
-// Import User type from userApi instead of Firebase
-import { User } from '../services/userApi'; // Adjust path according to your structure
-import { User as FirebaseUser } from 'firebase/auth'; // Renamed to avoid conflicts
-import { getCurrentUserFromBackend } from '../services/userApi'; // Import function to get data from backend
+// Types for authentication errors
+export type AuthError = 
+  | 'invalid-credentials' 
+  | 'user-not-found' 
+  | 'too-many-requests' 
+  | 'account-locked'
+  | 'network-error'
+  | 'server-error'
+  | 'unknown-error';
 
+// Information about account lock status
+export type LockInfo = {
+  accountLocked: boolean;
+  lockUntil: Date | null;
+  failedAttempts: number;
+};
+
+// Type for the authentication context
 type AuthContextType = {
-  user: User | null; // Now using User type from userApi
+  user: User | null;
   isLoading: boolean;
   logout: () => Promise<void>;
-  refreshUserData: () => Promise<void>; // Function to update user data
+  refreshUserData: () => Promise<void>;
+  loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError }>;
+  startRegistration: () => void;
+  finishRegistration: () => void;
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -28,57 +45,247 @@ export const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   logout: async () => {},
   refreshUserData: async () => {},
+  loginWithEmailAndPassword: async () => ({ success: false }),
+  loginWithGoogle: async () => ({ success: false }),
+  startRegistration: () => {},
+  finishRegistration: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null); // Backend user data
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  // Flag to indicate if a registration process is in progress
+  const [isRegistering, setIsRegistering] = useState(false);
   
-  // Internal state to track Firebase user for token purposes
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  // Get the function to start the Google sign-in flow
+  const { promptAsync } = useGoogleSignIn();
 
-  // Function to fetch user data from backend
-  const fetchUserData = useCallback(async (fbUser: FirebaseUser) => {
-    try {
-      // Get Firebase token
-      const token = await fbUser.getIdToken();
-      
-      // Get complete user data from backend
-      const userData = await getCurrentUserFromBackend(token);
-      setUser(userData);
-    } catch (error) {
-      console.error('Error fetching user data from backend:', error);
-      // If there's an error getting data, keep user as null
-      setUser(null);
-    }
+  // Functions to control registration state
+  const startRegistration = useCallback(() => {
+    console.log('Starting registration process - ignoring 404 errors');
+    setIsRegistering(true);
   }, []);
 
-  // Function to update user data from backend
+  const finishRegistration = useCallback(() => {
+    console.log('Finishing registration process');
+    setIsRegistering(false);
+  }, []);
+
+  // Function to fetch user data from the backend
+  const fetchUserData = useCallback(async (token: string) => {
+    try {
+      const userData = await getCurrentUserFromBackend(token);
+      setUser(userData);
+      return userData;
+    } catch (error: any) {
+      // If we're in the registration process and get a 404, ignore it
+      if (isRegistering && error.message?.includes('404')) {
+        console.log('Ignoring 404 error during registration process');
+        return null;
+      }
+      
+      console.error('Error fetching user data from backend:', error);
+      setUser(null);
+      throw error;
+    }
+  }, [isRegistering]);
+
+  // Function to refresh user data from the backend
   const refreshUserData = useCallback(async () => {
-    if (!firebaseUser) {
-      console.warn('Cannot refresh user data: No Firebase user logged in');
+    if (!authToken) {
+      console.warn('Cannot refresh user data: No authentication token available');
       return;
     }
     
     setLoading(true);
     try {
-      await fetchUserData(firebaseUser);
+      await fetchUserData(authToken);
     } finally {
       setLoading(false);
     }
-  }, [firebaseUser, fetchUserData]);
+  }, [authToken, fetchUserData]);
 
-  useEffect(() => {
-    // logout(); //ONLY FOR DEVELOPMENT - Uncomment if you want to log out on init
-    
-    const unsubscribe = onAuthStateChangedListener(async (fbUser) => {
-      setFirebaseUser(fbUser); // Store Firebase user internally only for token purposes
+  // In AuthContext.tsx
+const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
+  setLoading(true);
+  
+  try {
+    // Step 1: Attempt to authenticate with Firebase first
+    try {
+      const auth = getAuth();
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Firebase authentication successful:', result.user.email);
       
-      if (fbUser) {
-        // If there's a Firebase user, get their data from backend
-        await fetchUserData(fbUser);
+      // Get token
+      const token = await result.user.getIdToken();
+      setAuthToken(token);
+      
+      // Step 2: Now check if the account is locked in the backend
+      try {
+        const lockStatus = await checkLockStatus(email);
+        
+        if (lockStatus.accountLocked) {
+          console.log('❌ Account is locked, preventing login completion');
+          // Log out from Firebase since the account is locked
+          await firebaseLogout();
+          setAuthToken(null);
+          setUser(null);
+          
+          return { 
+            success: false, 
+            error: 'account-locked' as AuthError,
+            lockInfo: lockStatus
+          };
+        }
+        
+        console.log('✅ Account is not locked, proceeding with login');
+      } catch (lockError) {
+        // If checking lock status fails, we'll assume the account is not locked
+        // This could happen if the user doesn't exist in the backend yet
+        console.log('⚠️ Could not check lock status, assuming not locked:', lockError);
+      }
+      
+      // Step 3: Fetch user data from backend
+      try {
+        const userData = await fetchUserData(token);
+        if (!userData) {
+          throw new Error('Backend returned no user data');
+        }
+        
+        console.log('✅ Backend user data retrieved successfully');
+        return { success: true };
+      } catch (backendError) {
+        console.error('❌ Backend error after successful Firebase login:', backendError);
+        await firebaseLogout();
+        setAuthToken(null);
+        setUser(null);
+        return { success: false, error: 'server-error' as AuthError };
+      }
+    } catch (firebaseError: any) {
+      console.error('❌ Firebase authentication error:', firebaseError?.code);
+      
+      // Handle Firebase authentication errors
+      if (firebaseError?.code === 'auth/invalid-login-credentials' || 
+          firebaseError?.code === 'auth/wrong-password' || 
+          firebaseError?.code === 'auth/user-not-found') {
+        
+        // Record failed login attempt in backend
+        try {
+          // This will fail silently if the user doesn't exist in the backend
+          const updatedLockStatus = await increaseFailedAttempts(email);
+          
+          // Check if account just got locked
+          if (updatedLockStatus.accountLocked) {
+            return { 
+              success: false, 
+              error: 'account-locked' as AuthError,
+              lockInfo: updatedLockStatus
+            };
+          } else {
+            return { 
+              success: false, 
+              error: 'invalid-credentials' as AuthError,
+              lockInfo: updatedLockStatus
+            };
+          }
+        } catch (failedAttemptError) {
+          // If recording failed attempt fails, just show auth error
+          // This could happen if the user doesn't exist in the backend yet
+          console.log('⚠️ Could not record failed attempt, user may not exist:', failedAttemptError);
+          return { success: false, error: 'invalid-credentials' as AuthError };
+        }
+      } else if (firebaseError?.code === 'auth/too-many-requests') {
+        // Firebase's own rate limiting
+        return { success: false, error: 'too-many-requests' as AuthError };
+      } else if (firebaseError?.code === 'auth/network-request-failed') {
+        return { success: false, error: 'network-error' as AuthError };
       } else {
-        // If no Firebase user, clear backend user data
+        return { success: false, error: 'unknown-error' as AuthError };
+      }
+    }
+  } catch (error) {
+    console.error('❌ Unexpected error during login:', error);
+    return { success: false, error: 'unknown-error' as AuthError };
+  } finally {
+    setLoading(false);
+  }
+}, [fetchUserData]);
+
+  // Function to log in with Google
+  const loginWithGoogle = useCallback(async () => {
+    setLoading(true);
+    
+    try {
+      // Start the Google authentication flow
+      const result = await promptAsync();
+      
+      if (result?.type === 'success') {
+        // Wait for Firebase to complete authentication
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Verify if the user is authenticated
+        const auth = getAuth();
+        if (!auth.currentUser) {
+          throw new Error('Google authentication failed: No user found after sign-in');
+        }
+        
+        // Get token
+        const token = await auth.currentUser.getIdToken();
+        setAuthToken(token);
+        
+        // Fetch user data
+        try {
+          const userData = await fetchUserData(token);
+          if (!userData) {
+            throw new Error('Backend returned no user data');
+          }
+          
+          console.log('✅ Backend user data retrieved successfully after Google login');
+          return { success: true };
+        } catch (backendError) {
+          console.error('❌ Backend error after successful Google login:', backendError);
+          await firebaseLogout();
+          setAuthToken(null);
+          setUser(null);
+          return { success: false, error: 'server-error' as AuthError };
+        }
+      } else {
+        return { success: false, error: 'user-not-found' as AuthError };
+      }
+    } catch (error) {
+      console.error('❌ Google login error:', error);
+      return { success: false, error: 'unknown-error' as AuthError };
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserData, promptAsync]);
+
+  // Listen for authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChangedListener(async (fbUser) => {
+      if (fbUser) {
+        try {
+          // Get and store the token
+          const token = await fbUser.getIdToken();
+          console.log('Firebase token obtained from listener');
+          setAuthToken(token);
+          
+          // Fetch user data (will be ignored if isRegistering is true and we get a 404)
+          try {
+            await fetchUserData(token);
+          } catch (error) {
+            // Error is already logged in fetchUserData
+            // We don't need to do anything else here
+          }
+        } catch (error) {
+          console.error('Error getting auth token from listener:', error);
+          setAuthToken(null);
+          setUser(null);
+        }
+      } else {
+        // If no Firebase user, clear token and user data
+        setAuthToken(null);
         setUser(null);
       }
       
@@ -88,11 +295,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return unsubscribe;
   }, [fetchUserData]);
 
+  // Function to log out
   const logout = useCallback(async () => {
     setLoading(true);
     try {
       await firebaseLogout();
-      setFirebaseUser(null);
+      setAuthToken(null);
       setUser(null);
     } catch (error) {
       console.error('Error during logout:', error);
@@ -106,12 +314,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user, 
       isLoading, 
       logout,
-      refreshUserData
+      refreshUserData,
+      loginWithEmailAndPassword,
+      loginWithGoogle,
+      startRegistration,
+      finishRegistration
     }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Access hook
+// Hook to access the context
 export const useAuth = () => useContext(AuthContext);

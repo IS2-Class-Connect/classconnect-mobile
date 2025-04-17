@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../context/ThemeContext';
@@ -6,16 +6,16 @@ import { spacing } from '../../../constants/spacing';
 import TextField from '../fields/TextField';
 import Button from '../buttons/Button';
 import IconButton from '../buttons/IconButton';
-import { useGoogleSignIn } from '../../../firebase';
-import { loginWithEmail, logout as firebaseLogout } from '../../../firebase/auth';
 import Dialog from '../alerts/Dialog';
 import ResetPasswordModal from '../modals/ResetPasswordModal'; 
-import { getCurrentUserFromBackend } from '../../../services/userApi';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 
+/**
+ * Login form component that handles user authentication
+ */
 export default function LoginForm({
-  isLoading,
-  setIsLoading,
+  isLoading: externalIsLoading,
+  setIsLoading: setExternalIsLoading,
   onShowRegister,
 }: {
   isLoading: boolean;
@@ -24,111 +24,136 @@ export default function LoginForm({
 }) {
   const router = useRouter();
   const theme = useTheme();
-  const { refreshUserData } = useAuth();
+  const { loginWithEmailAndPassword, loginWithGoogle, isLoading: authIsLoading } = useAuth();
+  
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorType, setErrorType] = useState<'auth' | 'server' | 'backend' | null>(null);
+  const [errorType, setErrorType] = useState<AuthError | null>(null);
   const [resetVisible, setResetVisible] = useState(false);
+  
+  // Account lock tracking
+  const [lockInfo, setLockInfo] = useState<LockInfo | null>(null);
+  const [lockedEmail, setLockedEmail] = useState<string | null>(null);
 
-  const { promptAsync, handleGoogleResponse } = useGoogleSignIn();
+  // Combine external and internal loading states
+  const isLoading = externalIsLoading || authIsLoading;
 
-  const handleEmailLogin = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Step 1: Authenticate with Firebase
-      const firebaseResult = await loginWithEmail(email, password);
-      console.log('✅ Firebase authentication successful:', firebaseResult.user.email);
-      
-      // Step 2: Fetch user data from backend
-      try {
-        // Get token from Firebase user
-        const token = await firebaseResult.user.getIdToken();
-        
-        // Try to fetch user data from backend
-        const userData = await getCurrentUserFromBackend(token);
-        
-        // If we get here, backend fetch was successful
-        if (userData) {
-          console.log('✅ Backend user data retrieved successfully');
-          
-          // Now refresh the user data in AuthContext
-          await refreshUserData();
-          
-          // Navigate to main app
-          router.replace('/(tabs)');
-        } else {
-          // If userData is null or undefined, throw an error
-          throw new Error('Backend returned no user data');
-        }
-      } catch (backendError) {
-        // Handle backend error by logging out from Firebase
-        console.error('❌ Backend error after successful Firebase login:', backendError);
-        await firebaseLogout(); // Log out from Firebase
-        setErrorType('backend');
-      }
-    } catch (error: any) {
-      // Handle Firebase authentication errors
-      const code = error?.code;
-      if (
-        code === 'auth/user-not-found' ||
-        code === 'auth/wrong-password' ||
-        code === 'auth/invalid-login-credentials'
-      ) {
-        setErrorType('auth');
-      } else {
-        setErrorType('server');
-      }
-    } finally {
-      setIsLoading(false);
+  // Clear lock info when email changes
+  useEffect(() => {
+    if (email !== lockedEmail) {
+      setLockInfo(null);
+      setLockedEmail(null);
     }
+  }, [email, lockedEmail]);
+
+  /**
+   * Format lock time for display in a user-friendly way
+   */
+  const formatLockTime = () => {
+    if (!lockInfo?.lockUntil) return '';
+    
+    const lockUntil = new Date(lockInfo.lockUntil);
+    const now = new Date();
+    
+    // Calculate remaining minutes
+    const minutesRemaining = Math.ceil((lockUntil.getTime() - now.getTime()) / (1000 * 60));
+    
+    if (minutesRemaining <= 0) return 'a moment';
+    if (minutesRemaining === 1) return '1 minute';
+    if (minutesRemaining < 60) return `${minutesRemaining} minutes`;
+    
+    const hoursRemaining = Math.ceil(minutesRemaining / 60);
+    if (hoursRemaining === 1) return '1 hour';
+    return `${hoursRemaining} hours`;
   };
 
-  const handleGoogleLogin = async () => {
+  /**
+   * Handle email/password login
+   */
+  const handleEmailLogin = async () => {
+    if (!email) {
+      setErrorType('invalid-credentials');
+      return;
+    }
+
+    setExternalIsLoading(true);
+    
     try {
-      setIsLoading(true);
+      // Use the login function from the context
+      const result = await loginWithEmailAndPassword(email, password);
       
-      // Trigger Google sign-in flow
-      const result = await promptAsync();
-      
-      if (result?.type === 'success') {
-        try {
-          // Wait for Firebase authentication to complete
-          // This is a bit tricky since handleGoogleResponse is called by the hook
-          // We need to add a small delay to ensure Firebase auth completes
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Try to refresh user data from backend
-          try {
-            // This will throw an error if backend fetch fails
-            await refreshUserData();
-            
-            // If we get here, backend fetch was successful
-            console.log('✅ Backend user data retrieved successfully after Google login');
-            
-            // Navigate to main app
-            router.replace('/(tabs)');
-          } catch (backendError) {
-            // Handle backend error by logging out from Firebase
-            console.error('❌ Backend error after successful Google login:', backendError);
-            await firebaseLogout(); // Log out from Firebase
-            setErrorType('backend');
-          }
-        } catch (error) {
-          console.error('❌ Error during Google authentication flow:', error);
-          setErrorType('server');
+      if (result.success) {
+        // Navigate to the main application
+        router.replace('/(tabs)');
+      } else {
+        // Handle error
+        setErrorType(result.error || 'unknown-error');
+        
+        // Update lock information if available
+        if (result.lockInfo) {
+          setLockInfo(result.lockInfo);
+          setLockedEmail(email); // Remember which email is locked
         }
       }
     } catch (error) {
-      console.error('❌ Google login error:', error);
-      setErrorType('server');
+      console.error('❌ Unexpected error during login:', error);
+      setErrorType('unknown-error');
     } finally {
-      setIsLoading(false);
+      setExternalIsLoading(false);
+    }
+  };
+
+  /**
+   * Handle Google sign-in
+   */
+  const handleGoogleLogin = async () => {
+    setExternalIsLoading(true);
+    
+    try {
+      // Use the Google login function from the context
+      const result = await loginWithGoogle();
+      
+      if (result.success) {
+        // Navigate to the main application
+        router.replace('/(tabs)');
+      } else {
+        // Handle error
+        setErrorType(result.error || 'unknown-error');
+      }
+    } catch (error) {
+      console.error('❌ Unexpected error during Google login:', error);
+      setErrorType('unknown-error');
+    } finally {
+      setExternalIsLoading(false);
+    }
+  };
+
+  /**
+   * Map error types to user-friendly messages
+   */
+  const getErrorMessage = (errorType: AuthError): string => {
+    switch (errorType) {
+      case 'invalid-credentials':
+        return 'Invalid email or password. Please try again.';
+      case 'user-not-found':
+        return 'User not found. Please check your email or register.';
+      case 'too-many-requests':
+        return 'Too many login attempts. Please try again later.';
+      case 'account-locked':
+        return `Your account has been temporarily locked due to too many failed login attempts. Please try again in ${formatLockTime()}.`;
+      case 'network-error':
+        return 'Network error. Please check your internet connection and try again.';
+      case 'server-error':
+        return 'Could not retrieve your account information. Please try again or contact support.';
+      default:
+        return 'Something went wrong. Please try again later.';
     }
   };
 
   return (
     <View>
+      {/* Email input */}
       <TextField
         placeholder="Email"
         value={email}
@@ -137,6 +162,8 @@ export default function LoginForm({
         keyboardType="email-address"
         autoComplete="email"
       />
+      
+      {/* Password input */}
       <TextField
         placeholder="Password"
         value={password}
@@ -144,18 +171,24 @@ export default function LoginForm({
         secureTextEntry
         autoComplete="password"
       />
+      
+      {/* Login button - only disabled during loading */}
       <Button
         title="Log In"
         onPress={handleEmailLogin}
         variant="primary"
         disabled={isLoading}
       />
+      
+      {/* Register button */}
       <Button
         title="Register"
         onPress={onShowRegister}
         variant="primary"
         disabled={isLoading}
       />
+      
+      {/* Google sign-in button */}
       <IconButton
         title="Continue with Google"
         icon={require('../../../assets/icons/google-blue.png')}
@@ -164,6 +197,7 @@ export default function LoginForm({
         loading={isLoading}
       />
 
+      {/* Password reset link */}
       <Text
         style={styles.resetLink}
         onPress={() => setResetVisible(true)}
@@ -171,29 +205,31 @@ export default function LoginForm({
         Forgot your password? Reset here
       </Text>
 
-      {/* ✅ Nuevo uso del modal */}
+      {/* Show account locked warning if applicable */}
+      {email === lockedEmail && lockInfo?.accountLocked && (
+        <Text style={[styles.errorText, { color: theme.error }]}>
+          This account is locked. Please try again in {formatLockTime()}.
+        </Text>
+      )}
+
+      {/* Show failed attempts warning if applicable */}
+      {email === lockedEmail && lockInfo && lockInfo.failedAttempts > 0 && !lockInfo.accountLocked && (
+        <Text style={[styles.warningText, { color: theme.warning }]}>
+          Warning: {lockInfo.failedAttempts} failed login {lockInfo.failedAttempts === 1 ? 'attempt' : 'attempts'}. 
+          Your account will be temporarily locked after 5 failed attempts.
+        </Text>
+      )}
+
+      {/* Password reset modal */}
       <ResetPasswordModal
         visible={resetVisible}
         onClose={() => setResetVisible(false)}
       />
 
+      {/* Error dialog */}
       <Dialog
-        visible={errorType === 'auth'}
-        message="Invalid email or password. Please try again."
-        onClose={() => setErrorType(null)}
-        type="error"
-      />
-
-      <Dialog
-        visible={errorType === 'server'}
-        message="Something went wrong. Please try again later."
-        onClose={() => setErrorType(null)}
-        type="error"
-      />
-
-      <Dialog
-        visible={errorType === 'backend'}
-        message="Could not retrieve your account information. Please try again or contact support."
+        visible={!!errorType}
+        message={errorType ? getErrorMessage(errorType) : ''}
         onClose={() => setErrorType(null)}
         type="error"
       />
@@ -207,5 +243,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#007AFF',
     textDecorationLine: 'underline',
+  },
+  warningText: {
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  errorText: {
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
