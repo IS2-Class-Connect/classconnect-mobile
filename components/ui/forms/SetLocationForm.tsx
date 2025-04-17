@@ -1,4 +1,3 @@
-// components/ui/SetLocationForm.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, Dimensions } from 'react-native';
 import * as Location from 'expo-location';
@@ -7,12 +6,20 @@ import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import Dialog from '../alerts/Dialog';
+import { updateUserLocation } from '../../../services/userApi';
 
-export default function SetLocationForm({ onClose }: { onClose: () => void }) {
+type Props = {
+  onClose: () => void;
+  userId: string;  // Use string to store Firebase UID
+  token: string;
+};
+
+export default function SetLocationForm({ onClose, userId, token }: Props) {
   const theme = useTheme();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [askingShare, setAskingShare] = useState(false);
 
   const requestLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -25,8 +32,21 @@ export default function SetLocationForm({ onClose }: { onClose: () => void }) {
     try {
       const loc = await Location.getCurrentPositionAsync({});
       setLocation(loc);
+      setAskingShare(true);
     } catch (error) {
       setErrorMsg('Failed to get location');
+    }
+  };
+
+  const handleShareLocation = async () => {
+    if (!location) return;
+    try {
+      // Send the location data to the backend along with userId and token
+      await updateUserLocation(userId, location.coords.latitude, location.coords.longitude, token);
+      console.log('📍 Location updated in backend successfully');
+      onClose();
+    } catch (err) {
+      setErrorMsg('Failed to send location to backend');
     }
   };
 
@@ -39,7 +59,9 @@ export default function SetLocationForm({ onClose }: { onClose: () => void }) {
       <Text style={[styles.title, { color: theme.text }]}>Your location</Text>
 
       {permissionDenied && (
-        <Text style={[styles.warning, { color: theme.warning }]}>Allowing location helps us personalize your experience.</Text>
+        <Text style={[styles.warning, { color: theme.warning }]}>
+          Allowing location helps us personalize your experience.
+        </Text>
       )}
 
       {location ? (
@@ -61,9 +83,17 @@ export default function SetLocationForm({ onClose }: { onClose: () => void }) {
               title="Your Location"
             />
           </MapView>
-          <View style={styles.buttons}>
-            <Button title="OK" onPress={onClose} />
-          </View>
+
+          <Text style={{ color: theme.text, marginTop: spacing.md, textAlign: 'center' }}>
+            Sharing your location allows us to offer a more personalized experience.
+          </Text>
+
+          {askingShare && (
+            <View style={styles.buttons}>
+              <Button title="Yes, share location" onPress={handleShareLocation} />
+              <Button title="No, continue without sharing" onPress={onClose} />
+            </View>
+          )}
         </>
       ) : (
         <>

@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "classconnect",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classconnect.mobile",
@@ -65,6 +65,7 @@
       "eas": {
         "projectId": "8a4a7368-63c3-4bf8-91e1-9a9d4910eb6f"
       }
-    }
+    },
+    "owner": "classconnect"
   }
 }

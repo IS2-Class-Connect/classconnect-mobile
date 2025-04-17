@@ -38,3 +38,9 @@ yarn-error.*
 app-example
 
 prompt.txt
+
+# Env files
+.env
+.env.local
+.env.*.local
+!.env.example
