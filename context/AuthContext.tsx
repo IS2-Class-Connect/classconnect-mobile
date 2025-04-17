@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null;
       }
       
-      console.error('Error fetching user data from backend:', error);
+      console.log('Error fetching user data from backend:', error);
       setUser(null);
       throw error;
     }
@@ -174,14 +174,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('✅ Backend user data retrieved successfully');
           return { success: true };
         } catch (backendError) {
-          console.error('❌ Backend error after successful Firebase login:', backendError);
+          console.log('❌ Backend error after successful Firebase login:', backendError);
           await firebaseLogout();
           setAuthToken(null);
           setUser(null);
           return { success: false, error: 'server-error' as AuthError };
         }
       } catch (firebaseError: any) {
-        console.error('❌ Firebase authentication error:', firebaseError?.code);
+        console.log('❌ Firebase authentication error:', firebaseError?.code);
         
         // Check for admin-disabled account first
         if (firebaseError?.code === 'auth/user-disabled') {
@@ -229,7 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     } catch (error) {
-      console.error('❌ Unexpected error during login:', error);
+      console.log('❌ Unexpected error during login:', error);
       return { success: false, error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
@@ -279,7 +279,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('✅ Backend user data retrieved successfully after Google login');
           return { success: true };
         } catch (backendError) {
-          console.error('❌ Backend error after successful Google login:', backendError);
+          console.log('❌ Backend error after successful Google login:', backendError);
           await firebaseLogout();
           setAuthToken(null);
           setUser(null);
@@ -289,7 +289,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, error: 'user-not-found' as AuthError };
       }
     } catch (error) {
-      console.error('❌ Google login error:', error);
+      console.log('❌ Google login error:', error);
       return { success: false, error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
@@ -314,7 +314,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // We don't need to do anything else here
           }
         } catch (error) {
-          console.error('Error getting auth token from listener:', error);
+          console.log('Error getting auth token from listener:', error);
           setAuthToken(null);
           setUser(null);
         }
@@ -338,7 +338,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthToken(null);
       setUser(null);
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.log('Error during logout:', error);
     } finally {
       setLoading(false);
     }

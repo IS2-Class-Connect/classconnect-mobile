@@ -54,7 +54,7 @@ export async function isEmailVerified(user?: User | null): Promise<boolean> {
 	  
 	  return isVerified;
 	} catch (error) {
-	  console.error('❌ Error checking email verification status:', error);
+	  console.log('❌ Error checking email verification status:', error);
 	  return false;
 	}
   }
@@ -80,7 +80,7 @@ export async function sendPasswordReset(email: string) {
 		await sendPasswordResetEmail(auth, email);
 		console.log('📩 Password reset email sent to:', email);
 	} catch (error) {
-		console.error('❌ Error sending reset email:', error);
+		console.log('❌ Error sending reset email:', error);
 		throw error;
 	}
 }
@@ -116,7 +116,7 @@ export function useGoogleSignIn() {
 				console.log('⚠️ Google response not successful:', response?.type);
 			}
 		} catch (e) {
-			console.error('❌ Error handling Google login:', e);
+			console.log('❌ Error handling Google login:', e);
 		}
 	}
 

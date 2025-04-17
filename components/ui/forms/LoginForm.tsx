@@ -97,7 +97,7 @@ export default function LoginForm({
         }
       }
     } catch (error) {
-      console.error('❌ Unexpected error during login:', error);
+      console.log('❌ Unexpected error during login:', error);
       setErrorType('unknown-error');
     } finally {
       setExternalIsLoading(false);
@@ -122,7 +122,7 @@ export default function LoginForm({
         setErrorType(result.error || 'unknown-error');
       }
     } catch (error) {
-      console.error('❌ Unexpected error during Google login:', error);
+      console.log('❌ Unexpected error during Google login:', error);
       setErrorType('unknown-error');
     } finally {
       setExternalIsLoading(false);
