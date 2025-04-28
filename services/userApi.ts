@@ -14,8 +14,10 @@ export interface User {
   longitude: number | null;
   failedAttempts: number;
   accountLocked: boolean;
+  description: string;
   lockUntil: Date | null;
   lastFailedAt: Date | null;
+  createdAt: string;
 }
 
 /**
@@ -86,7 +88,7 @@ async function getFromGateway(endpoint: string, token?: string) {
  * Payload shape for registering a new user in the backend
  */
 export type RegisterPayload = {
-  uuid: string; // New field to store Firebase user UID
+  uuid: string;
   email: string;
   name: string;
   urlProfilePhoto: string;
@@ -131,7 +133,6 @@ export async function updateUserLocation(userId: string, latitude: number, longi
 
 /**
  * Increments failed login attempts for the given user by email (no auth required)
- * @param email The email address of the user
  */
 export async function increaseFailedAttempts(email: string): Promise<{
   accountLocked: boolean;
@@ -139,9 +140,7 @@ export async function increaseFailedAttempts(email: string): Promise<{
   failedAttempts: number;
 }> {
   try {
-    // URL encode the email to handle special characters
     const encodedEmail = encodeURIComponent(email);
-    // Updated to match the controller's endpoint pattern
     const response = await patchToGateway(`/users/${encodedEmail}/failed-attempts`, {});
     console.log('✅ Failed attempts increased for email:', email);
     return response;
@@ -153,7 +152,6 @@ export async function increaseFailedAttempts(email: string): Promise<{
 
 /**
  * Checks if the user account is locked by email (no auth required)
- * @param email The email address of the user
  */
 export async function checkLockStatus(email: string): Promise<{
   accountLocked: boolean;
@@ -161,22 +159,17 @@ export async function checkLockStatus(email: string): Promise<{
   failedAttempts: number;
 }> {
   try {
-    // URL encode the email to handle special characters
     const encodedEmail = encodeURIComponent(email);
-    // Updated to match the controller's endpoint pattern
     const response = await getFromGateway(`/users/${encodedEmail}/check-lock-status`);
     
-    // Handle the response format from the controller
     if (response.isLocked === -1) {
-      // User not found or error
       throw new Error(response.message);
     }
     
-    // Convert the controller response to the expected format
     const result = {
       accountLocked: response.isLocked === 1,
       lockUntil: response.lockedDate,
-      failedAttempts: response.failedAttempts || 0 // Assuming the controller might not return this
+      failedAttempts: response.failedAttempts || 0,
     };
     
     console.log('✅ Account lock status for email:', email, result);
@@ -197,6 +190,52 @@ export async function getCurrentUserFromBackend(token: string): Promise<User> {
     return response as User;
   } catch (error) {
     console.log('🚨 Error fetching current user from backend:', error);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves user data by UUID (publicly available information)
+ */
+export async function findUserByUuid(uuid: string): Promise<User> {
+  try {
+    const response = await getFromGateway(`/users/${uuid}`);
+    console.log('✅ User data fetched by UUID:', response);
+    return response as User;
+  } catch (error) {
+    console.log(`🚨 Error fetching user by UUID ${uuid}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all users' public information
+ */
+export async function getAllUsers(): Promise<User[]> {
+  try {
+    const response = await getFromGateway('/users');
+    console.log('✅ All users fetched:', response);
+    return response as User[];
+  } catch (error) {
+    console.log('🚨 Error fetching all users:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the user's profile information (name, email, profile photo URL, description)
+ */
+export async function updateUserProfile(
+  uuid: string,
+  updates: Partial<Pick<User, 'name' | 'email' | 'urlProfilePhoto' | 'description'>>,
+  token: string,
+): Promise<User> {
+  try {
+    const response = await patchToGateway(`/users/${uuid}`, updates, token);
+    console.log('✅ User profile updated:', response);
+    return response as User;
+  } catch (error) {
+    console.log(`🚨 Error updating user profile for UUID ${uuid}:`, error);
     throw error;
   }
 }

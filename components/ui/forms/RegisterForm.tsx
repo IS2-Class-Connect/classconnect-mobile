@@ -66,8 +66,8 @@ export default function RegisterForm({ onCancel }: { onCancel: () => void }) {
 
       console.log('✅ User registered in backend:', userCreated);
 
-      setUserId(res.user.uid); // Save Firebase UID
-      setToken(idToken); // Save Firebase token
+      setUserId(res.user.uid); 
+      setToken(idToken); 
       setShowLocationModal(true);
     } catch (e: any) {
       console.log('🚨 Registration error:', e);

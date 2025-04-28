@@ -1,28 +1,49 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Import necessary Firebase storage functions
-import { storage } from './config'; // Import the configured Firebase storage instance
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from './config';
 
-// Function to upload an image to Firebase Storage and return its download URL
+/**
+ * Upload an image to Firebase Storage and return its download URL
+ */
 export async function uploadImageAsync(uri: string, path: string): Promise<string> {
-	try {
-		// Fetch the image from the provided URI and convert it to a Blob
-		const response = await fetch(uri);
-		const blob = await response.blob();
+  try {
+    console.log('🚀 Starting image upload...');
+    console.log('URI received:', uri);
+    console.log('Storage path:', path);
 
-		// Create a reference to the storage path in Firebase
-		const storageRef = ref(storage, path);
+    // Validate the URI
+    if (!uri || !uri.startsWith('file://')) {
+      console.log('❌ Invalid URI detected:', uri);
+      throw new Error('Invalid file URI for upload');
+    }
 
-		// Upload the Blob to the specified storage reference
-		await uploadBytes(storageRef, blob);
+    // Fetch the image and convert it to a blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
 
-		// Get the download URL of the uploaded image
-		const url = await getDownloadURL(storageRef);
+    console.log('📦 Blob created. Size:', blob.size, 'Type:', blob.type);
 
-		// Log the success message and return the URL
-		console.log('✅ Image uploaded, URL:', url);
-		return url;
-	} catch (error) {
-		// Log and rethrow any errors encountered during the upload process
-		console.log('❌ Error uploading image:', error);
-		throw error;
-	}
+    if (blob.size === 0) {
+      console.log('❌ Blob is empty!');
+      throw new Error('Blob size is 0, cannot upload.');
+    }
+
+    // Reference to Firebase storage path
+    const storageRef = ref(storage, path);
+
+    console.log('🔗 Storage ref created:', storageRef.fullPath);
+
+    // Upload the Blob to Firebase Storage
+    console.log('⬆️ Uploading to Firebase Storage...');
+    await uploadBytes(storageRef, blob);
+    console.log('✅ Upload completed.');
+
+    // Get the public download URL
+    const url = await getDownloadURL(storageRef);
+
+    console.log('🌐 Download URL obtained:', url);
+    return url;
+  } catch (error) {
+    console.log('❌ Error during upload process:', error);
+    throw error;
+  }
 }
