@@ -1,7 +1,8 @@
+// app/(tabs)/profile.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -14,10 +15,10 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { spacing } from '../constants/spacing';
-import { fonts } from '../constants/fonts';
 import { useRouter } from 'expo-router';
 import EditForm from '../components/ui/forms/EditForm';
 import UserProfileInfo from '../components/ui/cards/UserProfileCard';
+import { Feather } from '@expo/vector-icons'; // 👈 íconos
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -25,11 +26,10 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [photoModalVisible, setPhotoModalVisible] = useState(false); // Modal for profile photo
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [locationName, setLocationName] = useState<string>('Unknown location');
   const [loadingLocation, setLoadingLocation] = useState(false);
 
-  // Fetch location name based on user coordinates
   useEffect(() => {
     if (user?.latitude != null && user?.longitude != null) {
       fetchLocationName(user.latitude, user.longitude);
@@ -58,7 +58,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // Logout with confirmation
   const handleLogout = () => {
     Alert.alert(
       'Confirm Logout',
@@ -78,15 +77,17 @@ export default function ProfileScreen() {
     );
   };
 
-  // Open edit profile modal
   const handleEditProfile = () => {
     setModalVisible(true);
   };
 
-  // Close edit profile modal and refresh user data
   const handleCloseModal = async () => {
     setModalVisible(false);
     await refreshUserData();
+  };
+
+  const handleSearchUsers = () => {
+    router.push('/users/search-users');
   };
 
   return (
@@ -113,24 +114,28 @@ export default function ProfileScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* User Profile Info (Reusable component) */}
+      {/* User Profile Info */}
       {user && (
         <UserProfileInfo
           user={user}
           locationName={locationName}
           loadingLocation={loadingLocation}
-          onProfilePhotoPress={() => setPhotoModalVisible(true)} // 👈 Open photo modal
+          onProfilePhotoPress={() => setPhotoModalVisible(true)}
         />
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons (with icons) */}
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity onPress={handleEditProfile} style={styles.editButton}>
-          <Text style={styles.buttonText}>Edit Profile</Text>
+        <TouchableOpacity onPress={handleEditProfile} style={styles.iconButton}>
+          <Feather name="edit-3" size={28} color="#339CFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.buttonText}>Logout</Text>
+        <TouchableOpacity onPress={handleSearchUsers} style={styles.iconButton}>
+          <Feather name="users" size={28} color="#339CFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
+          <Feather name="log-out" size={28} color="#FF3B30" />
         </TouchableOpacity>
       </View>
 
@@ -166,24 +171,15 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     marginTop: spacing.xl,
-    width: '100%',
+    flexDirection: 'row',
+    gap: spacing.lg,
   },
-  editButton: {
-    backgroundColor: '#339CFF',
+  iconButton: {
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
-    padding: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    justifyContent: 'center',
   },
   modalOverlay: {
     flex: 1,

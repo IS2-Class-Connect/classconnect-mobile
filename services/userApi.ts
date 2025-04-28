@@ -211,9 +211,9 @@ export async function findUserByUuid(uuid: string): Promise<User> {
 /**
  * Retrieves all users' public information
  */
-export async function getAllUsers(): Promise<User[]> {
+export async function getAllUsers(token: string): Promise<User[]> {
   try {
-    const response = await getFromGateway('/users');
+    const response = await getFromGateway('/users', token);
     console.log('✅ All users fetched:', response);
     return response as User[];
   } catch (error) {
