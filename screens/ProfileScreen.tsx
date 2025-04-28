@@ -9,7 +9,7 @@ import EditForm from '../components/ui/forms/EditForm';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUserData } = useAuth(); 
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -74,8 +74,9 @@ export default function ProfileScreen() {
     setModalVisible(true);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     setModalVisible(false);
+    await refreshUserData(); 
   };
 
   return (

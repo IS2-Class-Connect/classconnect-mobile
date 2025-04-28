@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Text, Image, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Text,
+  Image,
+  TouchableOpacity,
+  Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
@@ -17,21 +27,35 @@ interface EditFormProps {
   onClose: () => void;
 }
 
-export default function EditForm({ initialName, initialDescription, initialProfilePhoto, initialEmail, onClose }: EditFormProps) {
+export default function EditForm({
+  initialName,
+  initialDescription,
+  initialProfilePhoto,
+  initialEmail,
+  onClose,
+}: EditFormProps) {
   const theme = useTheme();
-  const { user, authToken, refreshUserData } = useAuth(); // ✅ también sacamos authToken ahora
+  const { user, authToken, refreshUserData } = useAuth();
+
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [email, setEmail] = useState(initialEmail);
   const [image, setImage] = useState<string | null>(initialProfilePhoto);
   const [uploading, setUploading] = useState(false);
 
+  useEffect(() => {
+    setName(initialName);
+    setDescription(initialDescription);
+    setEmail(initialEmail);
+    setImage(initialProfilePhoto);
+  }, [initialName, initialDescription, initialEmail, initialProfilePhoto]);
+
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.2, //only for expo go development 
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -67,12 +91,16 @@ export default function EditForm({ initialName, initialDescription, initialProfi
       }
 
       try {
-        await updateUserProfile(user.uuid, {
-          name,
-          email,
-          urlProfilePhoto: newProfilePhotoUrl,
-          description,
-        }, authToken); // 
+        await updateUserProfile(
+          user.uuid,
+          {
+            name,
+            email,
+            urlProfilePhoto: newProfilePhotoUrl,
+            description,
+          },
+          authToken,
+        );
       } catch (updateError) {
         console.log('❌ Error updating profile:', updateError);
         Alert.alert('Error', 'Failed to update user profile.');
@@ -93,53 +121,55 @@ export default function EditForm({ initialName, initialDescription, initialProfi
   };
 
   return (
-    <View>
-      <Text style={[styles.title, { color: theme.text }]}>Edit Profile</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View>
+        <Text style={[styles.title, { color: theme.text }]}>Edit Profile</Text>
 
-      {image && (
-        <Image source={{ uri: image }} style={styles.avatar} />
-      )}
-      <TouchableOpacity onPress={handlePickImage} style={styles.pickButton}>
-        <Text style={[styles.pickButtonText, { color: theme.tabIconSelected }]}>Choose New Photo</Text>
-      </TouchableOpacity>
+        {image && (
+          <Image source={{ uri: image }} style={styles.avatar} />
+        )}
+        <TouchableOpacity onPress={handlePickImage} style={styles.pickButton}>
+          <Text style={[styles.pickButtonText, { color: theme.tabIconSelected }]}>Choose New Photo</Text>
+        </TouchableOpacity>
 
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
-        placeholder="Name"
-        placeholderTextColor="#999"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
-        placeholder="Email"
-        placeholderTextColor="#999"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={[styles.input, styles.bioInput, { backgroundColor: theme.surface, color: theme.text }]}
-        placeholder="Biography"
-        placeholderTextColor="#999"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-      />
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+          placeholder="Name"
+          placeholderTextColor="#999"
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+          placeholder="Email"
+          placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <TextInput
+          style={[styles.input, styles.bioInput, { backgroundColor: theme.surface, color: theme.text }]}
+          placeholder="Biography"
+          placeholderTextColor="#999"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
 
-      <Button
-        title={uploading ? "Saving..." : "Save Changes"}
-        onPress={handleSave}
-        disabled={uploading}
-        variant="primary"
-      />
-      <Button
-        title="Cancel"
-        onPress={onClose}
-        variant="primary"
-        disabled={uploading}
-      />
-    </View>
+        <Button
+          title={uploading ? "Saving..." : "Save Changes"}
+          onPress={handleSave}
+          disabled={uploading}
+          variant="primary"
+        />
+        <Button
+          title="Cancel"
+          onPress={onClose}
+          variant="primary"
+          disabled={uploading}
+        />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
