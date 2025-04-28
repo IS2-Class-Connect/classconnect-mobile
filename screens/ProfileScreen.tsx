@@ -3,12 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Modal,
+  Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
+  Image,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +17,7 @@ import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import { useRouter } from 'expo-router';
 import EditForm from '../components/ui/forms/EditForm';
+import UserProfileInfo from '../components/ui/cards/UserProfileCard';
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -23,9 +25,11 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false); // Modal for profile photo
   const [locationName, setLocationName] = useState<string>('Unknown location');
   const [loadingLocation, setLoadingLocation] = useState(false);
 
+  // Fetch location name based on user coordinates
   useEffect(() => {
     if (user?.latitude != null && user?.longitude != null) {
       fetchLocationName(user.latitude, user.longitude);
@@ -54,36 +58,32 @@ export default function ProfileScreen() {
     }
   };
 
-  const formatAccountStatus = () => {
-    if (user?.accountLocked && user.lockUntil) {
-      return `Locked until ${new Date(user.lockUntil).toLocaleDateString()}`;
-    }
-    return 'Active';
+  // Logout with confirmation
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/auth/login');
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
-  const formatAccountAge = () => {
-    if (!user?.createdAt) return 'Unknown creation date';
-    const createdDate = new Date(user.createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - createdDate.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 1) return 'Created today';
-    if (diffDays === 1) return 'Created 1 day ago';
-    if (diffDays < 30) return `Created ${diffDays} days ago`;
-    if (diffDays < 365) return `Created ${Math.floor(diffDays / 30)} months ago`;
-    return `Created ${Math.floor(diffDays / 365)} years ago`;
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/auth/login');
-  };
-
+  // Open edit profile modal
   const handleEditProfile = () => {
     setModalVisible(true);
   };
 
+  // Close edit profile modal and refresh user data
   const handleCloseModal = async () => {
     setModalVisible(false);
     await refreshUserData();
@@ -91,14 +91,13 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Edit Modal */}
+      {/* Edit Profile Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
         onRequestClose={handleCloseModal}
         transparent={true}
       >
-        {/* 👇 TOCANDO FUERA SE CIERRA EL TECLADO */}
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
@@ -114,52 +113,17 @@ export default function ProfileScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* Profile Information */}
-      {user?.urlProfilePhoto && (
-        <Image source={{ uri: user.urlProfilePhoto }} style={styles.avatar} />
+      {/* User Profile Info (Reusable component) */}
+      {user && (
+        <UserProfileInfo
+          user={user}
+          locationName={locationName}
+          loadingLocation={loadingLocation}
+          onProfilePhotoPress={() => setPhotoModalVisible(true)} // 👈 Open photo modal
+        />
       )}
 
-      <Text style={[styles.name, { color: theme.text }]}>
-        {user?.name ?? 'No Name'}
-      </Text>
-
-      <Text style={[styles.email, { color: theme.text }]}>
-        {user?.email ?? 'No Email'}
-      </Text>
-
-      <View style={styles.infoSection}>
-        <Text style={[styles.label, { color: theme.text }]}>Biography</Text>
-        <Text style={[styles.info, { color: theme.text }]}>
-          {user?.description || 'No biography provided.'}
-        </Text>
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={[styles.label, { color: theme.text }]}>Account Status</Text>
-        <Text style={[styles.info, { color: theme.text }]}>
-          {formatAccountStatus()}
-        </Text>
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={[styles.label, { color: theme.text }]}>Location</Text>
-        {loadingLocation ? (
-          <ActivityIndicator color={theme.text} />
-        ) : (
-          <Text style={[styles.info, { color: theme.text }]}>
-            {locationName}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={[styles.label, { color: theme.text }]}>Account Created</Text>
-        <Text style={[styles.info, { color: theme.text }]}>
-          {formatAccountAge()}
-        </Text>
-      </View>
-
-      {/* Buttons */}
+      {/* Action Buttons */}
       <View style={styles.buttonsContainer}>
         <TouchableOpacity onPress={handleEditProfile} style={styles.editButton}>
           <Text style={styles.buttonText}>Edit Profile</Text>
@@ -169,42 +133,36 @@ export default function ProfileScreen() {
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Profile Photo Fullscreen Modal */}
+      <Modal
+        visible={photoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPhotoModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setPhotoModalVisible(false)}>
+          <View style={styles.photoModalOverlay}>
+            {user?.urlProfilePhoto && (
+              <Image
+                source={{ uri: user.urlProfilePhoto }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     padding: spacing.lg,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: spacing.md,
-  },
-  name: {
-    fontSize: fonts.size.xl,
-    fontWeight: 'bold',
-    marginBottom: spacing.sm,
-  },
-  email: {
-    fontSize: fonts.size.md,
-    marginBottom: spacing.lg,
-  },
-  infoSection: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: fonts.size.sm,
-    fontWeight: 'bold',
-    marginBottom: spacing.xs,
-  },
-  info: {
-    fontSize: fonts.size.md,
   },
   buttonsContainer: {
     marginTop: spacing.xl,
@@ -237,5 +195,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: spacing.lg,
+  },
+  photoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '90%',
+    height: '70%',
   },
 });
