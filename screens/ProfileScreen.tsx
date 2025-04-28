@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Modal,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { spacing } from '../constants/spacing';
@@ -9,7 +19,7 @@ import EditForm from '../components/ui/forms/EditForm';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout, refreshUserData } = useAuth(); 
+  const { user, logout, refreshUserData } = useAuth();
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -76,7 +86,7 @@ export default function ProfileScreen() {
 
   const handleCloseModal = async () => {
     setModalVisible(false);
-    await refreshUserData(); 
+    await refreshUserData();
   };
 
   return (
@@ -88,17 +98,20 @@ export default function ProfileScreen() {
         onRequestClose={handleCloseModal}
         transparent={true}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-            <EditForm
-              initialName={user?.name ?? ''}
-              initialDescription={user?.description ?? ''}
-              initialProfilePhoto={user?.urlProfilePhoto ?? ''}
-              initialEmail={user?.email ?? ''}
-              onClose={handleCloseModal}
-            />
+        {/* 👇 TOCANDO FUERA SE CIERRA EL TECLADO */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+              <EditForm
+                initialName={user?.name ?? ''}
+                initialDescription={user?.description ?? ''}
+                initialProfilePhoto={user?.urlProfilePhoto ?? ''}
+                initialEmail={user?.email ?? ''}
+                onClose={handleCloseModal}
+              />
+            </View>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Profile Information */}

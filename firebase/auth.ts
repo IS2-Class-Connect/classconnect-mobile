@@ -8,7 +8,10 @@ import {
 	signInWithCredential,
 	onAuthStateChanged,
 	User,
-	reload
+	reload,
+	updateEmail,
+	sendEmailVerification as sendVerificationEmail,
+	getAuth
 } from 'firebase/auth';
 
 import * as Google from 'expo-auth-session/providers/google';
@@ -122,3 +125,40 @@ export function useGoogleSignIn() {
 
 	return { request, response, promptAsync, handleGoogleResponse };
 }
+
+// ✨ Update the authenticated user's email
+export async function updateFirebaseEmail(newEmail: string) {
+	const currentUser = getAuth().currentUser;
+	
+	if (!currentUser) {
+	  throw new Error('No authenticated user found.');
+	}
+  
+	try {
+	  console.log(`✏️ Updating email to: ${newEmail}`);
+	  await updateEmail(currentUser, newEmail);
+	  console.log('✅ Email updated successfully');
+	} catch (error) {
+	  console.log('❌ Error updating email:', error);
+	  throw error;
+	}
+  }
+  
+  // ✨ Send email verification to authenticated user
+  export async function sendVerificationToCurrentUser() {
+	const currentUser = getAuth().currentUser;
+	
+	if (!currentUser) {
+	  throw new Error('No authenticated user found.');
+	}
+  
+	try {
+	  console.log(`📩 Sending email verification to: ${currentUser.email}`);
+	  await sendVerificationEmail(currentUser);
+	  console.log('✅ Email verification sent successfully');
+	} catch (error) {
+	  console.log('❌ Error sending verification email:', error);
+	  throw error;
+	}
+  }
+  
