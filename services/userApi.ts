@@ -231,7 +231,7 @@ export async function updateUserProfile(
   token: string,
 ): Promise<User> {
   try {
-    const response = await patchToGateway(`/users/${uuid}`, updates, token);
+    const response = await patchToGateway(`/users/me`, updates, token);
     console.log('✅ User profile updated:', response);
     return response as User;
   } catch (error) {

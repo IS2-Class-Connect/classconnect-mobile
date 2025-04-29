@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { spacing } from '../../../constants/spacing';
@@ -19,13 +20,10 @@ import { uploadImageAsync } from '../../../firebase/upload';
 import { updateUserProfile } from '../../../services/userApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { getAuth, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { FirebaseError } from 'firebase/app';
 import Button from '../buttons/Button';
 import Dialog from '../alerts/Dialog';
 import UserProfileInfo from '../cards/UserProfileCard';
-import SetLocationForm from './SetLocationForm'; // 
-
+import SetLocationForm from './SetLocationForm';
 
 interface EditFormProps {
   initialName: string;
@@ -45,26 +43,19 @@ export default function EditForm({
   const theme = useTheme();
   const { user, authToken, refreshUserData } = useAuth();
 
-  // Form state
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [email, setEmail] = useState(initialEmail);
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [image, setImage] = useState<string | null>(initialProfilePhoto);
   const [uploading, setUploading] = useState(false);
-
-  // Dialog state
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
   const [dialogType, setDialogType] = useState<'success' | 'error'>('success');
-
-  // Preview modal state
   const [previewVisible, setPreviewVisible] = useState(false);
-
-  // Location modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationName, setLocationName] = useState('');
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
-  // Reset form fields if initial props change
   useEffect(() => {
     setName(initialName);
     setDescription(initialDescription);
@@ -72,20 +63,43 @@ export default function EditForm({
     setImage(initialProfilePhoto);
   }, [initialName, initialDescription, initialEmail, initialProfilePhoto]);
 
-  // Show dialog message
+  useEffect(() => {
+    if (user?.latitude && user?.longitude) {
+      fetchLocationName(user.latitude, user.longitude);
+    }
+  }, [user?.latitude, user?.longitude]);
+
+  const fetchLocationName = async (latitude: number, longitude: number) => {
+    setLoadingLocation(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await response.json();
+      if (data?.address) {
+        const { city, town, village, state, country } = data.address;
+        const location = city || town || village || state || 'Unknown area';
+        setLocationName(`${location}, ${country}`);
+      } else {
+        setLocationName('Unknown location');
+      }
+    } catch (error) {
+      console.log('Error fetching location name:', error);
+      setLocationName('Unknown location');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
   const showDialog = (message: string, type: 'success' | 'error') => {
     setDialogMessage(message);
     setDialogType(type);
     setDialogVisible(true);
   };
 
-  // Open profile preview modal
   const openPreview = () => setPreviewVisible(true);
-
-  // Close profile preview modal
   const closePreview = () => setPreviewVisible(false);
 
-  // Handle picking a new profile photo
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -99,12 +113,20 @@ export default function EditForm({
     }
   };
 
-  // Handle saving profile changes (except location)
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const handleSave = async () => {
     console.log('🔵 Starting handleSave');
 
     if (!name.trim() || !email.trim()) {
       showDialog('Name and email cannot be empty.', 'error');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      showDialog('Invalid email format.', 'error');
       return;
     }
 
@@ -116,49 +138,6 @@ export default function EditForm({
     setUploading(true);
 
     try {
-      const auth = getAuth();
-
-      // If email has changed, reauthenticate user
-      if (email !== initialEmail) {
-        if (!confirmPassword.trim()) {
-          showDialog('Please enter your password to change email.', 'error');
-          setUploading(false);
-          return;
-        }
-        try {
-          console.log('🔒 Reauthenticating...');
-          const credential = EmailAuthProvider.credential(auth.currentUser!.email!, confirmPassword);
-          await reauthenticateWithCredential(auth.currentUser!, credential);
-          console.log('✅ Reauthenticated.');
-
-          console.log('✏️ Updating Firebase email...');
-          await updateEmail(auth.currentUser!, email);
-          console.log('✅ Firebase email updated.');
-        } catch (error) {
-          console.log('❌ Reauthentication or email update error:', error);
-          if (error instanceof FirebaseError) {
-            switch (error.code) {
-              case 'auth/wrong-password':
-                showDialog('Incorrect password.', 'error');
-                break;
-              case 'auth/email-already-in-use':
-                showDialog('This email is already in use.', 'error');
-                break;
-              case 'auth/requires-recent-login':
-                showDialog('You need to log in again to change your email.', 'error');
-                break;
-              default:
-                showDialog('Failed to change email.', 'error');
-            }
-          } else {
-            showDialog('Unknown error updating email.', 'error');
-          }
-          setUploading(false);
-          return;
-        }
-      }
-
-      // Upload new profile photo if changed
       let newProfilePhotoUrl = initialProfilePhoto;
       if (image && image !== initialProfilePhoto) {
         try {
@@ -173,13 +152,12 @@ export default function EditForm({
         }
       }
 
-      // Update user profile on backend
       try {
         console.log('🧾 Updating backend user profile...');
         await updateUserProfile(
           user.uuid,
           { name, email, urlProfilePhoto: newProfilePhotoUrl, description },
-          authToken,
+          authToken
         );
         console.log('✅ Backend user profile updated.');
       } catch (backendError) {
@@ -189,7 +167,6 @@ export default function EditForm({
         return;
       }
 
-      // Refresh user data locally
       await refreshUserData();
       console.log('✅ User data refreshed.');
       showDialog('Profile updated successfully!', 'success');
@@ -203,7 +180,6 @@ export default function EditForm({
 
   return (
     <>
-      {/* Main form */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View>
           <Text style={[styles.title, { color: theme.text }]}>Edit Profile</Text>
@@ -231,23 +207,6 @@ export default function EditForm({
             keyboardType="email-address"
           />
 
-          {/* Confirm password field only if email was changed */}
-          {email !== initialEmail && (
-            <>
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
-                placeholder="Confirm Password"
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
-              <Text style={[styles.infoText, { color: theme.text }]}>
-                Confirm your password to update your email.
-              </Text>
-            </>
-          )}
-
           <TextInput
             style={[styles.input, styles.bioInput, { backgroundColor: theme.surface, color: theme.text }]}
             placeholder="Biography"
@@ -256,13 +215,26 @@ export default function EditForm({
             onChangeText={setDescription}
             multiline
           />
-           <Button
-            title="Update Location"
-            onPress={() => setShowLocationModal(true)}
-            disabled={uploading}
-            variant="primary"
-          />
-          {/* Buttons */}
+
+          <View style={styles.locationRowContainer}>
+            <TextInput
+              style={[styles.input, styles.locationInput, { backgroundColor: theme.surface, color: theme.text }]}
+              placeholder="Location not set"
+              placeholderTextColor="#999"
+              value={loadingLocation ? 'Loading...' : locationName}
+              editable={false}
+            />
+            <TouchableOpacity
+              onPress={() => setShowLocationModal(true)}
+              style={styles.updateLocationButton}
+              disabled={uploading}
+            >
+              <Text style={{ color: theme.primary, fontWeight: 'bold', textAlign: 'center' }}>
+                Update
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <Button
             title={uploading ? "Saving..." : "Update Profile"}
             onPress={openPreview}
@@ -278,7 +250,6 @@ export default function EditForm({
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Dialog for errors or success */}
       <Dialog
         visible={dialogVisible}
         message={dialogMessage}
@@ -290,11 +261,9 @@ export default function EditForm({
             }, 300);
           }
         }}
-        
         type={dialogType}
       />
 
-      {/* Modal for previewing updated profile */}
       <Modal
         visible={previewVisible}
         transparent={true}
@@ -302,7 +271,7 @@ export default function EditForm({
         onRequestClose={closePreview}
       >
         <View style={styles.previewOverlay}>
-          <View style={[styles.previewContainer, { backgroundColor: theme.background }]}>
+          <View style={[styles.previewContainer, { backgroundColor: theme.background }]}> 
             <UserProfileInfo
               user={{
                 ...user,
@@ -311,11 +280,9 @@ export default function EditForm({
                 description,
                 urlProfilePhoto: image,
               }}
-              locationName="Preview Location"
-              loadingLocation={false}
-              
+              locationName={locationName}
+              loadingLocation={loadingLocation}
             />
-
             <View style={styles.previewButtons}>
               <Button
                 title="Confirm Changes"
@@ -335,7 +302,6 @@ export default function EditForm({
         </View>
       </Modal>
 
-      {/* Modal for setting/updating location */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -346,9 +312,7 @@ export default function EditForm({
           <SetLocationForm
             userId={user.uuid}
             token={authToken}
-            onClose={() => {
-              setShowLocationModal(false);
-            }}
+            onClose={() => setShowLocationModal(false)}
           />
         )}
       </Modal>
@@ -390,12 +354,6 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-  infoText: {
-    fontSize: fonts.size.sm,
-    marginBottom: spacing.md,
-    marginTop: -spacing.sm,
-    textAlign: 'center',
-  },
   previewOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -409,5 +367,30 @@ const styles = StyleSheet.create({
   },
   previewButtons: {
     marginTop: spacing.lg,
+  },
+  locationRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  locationInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: spacing.sm,
+    borderRadius: 8,
+    fontSize: fonts.size.md,
+    marginRight: spacing.sm,
+  },
+  updateLocationButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
 });

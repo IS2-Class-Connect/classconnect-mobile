@@ -35,7 +35,7 @@ type AuthContextType = {
   isLoading: boolean;
   authToken: string | null; // ✨ agregado authToken
   logout: () => Promise<void>;
-  refreshUserData: () => Promise<void>;
+  refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
   loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError }>;
   startRegistration: () => void;
@@ -79,15 +79,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isRegistering]);
 
-  const refreshUserData = useCallback(async () => {
-    if (!authToken) return;
+  const refreshUserData = useCallback(async (tokenOverride?: string) => {
+    const tokenToUse = tokenOverride || authToken;
+    if (!tokenToUse) return;
+  
     setLoading(true);
     try {
-      await fetchUserData(authToken);
+      await fetchUserData(tokenToUse);
     } finally {
       setLoading(false);
     }
   }, [authToken, fetchUserData]);
+  
 
   const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -97,13 +100,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const token = await result.user.getIdToken();
       setAuthToken(token);
 
-      const emailVerified = await isEmailVerified(result.user);
-      if (!emailVerified) {
-        await firebaseLogout();
-        setAuthToken(null);
-        setUser(null);
-        return { success: false, error: 'email-not-verified' as AuthError };
-      }
+      // const emailVerified = await isEmailVerified(result.user);
+      // if (!emailVerified) {
+      //   await firebaseLogout();
+      //   setAuthToken(null);
+      //   setUser(null);
+      //   return { success: false, error: 'email-not-verified' as AuthError };
+      // }
 
       try {
         const lockStatus = await checkLockStatus(email);
