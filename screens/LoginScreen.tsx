@@ -12,6 +12,7 @@ import { fonts } from '../constants/fonts';
 import { spacing } from '../constants/spacing';
 import RegisterForm from '../components/ui/forms/RegisterForm';
 import LoginForm from '../components/ui/forms/LoginForm';
+import ThemeToggleButton from '../components/ui/buttons/ThemeToggleButton'; // Import the theme toggle button
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -56,6 +57,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={60}
     >
+      {/* Theme Toggle Button positioned at the top right */}
+      <View style={styles.themeToggleContainer}>
+        <ThemeToggleButton />
+      </View>
+      
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
@@ -94,6 +100,12 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  themeToggleContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20, // Adjust for status bar on iOS
+    right: spacing.lg,
+    zIndex: 10, // Ensure it's above other elements
   },
   scrollContainer: {
     flexGrow: 1,
