@@ -20,7 +20,8 @@ export default function StartupScreen() {
         const now = Date.now();
 
         if (user && now - lastLogin < twoWeeksInMs) {
-          router.replace('/(tabs)');
+          router.replace('/auth/biometric-prompt');
+
         } else {
           router.replace('/auth/login');
         }

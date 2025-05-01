@@ -18,7 +18,7 @@ import { spacing } from '../constants/spacing';
 import { useRouter } from 'expo-router';
 import EditForm from '../components/ui/forms/EditForm';
 import UserProfileInfo from '../components/ui/cards/UserProfileCard';
-import { Feather } from '@expo/vector-icons'; // 👈 íconos
+import { Feather } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const theme = useTheme();
