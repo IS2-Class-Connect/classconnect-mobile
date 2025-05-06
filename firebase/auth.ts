@@ -11,129 +11,130 @@ import {
 	reload,
 	updateEmail,
 	sendEmailVerification as sendVerificationEmail,
-	getAuth
-} from 'firebase/auth';
-
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅
-
-import { auth } from './config';
-
-WebBrowser.maybeCompleteAuthSession();
-
-// 🔁 Listen for session changes
-export function onAuthStateChangedListener(callback: (user: User | null) => void) {
-	return onAuthStateChanged(auth, callback);
-}
-
-// ✅ Register with email
-export async function registerWithEmail(email: string, password: string) {
+	getAuth,
+  } from 'firebase/auth';
+  
+  import * as Google from 'expo-auth-session/providers/google';
+  import * as WebBrowser from 'expo-web-browser';
+  import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
+  import { Platform } from 'react-native';
+  import AsyncStorage from '@react-native-async-storage/async-storage';
+  
+  import { auth } from './config';
+  
+  WebBrowser.maybeCompleteAuthSession();
+  
+  // 🔁 Listen for session changes
+  export function onAuthStateChangedListener(callback: (user: User | null) => void) {
+	return onAuthStateChanged(auth, async (fbUser) => {
+	  if (fbUser) {
+		console.log('🔁 AuthStateChanged: User is logged in:', fbUser.email);
+		await AsyncStorage.setItem('lastLogin', Date.now().toString());
+		const saved = await AsyncStorage.getItem('lastLogin');
+		console.log('🕒 [onAuth] lastLogin set to:', saved);
+	  } else {
+		console.log('🔁 AuthStateChanged: No user');
+	  }
+	  callback(fbUser);
+	});
+  }
+  
+  // ✅ Register with email
+  export async function registerWithEmail(email: string, password: string) {
 	const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 	await sendEmailVerification(userCredential.user);
-	await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
+	await AsyncStorage.setItem('lastLogin', Date.now().toString());
+	const saved = await AsyncStorage.getItem('lastLogin');
+	console.log('🕒 [register] lastLogin set to:', saved);
 	return userCredential;
-}
-
-// 📧 Check if email is verified
-export async function isEmailVerified(user?: User | null): Promise<boolean> {
+  }
+  
+  // 📧 Check if email is verified
+  export async function isEmailVerified(user?: User | null): Promise<boolean> {
 	try {
-	  // If no user is provided, use the current authenticated user
 	  const currentUser = user || auth.currentUser;
-	  
 	  if (!currentUser) {
 		console.log('❌ No user is currently logged in to check email verification');
 		return false;
 	  }
-	  
-	  // Reload the user to get the most up-to-date information from Firebase
 	  await reload(currentUser);
-	  
-	  // Check if email is verified
 	  const isVerified = currentUser.emailVerified;
-	  console.log(`📧 Email verification status for ${currentUser.email}: ${isVerified ? '✅ Verified' : '❌ Not verified'}`);
-	  
+	  console.log(`📧 Email verification for ${currentUser.email}: ${isVerified ? '✅ Verified' : '❌ Not verified'}`);
 	  return isVerified;
 	} catch (error) {
-	  console.log('❌ Error checking email verification status:', error);
+	  console.log('❌ Error checking email verification:', error);
 	  return false;
 	}
   }
   
-// 🔓 Login with email
-export async function loginWithEmail(email: string, password: string) {
+  // 🔓 Login with email
+  export async function loginWithEmail(email: string, password: string) {
 	const userCredential = await signInWithEmailAndPassword(auth, email, password);
-	await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
+	await AsyncStorage.setItem('lastLogin', Date.now().toString());
+	const saved = await AsyncStorage.getItem('lastLogin');
+	console.log('🕒 [login] lastLogin set to:', saved);
 	return userCredential;
-}
-
-// 🔒 Logout
-export function logout() {
+  }
+  
+  // 🔒 Logout
+  export function logout() {
 	return signOut(auth);
-}
-
-// 🛠 Reset password by sending a reset email
-export async function sendPasswordReset(email: string) {
-	if (!email) {
-		throw new Error('Email is required to reset password.');
-	}
+  }
+  
+  // 🛠 Reset password
+  export async function sendPasswordReset(email: string) {
+	if (!email) throw new Error('Email is required to reset password.');
 	try {
-		await sendPasswordResetEmail(auth, email);
-		console.log('📩 Password reset email sent to:', email);
+	  await sendPasswordResetEmail(auth, email);
+	  console.log('📩 Password reset email sent to:', email);
 	} catch (error) {
-		console.log('❌ Error sending reset email:', error);
-		throw error;
+	  console.log('❌ Error sending reset email:', error);
+	  throw error;
 	}
-}
-
-
-// 🔐 Google Sign-In with Expo Auth Session
-export function useGoogleSignIn() {
-	const redirectUri = "https://auth.expo.io/@classconnect/classconnect-mobile";
-
+  }
+  
+  // 🔐 Google Sign-In
+  export function useGoogleSignIn() {
+	const redirectUri = 'https://auth.expo.io/@classconnect/classconnect-mobile';
+  
 	const [request, response, promptAsync] = useAuthRequest(
-		{
-			clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com',
-			redirectUri,
-			scopes: ['openid', 'profile', 'email'],
-		},
-		Google.discovery
+	  {
+		clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com',
+		redirectUri,
+		scopes: ['openid', 'profile', 'email'],
+	  },
+	  Google.discovery
 	);
-
+  
 	async function handleGoogleResponse() {
-		try {
-			console.log('🔁 Google response detected:', JSON.stringify(response, null, 2));
-			if (response?.type === 'success') {
-				console.log('✅ Google login success response:', response);
-				const { idToken } = response.authentication!;
-				if (idToken) {
-					const credential = GoogleAuthProvider.credential(idToken);
-					const result = await signInWithCredential(auth, credential);
-					console.log('🔥 Firebase login success:', result.user.email);
-
-					await AsyncStorage.setItem('lastLogin', Date.now().toString()); // ✅
-				}
-			} else {
-				console.log('⚠️ Google response not successful:', response?.type);
-			}
-		} catch (e) {
-			console.log('❌ Error handling Google login:', e);
+	  try {
+		console.log('🔁 Google response:', JSON.stringify(response, null, 2));
+		if (response?.type === 'success') {
+		  const { idToken } = response.authentication!;
+		  if (idToken) {
+			const credential = GoogleAuthProvider.credential(idToken);
+			const result = await signInWithCredential(auth, credential);
+			console.log('🔥 Google login success:', result.user.email);
+  
+			await AsyncStorage.setItem('lastLogin', Date.now().toString());
+			const saved = await AsyncStorage.getItem('lastLogin');
+			console.log('🕒 [google] lastLogin set to:', saved);
+		  }
+		} else {
+		  console.log('⚠️ Google response not successful:', response?.type);
 		}
-	}
-
-	return { request, response, promptAsync, handleGoogleResponse };
-}
-
-// ✨ Update the authenticated user's email
-export async function updateFirebaseEmail(newEmail: string) {
-	const currentUser = getAuth().currentUser;
-	
-	if (!currentUser) {
-	  throw new Error('No authenticated user found.');
+	  } catch (e) {
+		console.log('❌ Error handling Google login:', e);
+	  }
 	}
   
+	return { request, response, promptAsync, handleGoogleResponse };
+  }
+  
+  // ✏️ Update email
+  export async function updateFirebaseEmail(newEmail: string) {
+	const currentUser = getAuth().currentUser;
+	if (!currentUser) throw new Error('No authenticated user found.');
 	try {
 	  console.log(`✏️ Updating email to: ${newEmail}`);
 	  await updateEmail(currentUser, newEmail);
@@ -144,18 +145,14 @@ export async function updateFirebaseEmail(newEmail: string) {
 	}
   }
   
-  // ✨ Send email verification to authenticated user
+  // ✉️ Send verification again
   export async function sendVerificationToCurrentUser() {
 	const currentUser = getAuth().currentUser;
-	
-	if (!currentUser) {
-	  throw new Error('No authenticated user found.');
-	}
-  
+	if (!currentUser) throw new Error('No authenticated user found.');
 	try {
 	  console.log(`📩 Sending email verification to: ${currentUser.email}`);
 	  await sendVerificationEmail(currentUser);
-	  console.log('✅ Email verification sent successfully');
+	  console.log('✅ Verification email sent');
 	} catch (error) {
 	  console.log('❌ Error sending verification email:', error);
 	  throw error;

@@ -15,33 +15,42 @@ export default function BiometricPrompt() {
 
   useEffect(() => {
     const authenticate = async () => {
-      try {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+  try {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-        if (!hasHardware || !isEnrolled) {
-          setErrorVisible(true);
-          return;
-        }
+    console.log('📱 Biometric hardware:', hasHardware);
+    console.log('📇 Biometric enrolled:', isEnrolled);
 
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Authenticate to Login',
-          fallbackLabel: 'Use PIN',
-          cancelLabel: 'Cancel',
-        });
+    if (!hasHardware || !isEnrolled) {
+      console.log('⚠️ Biometric not available');
+      setErrorVisible(true);
+      return;
+    }
 
-        if (result.success) {
-          router.replace('/(tabs)');
-        } else {
-          setErrorVisible(true);
-        }
-      } catch (error) {
-        console.log('❌ Biometric auth error:', error);
-        setErrorVisible(true);
-      } finally {
-        setIsAuthenticating(false);
-      }
-    };
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Authenticate to Login',
+      fallbackLabel: 'Use PIN',
+      cancelLabel: 'Cancel',
+    });
+
+    console.log('🔐 Auth result:', result);
+
+    if (result.success) {
+      console.log('✅ Auth success');
+      router.replace('/(tabs)');
+    } else {
+      console.log('❌ Auth failed');
+      setErrorVisible(true);
+    }
+  } catch (error) {
+    console.log('❌ Biometric auth error:', error);
+    setErrorVisible(true);
+  } finally {
+    setIsAuthenticating(false);
+  }
+};
+
 
     authenticate();
   }, []);
@@ -62,7 +71,7 @@ export default function BiometricPrompt() {
         visible={errorVisible}
         message="Could not verify your identity. Please try again or log in manually."
         type="error"
-        onClose={() => router.replace('/auth/login')}
+        onClose={() => router.replace('/login')}
       />
     </View>
   );
