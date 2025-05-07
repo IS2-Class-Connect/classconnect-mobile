@@ -19,7 +19,7 @@ export interface Course {
   registrationDeadline: string;
   endDate: string;
   totalPlaces: number;
-  teacherId: string; // 🆕 Agregado el campo teacherId
+  teacherId: string;
 }
 
 /**
