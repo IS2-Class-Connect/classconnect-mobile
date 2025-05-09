@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   StyleSheet,
   Modal,
   ScrollView,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,8 @@ import { Course } from '../services/coursesApi';
 import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
 import Button from '../components/ui/buttons/Button';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 export default function CourseDetailScreen() {
   const theme = useTheme();
@@ -25,10 +27,10 @@ export default function CourseDetailScreen() {
 
   if (typeof course !== 'string') {
     return (
-      <View style={[styles.full, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.text }}>⚠️ Invalid course data</Text>
-        <Button title="Back" onPress={() => router.back()} variant="secondary" />
-      </View>
+      <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.text, textAlign: 'center' }}>⚠️ Invalid course data</Text>
+        <Button title="Back" onPress={() => router.navigate('/(tabs)/courses')} variant="secondary" />
+      </SafeAreaView>
     );
   }
 
@@ -37,10 +39,10 @@ export default function CourseDetailScreen() {
     parsedCourse = JSON.parse(course);
   } catch (e) {
     return (
-      <View style={[styles.full, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.text }}>⚠️ Error parsing course data</Text>
-        <Button title="Back" onPress={() => router.back()} variant="secondary" />
-      </View>
+      <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.text, textAlign: 'center' }}>⚠️ Error parsing course data</Text>
+        <Button title="Back" onPress={() => router.navigate('/(tabs)/courses')} variant="secondary" />
+      </SafeAreaView>
     );
   }
 
@@ -56,64 +58,90 @@ export default function CourseDetailScreen() {
   const handleDelete = () => {
     setShowDeleteModal(false);
     console.log('Course deleted');
-    router.back();
+    router.navigate('/(tabs)/courses');
   };
 
   return (
-    <View style={[styles.full, { backgroundColor: theme.background }]}>
-      <TouchableOpacity onPress={router.back} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={theme.text} />
-      </TouchableOpacity>
-
-      <Text style={[styles.headerTitle, { color: theme.text }]}>{parsedCourse.title}</Text>
-
+    <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {editing ? (
-          <CourseForm
-            initialValues={parsedCourse}
-            onSubmit={handleUpdate}
-            onCancel={() => setEditing(false)}
-            submitLabel="Save Changes"
-          />
-        ) : (
-          <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.description, { color: theme.text }]}>{parsedCourse.description}</Text>
-            <View style={styles.metaRow}>
-              <Ionicons name="calendar-outline" size={16} color={theme.text} />
-              <Text style={[styles.meta, { color: theme.text }]}>Start date: {new Date(parsedCourse.startDate).toDateString()}</Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.navigate('/(tabs)/courses')} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        <Animated.Text
+          entering={FadeInUp.duration(400)}
+          style={[styles.headerTitle, { color: theme.text }]}
+        >
+          {parsedCourse.title}
+        </Animated.Text>
+
+        <View style={{ flexGrow: 1, justifyContent: 'center' }}>
+          {editing ? (
+            <CourseForm
+              initialValues={parsedCourse}
+              onSubmit={handleUpdate}
+              onCancel={() => setEditing(false)}
+              submitLabel="Save Changes"
+            />
+          ) : (
+            <View
+              style={[
+                styles.courseCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isTeacher ? theme.success : theme.primary,
+                },
+              ]}
+            >
+              <Text style={[styles.description, { color: theme.text }]}>
+                {parsedCourse.description}
+              </Text>
+
+              <View style={styles.metaGroup}>
+                <Ionicons name="calendar-outline" size={16} color={theme.text} />
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  Start: {new Date(parsedCourse.startDate).toDateString()}
+                </Text>
+              </View>
+              <View style={styles.metaGroup}>
+                <Ionicons name="alarm-outline" size={16} color={theme.text} />
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}
+                </Text>
+              </View>
+              <View style={styles.metaGroup}>
+                <Ionicons name="calendar-outline" size={16} color={theme.text} />
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  End: {new Date(parsedCourse.endDate).toDateString()}
+                </Text>
+              </View>
+              <View style={styles.metaGroup}>
+                <Ionicons name="people-outline" size={16} color={theme.text} />
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  {parsedCourse.totalPlaces} places
+                </Text>
+              </View>
             </View>
-            <View style={styles.metaRow}>
-              <Ionicons name="alarm-outline" size={16} color={theme.text} />
-              <Text style={[styles.meta, { color: theme.text }]}>Registration deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Ionicons name="calendar-outline" size={16} color={theme.text} />
-              <Text style={[styles.meta, { color: theme.text }]}>End date: {new Date(parsedCourse.endDate).toDateString()}</Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Ionicons name="people-outline" size={16} color={theme.text} />
-              <Text style={[styles.meta, { color: theme.text }]}>{parsedCourse.totalPlaces} total places</Text>
-            </View>
-          </View>
-        )}
+          )}
+        </View>
 
         <View style={styles.buttons}>
           {isTeacher ? (
-            <>
-              {!editing && (
+            !editing && (
+              <>
                 <TouchableOpacity onPress={() => setEditing(true)}>
-                  <Ionicons name="create-outline" size={32} color="#339CFF" />
+                  <Ionicons name="create-outline" size={28} color={theme.primary} />
                 </TouchableOpacity>
-              )}
-              {!editing && (
                 <TouchableOpacity onPress={() => setShowDeleteModal(true)}>
-                  <Ionicons name="trash-outline" size={32} color="red" />
+                  <Ionicons name="trash-outline" size={28} color={theme.error} />
                 </TouchableOpacity>
-              )}
-            </>
+              </>
+            )
           ) : (
-            <TouchableOpacity onPress={() => console.log('Enroll')}>
-              <Ionicons name="checkmark-circle-outline" size={32} color="#339CFF" />
+            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.buttonPrimary }]}>
+              <Text style={styles.enrollText}>Enroll</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -122,7 +150,9 @@ export default function CourseDetailScreen() {
       <Modal visible={showDeleteModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalText, { color: theme.text }]}>Are you sure you want to delete this course?</Text>
+            <Text style={[styles.modalText, { color: theme.text }]}>
+              Are you sure you want to delete this course?
+            </Text>
             <View style={styles.modalActions}>
               <Button title="Cancel" onPress={() => setShowDeleteModal(false)} variant="secondary" />
               <Button title="Delete" onPress={handleDelete} variant="secondary" />
@@ -130,57 +160,78 @@ export default function CourseDetailScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   full: {
     flex: 1,
-    paddingTop: spacing.xl + 10,
-  },
-  backButton: {
-    marginLeft: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: spacing.lg,
   },
   scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
     padding: spacing.lg,
-    paddingTop: 0,
     paddingBottom: spacing.xl,
-    gap: spacing.lg,
   },
-  card: {
-    padding: spacing.lg,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  backButton: {
+    marginBottom: spacing.sm,
+  },
+  headerTitle: {
+    fontSize: fonts.size.xxl,
+    fontWeight: '700',
+    fontFamily: fonts.family.regular,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  courseCard: {
+    borderWidth: 2,
     borderRadius: 16,
-    gap: spacing.md,
-    elevation: 2,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    minHeight: 300,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
   description: {
     fontSize: fonts.size.md,
+    fontFamily: fonts.family.regular,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
-  metaRow: {
+  metaGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   meta: {
     fontSize: fonts.size.sm,
+    fontFamily: fonts.family.regular,
   },
   buttons: {
     flexDirection: 'row',
-    gap: spacing.lg,
     justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
     marginTop: spacing.lg,
+  },
+  enrollBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 8,
+  },
+  enrollText: {
+    color: 'white',
+    fontSize: fonts.size.md,
+    fontWeight: '500',
+    fontFamily: fonts.family.regular,
   },
   modalOverlay: {
     flex: 1,
@@ -191,10 +242,11 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     padding: spacing.lg,
-    borderRadius: 12,
+    borderRadius: 16,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+    elevation: 5,
   },
   modalText: {
     fontSize: fonts.size.md,

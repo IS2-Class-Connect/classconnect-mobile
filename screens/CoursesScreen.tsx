@@ -61,23 +61,23 @@ export default function CoursesScreen() {
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/course-detail', params: { course: JSON.stringify(item) } })}
         style={[styles.courseCard, {
-          backgroundColor: isTeacher ? 'white' : theme.primary,
-          borderColor: theme.primary,
+          backgroundColor: theme.surface,
+          borderColor: isTeacher ? theme.success : theme.primary,
         }]}
       >
         <View style={styles.cardHeader}>
           <Ionicons
             name={isTeacher ? 'school-outline' : 'person-outline'}
             size={20}
-            color={isTeacher ? theme.primary : 'white'}
+            color={isTeacher ? theme.success : theme.primary}
           />
-          <Text style={[styles.courseTitle, { color: isTeacher ? theme.primary : 'white' }]}> 
+          <Text style={[styles.courseTitle, { color: theme.text }]}> 
             {item.title}
           </Text>
         </View>
         <Text
           numberOfLines={3}
-          style={[styles.courseDescription, { color: isTeacher ? theme.primary : 'white' }]}
+          style={[styles.courseDescription, { color: theme.text }]}
         >
           {item.description}
         </Text>
@@ -87,7 +87,7 @@ export default function CoursesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Courses</Text>
+      <Text style={[styles.title, { color: theme.text }]}>My Courses</Text>
 
       <FlatList
         data={courses}
@@ -124,7 +124,7 @@ export default function CoursesScreen() {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
               <CourseForm
                 onSubmit={handleCreateCourse}
                 onCancel={() => setModalVisible(false)}
@@ -145,33 +145,43 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: spacing.lg,
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   list: {
     paddingBottom: 100,
   },
   courseCard: {
-    padding: spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: spacing.lg,
     marginBottom: spacing.md,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    minHeight: 140,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
   courseTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     marginLeft: spacing.sm,
+    fontFamily: 'SpaceMono',
   },
   courseDescription: {
     fontSize: 14,
     fontWeight: '400',
+    fontFamily: 'SpaceMono',
+    lineHeight: 20,
+  },
+  
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
   fab: {
     position: 'absolute',
@@ -182,16 +192,17 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     padding: spacing.lg,
   },
   modalContent: {
     borderRadius: 16,
     padding: spacing.lg,
+    elevation: 10,
   },
 });
