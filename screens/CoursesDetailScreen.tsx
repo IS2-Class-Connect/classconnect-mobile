@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Text,
   StyleSheet,
@@ -6,13 +6,21 @@ import {
   ScrollView,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
-import { Course } from '../services/coursesApi';
+import {
+  Course,
+  deleteCourse,
+  enrollInCourse,
+  deleteEnrollment,
+  getCourseEnrollments,
+  Enrollment,
+} from '../services/coursesApi';
 import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
 import Button from '../components/ui/buttons/Button';
@@ -22,8 +30,13 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 export default function CourseDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, authToken } = useAuth();
   const { course } = useLocalSearchParams<{ course: string }>();
+
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   if (typeof course !== 'string') {
     return (
@@ -47,18 +60,73 @@ export default function CourseDetailScreen() {
   }
 
   const isTeacher = parsedCourse.teacherId === user?.uuid;
-  const [editing, setEditing] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    const fetchEnrollments = async () => {
+      if (!authToken) return;
+      try {
+        const res = await getCourseEnrollments(parsedCourse.id, authToken);
+        setEnrollments(res);
+        if (user) {
+          setIsEnrolled(res.some((e) => e.userId === user.uuid));
+        }
+      } catch (e) {
+        console.error('Error fetching enrollments', e);
+      }
+    };
+    fetchEnrollments();
+  }, [authToken]);
 
   const handleUpdate = async (updated: Omit<Course, 'id' | 'createdAt'>) => {
     console.log('Update:', updated);
     setEditing(false);
   };
 
-  const handleDelete = () => {
-    setShowDeleteModal(false);
-    console.log('Course deleted');
-    router.navigate('/(tabs)/courses');
+  const handleDelete = async () => {
+    if (!authToken) return;
+    try {
+      await deleteCourse(parsedCourse.id, authToken);
+      setShowDeleteModal(false);
+      router.navigate('/(tabs)/courses');
+    } catch (e) {
+      console.error('❌ Error deleting course:', e);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!authToken || !user) return;
+    try {
+      console.log('🚀 Enrolling with:', {
+        courseId: parsedCourse.id,
+        userId: user.uuid,
+        token: authToken,
+      });
+      
+      await enrollInCourse(parsedCourse.id, user.uuid, authToken);
+      setIsEnrolled(true);
+      Alert.alert('✅ Enrolled successfully');
+    } catch (e) {
+      console.error('❌ Error enrolling:', e);
+    }
+  };
+
+  const handleUnenroll = async () => {
+    if (!authToken || !user) return;
+    Alert.alert('Unenroll', 'Are you sure you want to unenroll?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unenroll',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteEnrollment(parsedCourse.id, user.uuid, authToken);
+            setIsEnrolled(false);
+          } catch (e) {
+            console.error('❌ Error unenrolling:', e);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -95,33 +163,22 @@ export default function CourseDetailScreen() {
                 },
               ]}
             >
-              <Text style={[styles.description, { color: theme.text }]}>
-                {parsedCourse.description}
-              </Text>
-
+              <Text style={[styles.description, { color: theme.text }]}> {parsedCourse.description}</Text>
               <View style={styles.metaGroup}>
                 <Ionicons name="calendar-outline" size={16} color={theme.text} />
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  Start: {new Date(parsedCourse.startDate).toDateString()}
-                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>Start: {new Date(parsedCourse.startDate).toDateString()}</Text>
               </View>
               <View style={styles.metaGroup}>
                 <Ionicons name="alarm-outline" size={16} color={theme.text} />
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}
-                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
               </View>
               <View style={styles.metaGroup}>
                 <Ionicons name="calendar-outline" size={16} color={theme.text} />
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  End: {new Date(parsedCourse.endDate).toDateString()}
-                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>End: {new Date(parsedCourse.endDate).toDateString()}</Text>
               </View>
               <View style={styles.metaGroup}>
                 <Ionicons name="people-outline" size={16} color={theme.text} />
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  {parsedCourse.totalPlaces} places
-                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>{parsedCourse.totalPlaces} places</Text>
               </View>
             </View>
           )}
@@ -140,9 +197,15 @@ export default function CourseDetailScreen() {
               </>
             )
           ) : (
-            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.buttonPrimary }]}>
-              <Text style={styles.enrollText}>Enroll</Text>
-            </TouchableOpacity>
+            isEnrolled ? (
+              <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.error }]} onPress={handleUnenroll}>
+                <Text style={styles.enrollText}>Unenroll</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.buttonPrimary }]} onPress={handleEnroll}>
+                <Text style={styles.enrollText}>Enroll</Text>
+              </TouchableOpacity>
+            )
           )}
         </View>
       </ScrollView>
@@ -150,9 +213,7 @@ export default function CourseDetailScreen() {
       <Modal visible={showDeleteModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalText, { color: theme.text }]}>
-              Are you sure you want to delete this course?
-            </Text>
+            <Text style={[styles.modalText, { color: theme.text }]}>Are you sure you want to delete this course?</Text>
             <View style={styles.modalActions}>
               <Button title="Cancel" onPress={() => setShowDeleteModal(false)} variant="secondary" />
               <Button title="Delete" onPress={handleDelete} variant="secondary" />
@@ -165,9 +226,7 @@ export default function CourseDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  full: {
-    flex: 1,
-  },
+  full: { flex: 1 },
   scrollContainer: {
     padding: spacing.lg,
     paddingBottom: spacing.xl,
@@ -177,9 +236,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  backButton: {
-    marginBottom: spacing.sm,
-  },
+  backButton: { marginBottom: spacing.sm },
   headerTitle: {
     fontSize: fonts.size.xxl,
     fontWeight: '700',

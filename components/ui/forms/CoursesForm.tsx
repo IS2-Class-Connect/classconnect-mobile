@@ -87,6 +87,28 @@ export default function CourseForm({
     }
     if (!user?.uuid) return;
 
+    const now = new Date();
+    if (registrationDeadline <= now) {
+      setErrorMessage('Registration deadline must be a future date.');
+      setErrorDialogVisible(true);
+      return;
+    }
+    if (startDate <= now) {
+      setErrorMessage('Start date must be a future date.');
+      setErrorDialogVisible(true);
+      return;
+    }
+    if (endDate <= startDate) {
+      setErrorMessage('End date must be after the start date.');
+      setErrorDialogVisible(true);
+      return;
+    }
+    if (endDate <= registrationDeadline) {
+      setErrorMessage('End date must be after the registration deadline.');
+      setErrorDialogVisible(true);
+      return;
+    }
+
     const data: Omit<Course, 'id' | 'createdAt'> = {
       title,
       description,
