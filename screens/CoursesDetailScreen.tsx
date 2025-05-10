@@ -26,6 +26,7 @@ import CourseForm from '../components/ui/forms/CoursesForm';
 import Button from '../components/ui/buttons/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import AssistantSelector from '../components/ui/modals/AssistantSelector';
 
 export default function CourseDetailScreen() {
   const theme = useTheme();
@@ -39,6 +40,7 @@ export default function CourseDetailScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isFull, setIsFull] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+  const [showAssistantSelector, setShowAssistantSelector] = useState(false);
 
   if (typeof course !== 'string') {
     return (
@@ -102,7 +104,7 @@ export default function CourseDetailScreen() {
   const handleEnroll = async () => {
     if (!authToken || !user) return;
     try {
-      await enrollInCourse(parsedCourse.id, user.uuid, authToken);
+      await enrollInCourse(parsedCourse.id, user.uuid, authToken, 'STUDENT');
       setIsEnrolled(true);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
@@ -136,7 +138,7 @@ export default function CourseDetailScreen() {
     : theme.success;
 
   return (
-    <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>      
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.navigate('/(tabs)/courses')} style={styles.backButton}>
@@ -200,6 +202,9 @@ export default function CourseDetailScreen() {
                 <TouchableOpacity onPress={() => setShowDeleteModal(true)}>
                   <Ionicons name="trash-outline" size={28} color={theme.error} />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowAssistantSelector(true)}>
+                  <Ionicons name="person-add-outline" size={28} color={theme.primary} />
+                </TouchableOpacity>
               </>
             )
           ) : isEnrolled ? (
@@ -225,6 +230,15 @@ export default function CourseDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <AssistantSelector
+        visible={showAssistantSelector}
+        onClose={() => setShowAssistantSelector(false)}
+        courseId={parsedCourse.id}
+        existingAssistants={enrollments
+          .filter((e) => e.userId !== user?.uuid)
+          .map((e) => e.userId)}
+      />
     </SafeAreaView>
   );
 }

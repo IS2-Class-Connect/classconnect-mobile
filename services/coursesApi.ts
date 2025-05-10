@@ -86,11 +86,12 @@ export async function deleteCourse(id: number, token: string): Promise<void> {
 export async function enrollInCourse(
   courseId: number,
   userId: string,
-  token: string
+  token: string,
+  role: 'STUDENT' | 'ASSISTANT' = 'STUDENT'
 ): Promise<Enrollment> {
   const response = await postToGateway(
     `/courses/${courseId}/enrollments`,
-    { userId, role: 'STUDENT' },
+    { userId, role: role },
     token
   );
   console.log(`✅ User ${userId} enrolled in course ${courseId}`);
