@@ -27,6 +27,7 @@ export interface Enrollment {
   courseId: number;
   userId: string;
   createdAt: string;
+  role: 'STUDENT' | 'ASSISTANT';
 }
 
 /**

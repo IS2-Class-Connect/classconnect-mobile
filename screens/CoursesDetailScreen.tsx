@@ -232,13 +232,12 @@ export default function CourseDetailScreen() {
       </Modal>
 
       <AssistantSelector
-        visible={showAssistantSelector}
-        onClose={() => setShowAssistantSelector(false)}
-        courseId={parsedCourse.id}
-        existingAssistants={enrollments
-          .filter((e) => e.userId !== user?.uuid)
-          .map((e) => e.userId)}
-      />
+          visible={showAssistantSelector}
+          onClose={() => setShowAssistantSelector(false)}
+          courseId={parsedCourse.id}
+          enrollments={enrollments}
+        />
+
     </SafeAreaView>
   );
 }

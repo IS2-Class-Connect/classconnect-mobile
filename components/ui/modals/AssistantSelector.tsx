@@ -15,17 +15,17 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useAuth } from '../../../context/AuthContext';
 import { getAllUsers, User } from '../../../services/userApi';
-import { enrollInCourse } from '../../../services/coursesApi';
+import { enrollInCourse, deleteEnrollment } from '../../../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AssistantSelectorProps {
   visible: boolean;
   onClose: () => void;
   courseId: number;
-  existingAssistants: string[];
+  enrollments: { userId: string; role: 'STUDENT' | 'ASSISTANT' }[];
 }
 
-export default function AssistantSelector({ visible, onClose, courseId, existingAssistants }: AssistantSelectorProps) {
+export default function AssistantSelector({ visible, onClose, courseId, enrollments }: AssistantSelectorProps) {
   const theme = useTheme();
   const { authToken, user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
@@ -40,11 +40,20 @@ export default function AssistantSelector({ visible, onClose, courseId, existing
     if (!authToken || !currentUser) return;
     try {
       const all = await getAllUsers(authToken);
-      const eligible = all.filter(
-        (u) =>
+      const enriched = all.map((u, i) => ({
+        ...u,
+        uuid: u.uuid ?? `fake-uuid-${i}`,
+      }));
+
+      const assistants = enrollments.filter(e => e.role === 'ASSISTANT').map(e => e.userId);
+      const enrolled = enrollments.map(e => e.userId);
+
+      const eligible = enriched.filter(
+        u =>
           u.uuid !== currentUser.uuid &&
-          !existingAssistants.includes(u.uuid)
+          enrolled.includes(u.uuid)
       );
+
       setUsers(eligible);
       setFilteredUsers(eligible);
     } catch (e) {
@@ -84,50 +93,107 @@ export default function AssistantSelector({ visible, onClose, courseId, existing
     );
   };
 
+  const handleRemoveAssistant = (selectedUser: User) => {
+    Alert.alert(
+      'Remove Assistant',
+      `Do you want to remove ${selectedUser.name} as an assistant?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (!authToken) return;
+              await deleteEnrollment(courseId, selectedUser.uuid, authToken);
+              Alert.alert('✅ Removed', `${selectedUser.name} is no longer an assistant.`);
+              onClose();
+            } catch (error) {
+              console.error('❌ Error removing assistant:', error);
+              Alert.alert('❌ Error', 'Could not remove assistant.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={[styles.container, { backgroundColor: theme.background }]}>  
-        <TextInput
-          placeholder="Search users..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-          style={[styles.searchInput, { color: theme.text }]}
-          placeholderTextColor="#aaa"
-        />
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.overlay}>
+        <View style={[styles.modalBox, { backgroundColor: theme.background, borderColor: theme.primary }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Select Assistant</Text>
+          <TextInput
+            placeholder="Search users..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholderTextColor="#aaa"
+          />
 
-        <FlatList
-          data={filteredUsers}
-          keyExtractor={(item) => item.uuid}
-          renderItem={({ item }) => (
-            <View style={styles.userRow}>
-              {item.urlProfilePhoto && (
-                <Image source={{ uri: item.urlProfilePhoto }} style={styles.avatar} />
-              )}
-              <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
-              <TouchableOpacity onPress={() => handleAddAssistant(item)}>
-                <Ionicons name="person-add-outline" size={24} color={theme.primary} />
-              </TouchableOpacity>
-            </View>
-          )}
-          ListEmptyComponent={
-            <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.lg }}>
-              No users found.
-            </Text>
-          }
-        />
+          <FlatList
+            data={filteredUsers}
+            keyExtractor={(item, index) => item.uuid ?? `fallback-${index}`}
+            renderItem={({ item }) => {
+              const isAssistant = enrollments.some(
+                e => e.userId === item.uuid && e.role === 'ASSISTANT'
+              );
+              return (
+                <View style={styles.userRow}>
+                  {item.urlProfilePhoto && (
+                    <Image source={{ uri: item.urlProfilePhoto }} style={styles.avatar} />
+                  )}
+                  <Text style={[styles.userName, { color: theme.text }]}>{item.name}</Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      isAssistant ? handleRemoveAssistant(item) : handleAddAssistant(item)
+                    }
+                  >
+                    <Ionicons
+                      name={isAssistant ? 'person-remove-outline' : 'person-add-outline'}
+                      size={24}
+                      color={isAssistant ? theme.error : theme.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.lg }}>
+                No users found.
+              </Text>
+            }
+          />
 
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-          <Text style={styles.closeText}>Close</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { borderColor: theme.primary }]}>
+            <Text style={[styles.closeText, { color: theme.text }]}>Close</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  modalBox: {
+    width: '90%',
+    maxHeight: '85%',
+    borderRadius: 16,
     padding: spacing.lg,
+    borderWidth: 2,
+  },
+  modalTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   searchInput: {
     borderRadius: 8,
@@ -156,10 +222,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   closeBtn: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     padding: spacing.sm,
-    backgroundColor: '#ccc',
     borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
   },
   closeText: {
