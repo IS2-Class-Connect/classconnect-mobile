@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import TextField from '../fields/TextField';
@@ -14,7 +15,7 @@ import Dialog from '../alerts/Dialog';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
-import { Course } from '../../../services/coursesApi';
+import { Course, updateCourse } from '../../../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -36,7 +37,7 @@ export default function CourseForm({
   submitLabel = 'Save',
 }: CourseFormProps) {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { user, authToken } = useAuth();
 
   const [title, setTitle] = useState(initialValues.title ?? '');
   const [description, setDescription] = useState(initialValues.description ?? '');
@@ -74,7 +75,7 @@ export default function CourseForm({
     closePicker();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       setErrorMessage('Title is required.');
       setErrorDialogVisible(true);
@@ -119,12 +120,22 @@ export default function CourseForm({
       endDate: endDate.toISOString(),
     };
 
+    if (initialValues.id && authToken) {
+      try {
+        await updateCourse(initialValues.id, data, authToken);
+        Alert.alert('✅ Success', 'Course updated successfully.');
+      } catch (e) {
+        Alert.alert('❌ Error', 'Failed to update course.');
+        return;
+      }
+    }
+
     onSubmit(data);
   };
 
   const renderDateField = (label: string, date: Date, field: 'start' | 'deadline' | 'end') => (
     <TouchableOpacity
-      style={styles.dateField}
+      style={[styles.dateField, { borderBottomColor: theme.primary }]}
       onPress={() => openPicker(field)}
     >
       <Ionicons name="calendar-outline" size={20} color={theme.text} />
@@ -135,37 +146,41 @@ export default function CourseForm({
   );
 
   return (
-    <View style={styles.form}>
-      <TextField placeholder="Title" value={title} onChangeText={setTitle} />
-      <TextField
-        placeholder="Description"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        numberOfLines={6}
-        style={styles.description}
-      />
-      <TextField
-        placeholder="Total Places"
-        value={totalPlaces}
-        onChangeText={setTotalPlaces}
-        keyboardType="numeric"
-      />
-
-      {renderDateField('Start Date', startDate, 'start')}
-      {renderDateField('Registration Deadline', registrationDeadline, 'deadline')}
-      {renderDateField('End Date', endDate, 'end')}
-
-      <View style={styles.buttons}>
-        <Button
-          title={submitLabel}
-          onPress={handleSubmit}
-          disabled={loading}
-          loading={loading}
-          variant="primary"
+    <View style={[styles.wrapper, { borderColor: theme.primary }]}>
+      <Text style={[styles.formTitle, { color: theme.primary }]}>Create Your Course</Text>
+      <View style={[styles.form]}>
+        <TextField placeholder="Title" value={title} onChangeText={setTitle} />
+        <TextField
+          placeholder="Description"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={6}
+          style={styles.description}
         />
-        <View style={{ marginTop: spacing.md }}>
-          <Button title="Cancel" onPress={onCancel} variant="secondary" />
+        <TextField
+          placeholder="Total Places"
+          value={totalPlaces}
+          onChangeText={setTotalPlaces}
+          keyboardType="numeric"
+          editable={!initialValues.id}
+        />
+
+        {renderDateField('Registration Deadline', registrationDeadline, 'deadline')}
+        {renderDateField('Start Date', startDate, 'start')}
+        {renderDateField('End Date', endDate, 'end')}
+
+        <View style={styles.buttons}>
+          <Button
+            title={submitLabel}
+            onPress={handleSubmit}
+            disabled={loading}
+            loading={loading}
+            variant="primary"
+          />
+          <View style={{ marginTop: spacing.md }}>
+            <Button title="Cancel" onPress={onCancel} variant="secondary" />
+          </View>
         </View>
       </View>
 
@@ -220,9 +235,20 @@ export default function CourseForm({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
   form: {
     padding: spacing.lg,
     gap: spacing.md,
+  },
+  formTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   description: {
     minHeight: 120,
@@ -232,6 +258,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
   },
   dateText: {
     fontSize: fonts.size.md,

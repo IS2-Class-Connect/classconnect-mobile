@@ -1,73 +1,71 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Course, getCourseEnrollments, Enrollment } from '../../../services/coursesApi';
+import { Course } from '../../../services/coursesApi';
 import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
-import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'expo-router';
 
 interface CourseCardProps {
   course: Course;
   isTeacher: boolean;
   isEnrolled: boolean;
+  isFull: boolean;
+  isClosed: boolean;
 }
 
-export default function CourseCard({ course, isTeacher, isEnrolled }: CourseCardProps) {
+export default function CourseCard({ course, isTeacher, isEnrolled, isFull, isClosed }: CourseCardProps) {
   const theme = useTheme();
   const router = useRouter();
-  const { authToken } = useAuth();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [isFull, setIsFull] = useState(false);
-  const [isClosed, setIsClosed] = useState(false);
 
-  const fetchEnrollments = async () => {
-    if (!authToken) return;
-    try {
-      const result = await getCourseEnrollments(course.id, authToken);
-      setEnrollments(result);
-      setIsFull(result.length >= course.totalPlaces);
+  const shouldShowRed = isClosed && !isEnrolled && !isTeacher;
 
-      const now = new Date();
-      const deadlinePassed = new Date(course.registrationDeadline) < now;
-      setIsClosed(deadlinePassed || result.length >= course.totalPlaces);
-    } catch (e) {
-      console.error('❌ Error fetching enrollments:', e);
-    }
-  };
+  const borderColor = shouldShowRed
+    ? theme.error
+    : isTeacher || isEnrolled
+    ? theme.primary
+    : theme.success;
 
-  useEffect(() => {
-    fetchEnrollments();
-  }, [authToken]);
+  const iconName = isTeacher
+    ? 'school-outline'
+    : isEnrolled
+    ? 'person-outline'
+    : isFull
+    ? 'lock-closed-outline'
+    : 'checkmark-done-outline';
+
+  const iconColor = shouldShowRed
+    ? theme.error
+    : isTeacher || isEnrolled
+    ? theme.primary
+    : theme.success;
+
+  const cardMessage = isFull && !isEnrolled
+    ? 'FULLY BOOKED'
+    : isEnrolled
+    ? ", You're enrolled"
+    : '';
 
   return (
     <TouchableOpacity
       onPress={() => router.push({ pathname: '/course-detail', params: { course: JSON.stringify(course) } })}
       style={[styles.card, {
         backgroundColor: theme.surface,
-        borderColor: isClosed ? theme.error : isTeacher ? theme.success : isEnrolled ? theme.primary : theme.success,
+        borderColor: borderColor,
       }]}
     >
       <View style={styles.header}>
-        <Ionicons
-          name={isTeacher ? 'school-outline' : isEnrolled ? 'person-outline' : 'checkmark-done-outline'}
-          size={20}
-          color={isTeacher ? theme.success : isEnrolled ? theme.primary : theme.success}
-        />
+        <Ionicons name={iconName} size={20} color={iconColor} />
         <Text style={[styles.title, { color: theme.text }]}> {course.title}</Text>
-        {isClosed && (
+        {shouldShowRed && (
           <Ionicons name="lock-closed-outline" size={18} color={theme.error} style={{ marginLeft: 6 }} />
         )}
       </View>
 
       <Text numberOfLines={3} style={[styles.description, { color: theme.text }]}> {course.description}</Text>
 
-      <Text style={[styles.info, { color: theme.text }]}> {enrollments.length} / {course.totalPlaces} enrolled</Text>
-
-      {isEnrolled && (
-        <Text style={[styles.enrolled, { color: theme.success }]}>✔ You're enrolled</Text>
-      )}
+      <Text style={[styles.info, { color: theme.text }]}> {course.totalPlaces} places total{cardMessage}</Text>
     </TouchableOpacity>
   );
 }
@@ -106,10 +104,5 @@ const styles = StyleSheet.create({
   info: {
     fontSize: 13,
     fontStyle: 'italic',
-  },
-  enrolled: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: spacing.xs,
   },
 });

@@ -37,6 +37,8 @@ export default function CourseDetailScreen() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isFull, setIsFull] = useState(false);
+  const [isClosed, setIsClosed] = useState(false);
 
   if (typeof course !== 'string') {
     return (
@@ -70,6 +72,11 @@ export default function CourseDetailScreen() {
         if (user) {
           setIsEnrolled(res.some((e) => e.userId === user.uuid));
         }
+        const now = new Date();
+        const full = res.length >= parsedCourse.totalPlaces;
+        const closed = new Date(parsedCourse.registrationDeadline) < now;
+        setIsFull(full);
+        setIsClosed(closed || full);
       } catch (e) {
         console.error('Error fetching enrollments', e);
       }
@@ -78,7 +85,6 @@ export default function CourseDetailScreen() {
   }, [authToken]);
 
   const handleUpdate = async (updated: Omit<Course, 'id' | 'createdAt'>) => {
-    console.log('Update:', updated);
     setEditing(false);
   };
 
@@ -96,12 +102,6 @@ export default function CourseDetailScreen() {
   const handleEnroll = async () => {
     if (!authToken || !user) return;
     try {
-      console.log('🚀 Enrolling with:', {
-        courseId: parsedCourse.id,
-        userId: user.uuid,
-        token: authToken,
-      });
-      
       await enrollInCourse(parsedCourse.id, user.uuid, authToken);
       setIsEnrolled(true);
       Alert.alert('✅ Enrolled successfully');
@@ -128,6 +128,12 @@ export default function CourseDetailScreen() {
       },
     ]);
   };
+
+  const borderColor = isTeacher || isEnrolled
+    ? theme.primary
+    : isClosed
+    ? theme.error
+    : theme.success;
 
   return (
     <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
@@ -159,7 +165,7 @@ export default function CourseDetailScreen() {
                 styles.courseCard,
                 {
                   backgroundColor: theme.card,
-                  borderColor: isTeacher ? theme.success : theme.primary,
+                  borderColor: borderColor,
                 },
               ]}
             >
@@ -196,16 +202,14 @@ export default function CourseDetailScreen() {
                 </TouchableOpacity>
               </>
             )
+          ) : isEnrolled ? (
+            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.error }]} onPress={handleUnenroll}>
+              <Text style={styles.enrollText}>Unenroll</Text>
+            </TouchableOpacity>
           ) : (
-            isEnrolled ? (
-              <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.error }]} onPress={handleUnenroll}>
-                <Text style={styles.enrollText}>Unenroll</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.buttonPrimary }]} onPress={handleEnroll}>
-                <Text style={styles.enrollText}>Enroll</Text>
-              </TouchableOpacity>
-            )
+            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.success }]} onPress={handleEnroll}>
+              <Text style={styles.enrollText}>Enroll</Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
