@@ -3,11 +3,24 @@
     "name": "ClassConnect",
     "slug": "classconnect-mobile",
     "version": "1.0.0",
+    "sdkVersion": "53.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "classconnect",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "jsEngine": "jsc",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-secure-store"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classconnect.mobile",
@@ -30,40 +43,22 @@
               "host": "auth-callback"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "expo-secure-store"
-    ],
-    "experiments": {
-      "typedRoutes": true
+      "permissions": [],
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "output": "static"
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
       "eas": {
         "projectId": "8a4a7368-63c3-4bf8-91e1-9a9d4910eb6f"
+      },
+      "router": {
+        "origin": false
       }
     },
     "owner": "classconnect"

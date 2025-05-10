@@ -19,11 +19,12 @@ export default function StartupScreen() {
         const twoWeeksInMs = 1000 * 60 * 60 * 24 * 14;
         const now = Date.now();
 
+        console.log('🚀 Last login:', lastLogin);
         if (user && now - lastLogin < twoWeeksInMs) {
-          router.replace('/auth/biometric-prompt');
+          router.replace('/biometric-prompt');
 
         } else {
-          router.replace('/auth/login');
+          router.replace('/login');
         }
       }
     };

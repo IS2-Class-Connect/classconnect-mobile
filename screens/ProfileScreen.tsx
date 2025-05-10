@@ -69,7 +69,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.replace('/auth/login');
+            router.replace('/login');
           },
         },
       ],
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
   };
 
   const handleSearchUsers = () => {
-    router.push('/users/search-users');
+    router.push('/search-users');
   };
 
   return (
