@@ -33,15 +33,30 @@ export default function CoursesScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [tab, setTab] = useState<'my' | 'public' | 'enrolled' | 'favorites'>('my');
   const [searchTerm, setSearchTerm] = useState('');
+  const [enrolledSubtab, setEnrolledSubtab] = useState<'active' | 'finished'>('active');
 
   const fetchCourses = async () => {
     if (!authToken || !user) return;
     setLoading(true);
+  
     try {
       const allCourses = await getAllCourses(authToken);
+      console.log('✅ Total courses fetched:', allCourses.length);
+  
       const allEnrollments = await Promise.all(
-        allCourses.map((course) => getCourseEnrollments(course.id, authToken))
+        allCourses.map(async (course) => {
+          try {
+            const enrollments = await getCourseEnrollments(course.id, authToken);
+            console.log(`✅ Enrollments for course ID ${course.id} fetched`);
+            return enrollments;
+          } catch (err) {
+            console.error(`❌ Error fetching enrollments for course ID ${course.id}`, err);
+            console.log('🔎 Problematic course data:', course);
+            return []; // Previene romper todo el flujo
+          }
+        })
       );
+  
       const flatEnrollments = allEnrollments.flat();
       setCourses(allCourses);
       setEnrollments(flatEnrollments);
@@ -51,6 +66,7 @@ export default function CoursesScreen() {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchCourses();
@@ -80,11 +96,14 @@ export default function CoursesScreen() {
       .map((e) => e.courseId)
   );
 
+  const now = new Date();
+
   const filteredCourses = courses.filter((course) => {
     const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
     const isEnrolled = enrolledCourseIds.has(course.id);
     const isFavorite = favoriteCourseIds.has(course.id);
     const isTeacher = course.teacherId === user?.uuid;
+    const isFinished = new Date(course.endDate) < now;
 
     const match = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   course.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -93,7 +112,8 @@ export default function CoursesScreen() {
       case 'my':
         return isTeacher && match;
       case 'enrolled':
-        return isEnrolled && match;
+        if (!isEnrolled || !match) return false;
+        return enrolledSubtab === 'active' ? !isFinished : isFinished;
       case 'favorites':
         return isFavorite && match;
       case 'public':
@@ -159,6 +179,23 @@ export default function CoursesScreen() {
             <Text style={styles.tabLabel}>Favorites</Text>
           </TouchableOpacity>
         </View>
+
+        {tab === 'enrolled' && (
+          <View style={styles.subtabRow}>
+            <TouchableOpacity
+              onPress={() => setEnrolledSubtab('active')}
+              style={[styles.subtab, enrolledSubtab === 'active' && styles.activeTab]}
+            >
+              <Text style={styles.tabLabel}>Active</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setEnrolledSubtab('finished')}
+              style={[styles.subtab, enrolledSubtab === 'finished' && styles.activeTab]}
+            >
+              <Text style={styles.tabLabel}>Finished</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <FlatList
           data={filteredCourses}
@@ -242,11 +279,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
+  subtabRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
   tab: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.sm,
     marginHorizontal: 2,
+    borderRadius: 8,
+    backgroundColor: '#ccc',
+  },
+  subtab: {
+    flex: 0.45,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
     borderRadius: 8,
     backgroundColor: '#ccc',
   },

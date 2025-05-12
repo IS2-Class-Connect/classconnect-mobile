@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Course } from '../../../services/coursesApi';
 import { useTheme } from '../../../context/ThemeContext';
@@ -37,6 +37,34 @@ export default function CourseCard({
     ? 'Student'
     : null;
 
+  const remaining = course.totalPlaces - enrolledCount;
+  const remainingPercentage = remaining / course.totalPlaces;
+  const isLowAvailability = !isFull && !isClosed && (remainingPercentage <= 0.1 || remaining <= 5);
+
+  const iconColor = isTeacher || isAssistant || isEnrolled
+    ? theme.primary
+    : isClosed || isFull
+    ? theme.error
+    : isLowAvailability
+    ? theme.warning
+    : theme.success;
+
+  const borderColor = isTeacher || isAssistant || isEnrolled
+    ? theme.primary
+    : isClosed || isFull
+    ? theme.error
+    : isLowAvailability
+    ? theme.warning
+    : theme.success;
+
+  const statusLabel = isFull
+    ? 'FULL'
+    : isClosed
+    ? 'Registration closed'
+    : isLowAvailability
+    ? 'Few spots left'
+    : null;
+
   const iconName = isTeacher
     ? 'school-outline'
     : isAssistant
@@ -45,24 +73,8 @@ export default function CourseCard({
     ? 'school'
     : isClosed || isFull
     ? 'lock-closed-outline'
-    : null;
-
-  const iconColor = isTeacher || isAssistant || isEnrolled
-    ? theme.primary
-    : isClosed || isFull
-    ? theme.error
-    : theme.success;
-
-  const borderColor = isTeacher || isAssistant || isEnrolled
-    ? theme.primary
-    : isClosed || isFull
-    ? theme.error
-    : theme.success;
-
-  const statusLabel = isFull
-    ? 'FULL'
-    : isClosed
-    ? 'Registration closed'
+    : isLowAvailability
+    ? 'alert-circle-outline'
     : null;
 
   return (
@@ -92,7 +104,7 @@ export default function CourseCard({
       <Text style={[styles.info, { color: theme.text }]}> 
         {enrolledCount}/{course.totalPlaces} places
         {statusLabel ? (
-          <Text style={{ color: theme.error }}> – {statusLabel}</Text>
+          <Text style={{ color: isLowAvailability ? theme.warning : theme.error }}> – {statusLabel}</Text>
         ) : null}
       </Text>
     </TouchableOpacity>
