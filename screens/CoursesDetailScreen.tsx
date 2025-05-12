@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Text,
   StyleSheet,
-  Modal,
   ScrollView,
   TouchableOpacity,
   View,
   Alert,
+  ToastAndroid,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,11 +23,10 @@ import {
   getCourseEnrollments,
   Enrollment,
 } from '../services/coursesApi';
+import { getAllUsers } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
-import Button from '../components/ui/buttons/Button';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 import AssistantSelector from '../components/ui/modals/AssistantSelector';
 
 export default function CourseDetailScreen() {
@@ -36,75 +37,72 @@ export default function CourseDetailScreen() {
 
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isAssistant, setIsAssistant] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isFull, setIsFull] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
   const [showAssistantSelector, setShowAssistantSelector] = useState(false);
+  const [teacherInfo, setTeacherInfo] = useState<any>(null);
 
-  if (typeof course !== 'string') {
-    return (
-      <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
-        <Text style={{ color: theme.text, textAlign: 'center' }}>⚠️ Invalid course data</Text>
-        <Button title="Back" onPress={() => router.navigate('/(tabs)/courses')} variant="secondary" />
-      </SafeAreaView>
-    );
-  }
-
+  if (typeof course !== 'string') return null;
   let parsedCourse: Course;
   try {
     parsedCourse = JSON.parse(course);
   } catch (e) {
-    return (
-      <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>
-        <Text style={{ color: theme.text, textAlign: 'center' }}>⚠️ Error parsing course data</Text>
-        <Button title="Back" onPress={() => router.navigate('/(tabs)/courses')} variant="secondary" />
-      </SafeAreaView>
-    );
+    return null;
   }
 
   const isTeacher = parsedCourse.teacherId === user?.uuid;
 
   useEffect(() => {
-    const fetchEnrollments = async () => {
+    const fetchData = async () => {
       if (!authToken) return;
       try {
         const res = await getCourseEnrollments(parsedCourse.id, authToken);
         setEnrollments(res);
-        if (user) {
-          setIsEnrolled(res.some((e) => e.userId === user.uuid));
+        const mine = res.find((e) => e.userId === user?.uuid);
+        if (mine) {
+          setIsEnrolled(true);
+          setIsAssistant(mine.role === 'ASSISTANT');
+          setIsFavorite(mine.favorite);
         }
         const now = new Date();
-        const full = res.length >= parsedCourse.totalPlaces;
-        const closed = new Date(parsedCourse.registrationDeadline) < now;
-        setIsFull(full);
-        setIsClosed(closed || full);
+        setIsClosed(new Date(parsedCourse.registrationDeadline) < now);
+        setIsFull(res.length >= parsedCourse.totalPlaces);
+
+        const allUsers = await getAllUsers(authToken);
+        const teacher = allUsers.find((u) => u.uuid === parsedCourse.teacherId);
+        setTeacherInfo(teacher);
       } catch (e) {
-        console.error('Error fetching enrollments', e);
+        console.error(e);
       }
     };
-    fetchEnrollments();
-  }, [authToken]);
+    fetchData();
+  }, [authToken, parsedCourse.id, user?.uuid]);
 
-  const handleUpdate = async (updated: Omit<Course, 'id' | 'createdAt'>) => {
-    setEditing(false);
-  };
+  const role = useMemo(() => {
+    return isTeacher ? 'Professor' : isAssistant ? 'Assistant' : isEnrolled ? 'Student' : null;
+  }, [isTeacher, isAssistant, isEnrolled]);
 
-  const handleDelete = async () => {
-    if (!authToken) return;
-    try {
-      await deleteCourse(parsedCourse.id, authToken);
-      setShowDeleteModal(false);
-      router.navigate('/(tabs)/courses');
-    } catch (e) {
-      console.error('❌ Error deleting course:', e);
-    }
+  const statusLabel = isFull ? 'FULL' : isClosed ? 'Registration closed' : null;
+
+  const borderColor = useMemo(() => {
+    if (isTeacher) return theme.primary;
+    if (isClosed || isFull) return theme.error;
+    if (isAssistant || isEnrolled) return theme.primary;
+    return theme.success;
+  }, [theme, isTeacher, isAssistant, isEnrolled, isClosed, isFull]);
+
+  const handleFavorite = () => {
+    ToastAndroid.show('⭐ Favorite toggled (mock)', ToastAndroid.SHORT);
+    setIsFavorite(!isFavorite);
   };
 
   const handleEnroll = async () => {
     if (!authToken || !user) return;
     try {
-      await enrollInCourse(parsedCourse.id, user.uuid, authToken, 'STUDENT');
+      await enrollInCourse(parsedCourse.id, user.uuid, authToken);
       setIsEnrolled(true);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
@@ -131,205 +129,226 @@ export default function CourseDetailScreen() {
     ]);
   };
 
-  const borderColor = isTeacher || isEnrolled
-    ? theme.primary
-    : isClosed
-    ? theme.error
-    : theme.success;
+  const handleDelete = () => {
+    Alert.alert('Delete Course', 'Are you sure you want to delete this course?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCourse(parsedCourse.id, authToken!);
+            router.replace('/(tabs)/courses');
+          } catch (e) {
+            console.error('❌ Error deleting course:', e);
+          }
+        },
+      },
+    ]);
+  };
 
   return (
-    <SafeAreaView style={[styles.full, { backgroundColor: theme.background }]}>      
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>      
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.navigate('/(tabs)/courses')} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => router.replace('/courses')} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
 
-        <Animated.Text
-          entering={FadeInUp.duration(400)}
-          style={[styles.headerTitle, { color: theme.text }]}
-        >
-          {parsedCourse.title}
-        </Animated.Text>
-
-        <View style={{ flexGrow: 1, justifyContent: 'center' }}>
+        <View style={[styles.cardExpanded, { borderColor, backgroundColor: theme.card }]}>
           {editing ? (
             <CourseForm
               initialValues={parsedCourse}
-              onSubmit={handleUpdate}
+              onSubmit={() => setEditing(false)}
               onCancel={() => setEditing(false)}
               submitLabel="Save Changes"
             />
           ) : (
-            <View
-              style={[
-                styles.courseCard,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: borderColor,
-                },
-              ]}
-            >
-              <Text style={[styles.description, { color: theme.text }]}> {parsedCourse.description}</Text>
-              <View style={styles.metaGroup}>
-                <Ionicons name="calendar-outline" size={16} color={theme.text} />
+            <>
+              <View style={styles.titleRow}>
+                <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
+                <TouchableOpacity onPress={handleFavorite}>
+                  <Ionicons
+                    name={isFavorite ? 'star' : 'star-outline'}
+                    size={28}
+                    color={isFavorite ? theme.warning : theme.text}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {role && (
+                <View style={[styles.roleBadge, { backgroundColor: borderColor + '20' }]}>
+                  <Ionicons name="person-circle-outline" size={16} color={borderColor} />
+                  <Text style={[styles.roleText, { color: borderColor }]}>{role}</Text>
+                </View>
+              )}
+
+              <View style={[styles.descriptionBox, { backgroundColor: theme.primary + '20' }]}>
+                <Text style={[styles.description, { color: theme.text }]}>{parsedCourse.description}</Text>
+              </View>
+
+              {teacherInfo && (
+                <View style={styles.teacherRow}>
+                  <Image source={{ uri: teacherInfo.urlProfilePhoto }} style={styles.avatar} />
+                  <Text style={[styles.teacherName, { color: theme.text }]}>Teacher: {teacherInfo.name}</Text>
+                </View>
+              )}
+
+              <View style={styles.contentArea}>
+                <Text style={[styles.status, { color: theme.text }]}>Places: {enrollments.length}/{parsedCourse.totalPlaces}</Text>
+                {statusLabel && (
+                  <Text style={[styles.status, { color: theme.error }]}>Status: {statusLabel}</Text>
+                )}
                 <Text style={[styles.meta, { color: theme.text }]}>Start: {new Date(parsedCourse.startDate).toDateString()}</Text>
-              </View>
-              <View style={styles.metaGroup}>
-                <Ionicons name="alarm-outline" size={16} color={theme.text} />
                 <Text style={[styles.meta, { color: theme.text }]}>Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
-              </View>
-              <View style={styles.metaGroup}>
-                <Ionicons name="calendar-outline" size={16} color={theme.text} />
                 <Text style={[styles.meta, { color: theme.text }]}>End: {new Date(parsedCourse.endDate).toDateString()}</Text>
+
+                <View style={styles.divider} />
+
+                {(isTeacher || isAssistant) && (
+                  <View style={styles.editRow}>
+                    <TouchableOpacity onPress={() => setEditing(true)}>
+                      <Ionicons name="create-outline" size={28} color={theme.primary} />
+                    </TouchableOpacity>
+                    {isTeacher && (
+                      <>
+                        <TouchableOpacity onPress={() => setShowAssistantSelector(true)}>
+                          <Ionicons name="person-add-outline" size={28} color={theme.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleDelete}>
+                          <Ionicons name="trash-outline" size={28} color={theme.error} />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {!isTeacher && !isAssistant && isEnrolled && (
+                  <TouchableOpacity
+                    style={[styles.enrollButton, { backgroundColor: theme.error }]}
+                    onPress={handleUnenroll}
+                  >
+                    <Text style={styles.enrollText}>Unenroll</Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isTeacher && !isAssistant && !isEnrolled && (
+                  <TouchableOpacity
+                    disabled={isClosed || isFull}
+                    style={[styles.enrollButton, { backgroundColor: isClosed || isFull ? '#aaa' : theme.success }]}
+                    onPress={handleEnroll}
+                  >
+                    <Text style={styles.enrollText}>Enroll</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={styles.metaGroup}>
-                <Ionicons name="people-outline" size={16} color={theme.text} />
-                <Text style={[styles.meta, { color: theme.text }]}>{parsedCourse.totalPlaces} places</Text>
-              </View>
-            </View>
+            </>
           )}
         </View>
 
-        <View style={styles.buttons}>
-          {isTeacher ? (
-            !editing && (
-              <>
-                <TouchableOpacity onPress={() => setEditing(true)}>
-                  <Ionicons name="create-outline" size={28} color={theme.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowDeleteModal(true)}>
-                  <Ionicons name="trash-outline" size={28} color={theme.error} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowAssistantSelector(true)}>
-                  <Ionicons name="person-add-outline" size={28} color={theme.primary} />
-                </TouchableOpacity>
-              </>
-            )
-          ) : isEnrolled ? (
-            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.error }]} onPress={handleUnenroll}>
-              <Text style={styles.enrollText}>Unenroll</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={[styles.enrollBtn, { backgroundColor: theme.success }]} onPress={handleEnroll}>
-              <Text style={styles.enrollText}>Enroll</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
-
-      <Modal visible={showDeleteModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalText, { color: theme.text }]}>Are you sure you want to delete this course?</Text>
-            <View style={styles.modalActions}>
-              <Button title="Cancel" onPress={() => setShowDeleteModal(false)} variant="secondary" />
-              <Button title="Delete" onPress={handleDelete} variant="secondary" />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <AssistantSelector
+        <AssistantSelector
           visible={showAssistantSelector}
           onClose={() => setShowAssistantSelector(false)}
           courseId={parsedCourse.id}
           enrollments={enrollments}
         />
-
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  full: { flex: 1 },
-  scrollContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  backButton: { marginBottom: spacing.sm },
-  headerTitle: {
-    fontSize: fonts.size.xxl,
-    fontWeight: '700',
-    fontFamily: fonts.family.regular,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  courseCard: {
+  container: { flex: 1 },
+  scrollContainer: { padding: spacing.lg, paddingBottom: spacing.xl },
+  backButton: { marginBottom: spacing.md },
+  cardExpanded: {
+    flex: 1,
     borderWidth: 2,
     borderRadius: 16,
     padding: spacing.lg,
+    marginBottom: spacing.lg,
+    minHeight: Dimensions.get('window').height * 0.8,
+    justifyContent: 'space-between',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  title: {
+    fontSize: fonts.size.xxl,
+    fontWeight: '700',
+    fontFamily: fonts.family.regular,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     marginBottom: spacing.md,
-    minHeight: 300,
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+  },
+  roleText: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  descriptionBox: {
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
   description: {
-    fontSize: fonts.size.md,
-    fontFamily: fonts.family.regular,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
+    fontSize: fonts.size.lg,
+    lineHeight: 22,
   },
-  metaGroup: {
+  teacherRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  meta: {
-    fontSize: fonts.size.sm,
-    fontFamily: fonts.family.regular,
+  teacherName: {
+    fontSize: fonts.size.md,
+    fontWeight: '500',
   },
-  buttons: {
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  contentArea: {
+    gap: spacing.lg,
+    flexGrow: 1,
+  },
+  meta: {
+    fontSize: fonts.size.md,
+  },
+  status: {
+    fontSize: fonts.size.md,
+    fontStyle: 'italic',
+  },
+  enrollButton: {
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  enrollText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: fonts.size.md,
+  },
+  editRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.lg,
-    marginTop: spacing.lg,
   },
-  enrollBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 8,
-  },
-  enrollText: {
-    color: 'white',
-    fontSize: fonts.size.md,
-    fontWeight: '500',
-    fontFamily: fonts.family.regular,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalBox: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    elevation: 5,
-  },
-  modalText: {
-    fontSize: fonts.size.md,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
+  divider: {
+    height: 1,
+    backgroundColor: '#ccc',
+    opacity: 0.4,
+    marginVertical: spacing.lg,
   },
 });

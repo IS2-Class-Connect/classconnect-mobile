@@ -40,18 +40,9 @@ export default function AssistantSelector({ visible, onClose, courseId, enrollme
     if (!authToken || !currentUser) return;
     try {
       const all = await getAllUsers(authToken);
-      const enriched = all.map((u, i) => ({
-        ...u,
-        uuid: u.uuid ?? `fake-uuid-${i}`,
-      }));
 
-      const assistants = enrollments.filter(e => e.role === 'ASSISTANT').map(e => e.userId);
-      const enrolled = enrollments.map(e => e.userId);
-
-      const eligible = enriched.filter(
-        u =>
-          u.uuid !== currentUser.uuid &&
-          enrolled.includes(u.uuid)
+      const eligible = all.filter(
+        u => u.uuid && u.uuid !== currentUser.uuid
       );
 
       setUsers(eligible);
@@ -80,7 +71,14 @@ export default function AssistantSelector({ visible, onClose, courseId, enrollme
           onPress: async () => {
             try {
               if (!authToken) return;
-              await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
+              const isStudent = enrollments.some(
+                (e) => e.userId === selectedUser.uuid && e.role === 'STUDENT'
+              );
+              if (isStudent) {
+                // await patchEnrollment(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
+              } else {
+                await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
+              }
               Alert.alert('✅ Success', `${selectedUser.name} is now an assistant.`);
               onClose();
             } catch (error) {

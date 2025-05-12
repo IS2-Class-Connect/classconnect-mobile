@@ -28,6 +28,7 @@ export interface Enrollment {
   userId: string;
   createdAt: string;
   role: 'STUDENT' | 'ASSISTANT';
+  favorite: boolean;
 }
 
 /**

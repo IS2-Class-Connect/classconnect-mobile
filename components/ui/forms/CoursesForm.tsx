@@ -147,7 +147,9 @@ export default function CourseForm({
 
   return (
     <View style={[styles.wrapper, { borderColor: theme.primary }]}>
-      <Text style={[styles.formTitle, { color: theme.primary }]}>Create Your Course</Text>
+     <Text style={[styles.formTitle, { color: theme.primary }]}>
+      {initialValues.id ? 'Edit Course' : 'Create Your Course'}
+      </Text>
       <View style={[styles.form]}>
         <TextField placeholder="Title" value={title} onChangeText={setTitle} />
         <TextField
@@ -164,6 +166,7 @@ export default function CourseForm({
           onChangeText={setTotalPlaces}
           keyboardType="numeric"
           editable={!initialValues.id}
+          autoComplete='off'
         />
 
         {renderDateField('Registration Deadline', registrationDeadline, 'deadline')}

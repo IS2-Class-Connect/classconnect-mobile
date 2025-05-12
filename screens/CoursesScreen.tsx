@@ -9,8 +9,6 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -33,7 +31,7 @@ export default function CoursesScreen() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [tab, setTab] = useState<'my' | 'available' | 'enrolled'>('my');
+  const [tab, setTab] = useState<'my' | 'public' | 'enrolled' | 'favorites'>('my');
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchCourses = async () => {
@@ -71,27 +69,45 @@ export default function CoursesScreen() {
   };
 
   const enrolledCourseIds = new Set(
-    enrollments.filter((e) => e.userId === user?.uuid).map((e) => e.courseId)
+    enrollments
+      .filter((e) => e.userId === user?.uuid && (e.role === 'STUDENT' || e.role === 'ASSISTANT'))
+      .map((e) => e.courseId)
+  );
+
+  const favoriteCourseIds = new Set(
+    enrollments
+      .filter((e) => e.userId === user?.uuid && e.favorite)
+      .map((e) => e.courseId)
   );
 
   const filteredCourses = courses.filter((course) => {
     const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
     const isEnrolled = enrolledCourseIds.has(course.id);
-    const isFull = courseEnrollments.length >= course.totalPlaces;
-    const registrationClosed = new Date(course.registrationDeadline) < new Date();
+    const isFavorite = favoriteCourseIds.has(course.id);
     const isTeacher = course.teacherId === user?.uuid;
 
     const match = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   course.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (tab === 'my') return isTeacher && match;
-    if (tab === 'enrolled') return isEnrolled && match;
-    return !isTeacher && !isEnrolled && !isFull && !registrationClosed && match;
+    switch (tab) {
+      case 'my':
+        return isTeacher && match;
+      case 'enrolled':
+        return isEnrolled && match;
+      case 'favorites':
+        return isFavorite && match;
+      case 'public':
+        return !isTeacher && !isEnrolled && match;
+      default:
+        return false;
+    }
   });
 
   const renderItem = ({ item }: { item: Course }) => {
     const courseEnrollments = enrollments.filter((e) => e.courseId === item.id);
-    const isEnrolled = enrolledCourseIds.has(item.id);
+    const myEnrollment = courseEnrollments.find((e) => e.userId === user?.uuid);
+    const isEnrolled = !!myEnrollment;
+    const isAssistant = myEnrollment?.role === 'ASSISTANT';
     const isFull = courseEnrollments.length >= item.totalPlaces;
     const registrationClosed = new Date(item.registrationDeadline) < new Date();
     const isTeacher = item.teacherId === user?.uuid;
@@ -101,8 +117,10 @@ export default function CoursesScreen() {
         course={item}
         isTeacher={isTeacher}
         isEnrolled={isEnrolled}
+        isAssistant={isAssistant}
         isFull={isFull}
         isClosed={registrationClosed || isFull}
+        enrolledCount={courseEnrollments.length}
       />
     );
   };
@@ -125,13 +143,20 @@ export default function CoursesScreen() {
 
         <View style={styles.tabRow}>
           <TouchableOpacity onPress={() => setTab('my')} style={[styles.tab, tab === 'my' && styles.activeTab]}>
-            <Text style={{ color: theme.text }}>My Courses</Text>
+            <Ionicons name="person-circle-outline" size={16} color="#000" />
+            <Text style={styles.tabLabel}>My</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setTab('available')} style={[styles.tab, tab === 'available' && styles.activeTab]}>
-            <Text style={{ color: theme.text }}>Available</Text>
+          <TouchableOpacity onPress={() => setTab('public')} style={[styles.tab, tab === 'public' && styles.activeTab]}>
+            <Ionicons name="earth-outline" size={16} color="#000" />
+            <Text style={styles.tabLabel}>Public</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setTab('enrolled')} style={[styles.tab, tab === 'enrolled' && styles.activeTab]}>
-            <Text style={{ color: theme.text }}>Enrolled</Text>
+            <Ionicons name="school-outline" size={16} color="#000" />
+            <Text style={styles.tabLabel}>Enrolled</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setTab('favorites')} style={[styles.tab, tab === 'favorites' && styles.activeTab]}>
+            <Ionicons name="star-outline" size={16} color="#000" />
+            <Text style={styles.tabLabel}>Favorites</Text>
           </TouchableOpacity>
         </View>
 
@@ -214,17 +239,24 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
   tab: {
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    marginHorizontal: 2,
+    borderRadius: 8,
     backgroundColor: '#ccc',
   },
   activeTab: {
     backgroundColor: '#89B9FF',
+  },
+  tabLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 2,
   },
   list: {
     paddingBottom: 100,

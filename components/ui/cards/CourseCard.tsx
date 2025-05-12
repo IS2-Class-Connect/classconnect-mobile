@@ -11,61 +11,90 @@ interface CourseCardProps {
   course: Course;
   isTeacher: boolean;
   isEnrolled: boolean;
+  isAssistant: boolean;
   isFull: boolean;
   isClosed: boolean;
+  enrolledCount: number;
 }
 
-export default function CourseCard({ course, isTeacher, isEnrolled, isFull, isClosed }: CourseCardProps) {
+export default function CourseCard({
+  course,
+  isTeacher,
+  isEnrolled,
+  isAssistant,
+  isFull,
+  isClosed,
+  enrolledCount,
+}: CourseCardProps) {
   const theme = useTheme();
   const router = useRouter();
 
-  const shouldShowRed = isClosed && !isEnrolled && !isTeacher;
-
-  const borderColor = shouldShowRed
-    ? theme.error
-    : isTeacher || isEnrolled
-    ? theme.primary
-    : theme.success;
+  const role = isTeacher
+    ? 'Professor'
+    : isAssistant
+    ? 'Assistant'
+    : isEnrolled
+    ? 'Student'
+    : null;
 
   const iconName = isTeacher
     ? 'school-outline'
+    : isAssistant
+    ? 'person-add-outline'
     : isEnrolled
-    ? 'person-outline'
-    : isFull
+    ? 'school'
+    : isClosed || isFull
     ? 'lock-closed-outline'
-    : 'checkmark-done-outline';
+    : null;
 
-  const iconColor = shouldShowRed
-    ? theme.error
-    : isTeacher || isEnrolled
+  const iconColor = isTeacher || isAssistant || isEnrolled
     ? theme.primary
+    : isClosed || isFull
+    ? theme.error
     : theme.success;
 
-  const cardMessage = isFull && !isEnrolled
-    ? 'FULLY BOOKED'
-    : isEnrolled
-    ? ", You're enrolled"
-    : '';
+  const borderColor = isTeacher || isAssistant || isEnrolled
+    ? theme.primary
+    : isClosed || isFull
+    ? theme.error
+    : theme.success;
+
+  const statusLabel = isFull
+    ? 'FULL'
+    : isClosed
+    ? 'Registration closed'
+    : null;
 
   return (
     <TouchableOpacity
-      onPress={() => router.push({ pathname: '/course-detail', params: { course: JSON.stringify(course) } })}
-      style={[styles.card, {
-        backgroundColor: theme.surface,
-        borderColor: borderColor,
-      }]}
+      onPress={() =>
+        router.push({ pathname: '/course-detail', params: { course: JSON.stringify(course) } })
+      }
+      style={[styles.card, { backgroundColor: theme.surface, borderColor }]}
     >
+      {role && iconName && (
+        <View style={[styles.roleBadge, { backgroundColor: iconColor + '20' }]}>
+          <Ionicons name={iconName} size={14} color={iconColor} />
+          <Text style={[styles.roleText, { color: iconColor }]}>{role}</Text>
+        </View>
+      )}
+
       <View style={styles.header}>
-        <Ionicons name={iconName} size={20} color={iconColor} />
-        <Text style={[styles.title, { color: theme.text }]}> {course.title}</Text>
-        {shouldShowRed && (
-          <Ionicons name="lock-closed-outline" size={18} color={theme.error} style={{ marginLeft: 6 }} />
-        )}
+        <Text style={[styles.title, { color: theme.text }]}>{course.title}</Text>
       </View>
 
-      <Text numberOfLines={3} style={[styles.description, { color: theme.text }]}> {course.description}</Text>
+      <View style={styles.divider} />
 
-      <Text style={[styles.info, { color: theme.text }]}> {course.totalPlaces} places total{cardMessage}</Text>
+      <Text numberOfLines={3} style={[styles.description, { color: theme.text }]}>
+        {course.description}
+      </Text>
+
+      <Text style={[styles.info, { color: theme.text }]}> 
+        {enrolledCount}/{course.totalPlaces} places
+        {statusLabel ? (
+          <Text style={{ color: theme.error }}> – {statusLabel}</Text>
+        ) : null}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -79,20 +108,25 @@ const styles = StyleSheet.create({
     minHeight: 160,
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    marginLeft: spacing.sm,
     fontFamily: fonts.family.regular,
+    letterSpacing: 0.3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ccc',
+    marginVertical: spacing.sm,
+    opacity: 0.4,
   },
   description: {
     fontSize: 14,
@@ -104,5 +138,19 @@ const styles = StyleSheet.create({
   info: {
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: spacing.sm,
+  },
+  roleText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
 });
