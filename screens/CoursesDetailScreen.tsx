@@ -9,18 +9,21 @@ import {
   ToastAndroid,
   Dimensions,
   Image,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
+import { sendEnrollmentEmail } from '../services/emailService';
 import {
   Course,
   deleteCourse,
   enrollInCourse,
   deleteEnrollment,
   getCourseEnrollments,
+  updateEnrollment,
   Enrollment,
 } from '../services/coursesApi';
 import { getAllUsers } from '../services/userApi';
@@ -94,16 +97,27 @@ export default function CourseDetailScreen() {
     return theme.success;
   }, [theme, isTeacher, isAssistant, isEnrolled, isClosed, isFull]);
 
-  const handleFavorite = () => {
-    ToastAndroid.show('⭐ Favorite toggled (mock)', ToastAndroid.SHORT);
-    setIsFavorite(!isFavorite);
+  const handleFavorite = async () => {
+    if (!authToken || !user) return;
+    try {
+      const roleToSend = isAssistant ? 'ASSISTANT' : 'STUDENT';
+      await updateEnrollment(parsedCourse.id, user.uuid, { favorite: !isFavorite, role: roleToSend }, authToken);
+      setIsFavorite(!isFavorite);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`⭐ ${!isFavorite ? 'Added to' : 'Removed from'} favorites`, ToastAndroid.SHORT);
+      }
+    } catch (e) {
+      console.error('❌ Error updating favorite status:', e);
+    }
   };
+  
 
   const handleEnroll = async () => {
     if (!authToken || !user) return;
     try {
       await enrollInCourse(parsedCourse.id, user.uuid, authToken);
       setIsEnrolled(true);
+      await sendEnrollmentEmail(user.name, parsedCourse.title, user.email);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
       console.error('❌ Error enrolling:', e);
@@ -148,7 +162,7 @@ export default function CourseDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>      
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <TouchableOpacity onPress={() => router.replace('/courses')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
@@ -166,13 +180,15 @@ export default function CourseDetailScreen() {
             <>
               <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
-                <TouchableOpacity onPress={handleFavorite}>
-                  <Ionicons
-                    name={isFavorite ? 'star' : 'star-outline'}
-                    size={28}
-                    color={isFavorite ? theme.warning : theme.text}
-                  />
-                </TouchableOpacity>
+                {(isEnrolled || isAssistant) && (
+                  <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
+                    <Ionicons
+                      name={isFavorite ? 'star' : 'star-outline'}
+                      size={26}
+                      color={isFavorite ? theme.warning : theme.text}
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
 
               {role && (
@@ -250,6 +266,7 @@ export default function CourseDetailScreen() {
           onClose={() => setShowAssistantSelector(false)}
           courseId={parsedCourse.id}
           enrollments={enrollments}
+          courseName={parsedCourse.title}
         />
       </ScrollView>
     </SafeAreaView>
@@ -275,10 +292,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
+  favoriteButton: {
+    padding: 4,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
     fontSize: fonts.size.xxl,
     fontWeight: '700',
     fontFamily: fonts.family.regular,
+    flex: 1,
+    marginRight: 8,
   },
   roleBadge: {
     flexDirection: 'row',

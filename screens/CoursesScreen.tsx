@@ -114,8 +114,16 @@ export default function CoursesScreen() {
       case 'enrolled':
         if (!isEnrolled || !match) return false;
         return enrolledSubtab === 'active' ? !isFinished : isFinished;
-      case 'favorites':
-        return isFavorite && match;
+        case 'favorites':
+          const isRelated =
+            isTeacher ||
+            enrollments.some(
+              (e) =>
+                e.courseId === course.id &&
+                e.userId === user?.uuid &&
+                (e.role === 'ASSISTANT' || e.role === 'STUDENT')
+            );
+          return isFavorite && isRelated && match;        
       case 'public':
         return !isTeacher && !isEnrolled && match;
       default:

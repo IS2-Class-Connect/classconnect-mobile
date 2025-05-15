@@ -17,15 +17,18 @@ import { useAuth } from '../../../context/AuthContext';
 import { getAllUsers, User } from '../../../services/userApi';
 import { enrollInCourse, deleteEnrollment } from '../../../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
+import { sendAssistantAssignmentEmail, sendEnrollmentEmail } from '../../../services/emailService';
 
 interface AssistantSelectorProps {
   visible: boolean;
   onClose: () => void;
   courseId: number;
+  courseName: string;
   enrollments: { userId: string; role: 'STUDENT' | 'ASSISTANT' }[];
 }
 
-export default function AssistantSelector({ visible, onClose, courseId, enrollments }: AssistantSelectorProps) {
+export default function AssistantSelector({ visible, onClose, courseId, courseName, enrollments }: AssistantSelectorProps)
+{
   const theme = useTheme();
   const { authToken, user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
@@ -70,7 +73,7 @@ export default function AssistantSelector({ visible, onClose, courseId, enrollme
           text: 'Confirm',
           onPress: async () => {
             try {
-              if (!authToken) return;
+              if (!authToken || !currentUser) return;
               const isStudent = enrollments.some(
                 (e) => e.userId === selectedUser.uuid && e.role === 'STUDENT'
               );
@@ -79,6 +82,13 @@ export default function AssistantSelector({ visible, onClose, courseId, enrollme
               } else {
                 await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
               }
+              await sendAssistantAssignmentEmail(
+                selectedUser.name,
+                currentUser.name,
+                courseName,
+                selectedUser.email
+              );
+              
               Alert.alert('✅ Success', `${selectedUser.name} is now an assistant.`);
               onClose();
             } catch (error) {

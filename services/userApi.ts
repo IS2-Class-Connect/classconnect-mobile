@@ -7,7 +7,7 @@ import {
 } from './gatewayClient';
 
 /**
- * Interface representing the user model from the backend.
+ * Represents a user entity with location, profile information, and failed login attempt tracking.
  */
 export interface User {
   uuid: string;
@@ -19,6 +19,7 @@ export interface User {
   longitude: number | null;
   failedAttempts: number;
   accountLocked: boolean;
+  accountLockedByAdmins: boolean;
   description: string;
   lockUntil: Date | null;
   lastFailedAt: Date | null;

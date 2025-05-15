@@ -100,6 +100,24 @@ export async function enrollInCourse(
   return response.data as Enrollment;
 }
 
+/**
+ * Update a user's enrollment in a course
+ */
+export async function updateEnrollment(
+  courseId: number,
+  userId: string,
+  data: Partial<Pick<Enrollment, 'favorite' | 'role'>>,
+  token: string
+): Promise<Enrollment> {
+  const response = await patchToGateway(
+    `/courses/${courseId}/enrollments/${userId}`,
+    data,
+    token
+  );
+  console.log(`✅ Enrollment for user ${userId} in course ${courseId} updated`);
+  return response.data as Enrollment;
+}
+
 
 /**
  * Get enrollments for a course
