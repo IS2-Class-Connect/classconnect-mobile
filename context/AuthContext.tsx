@@ -11,12 +11,12 @@ import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatu
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
 
-// Types for authentication errors
 export type AuthError = 
   | 'invalid-credentials' 
   | 'user-not-found' 
   | 'too-many-requests' 
   | 'account-locked'
+  | 'account-locked-by-admins'
   | 'user-disabled'
   | 'email-not-verified'
   | 'network-error'
@@ -30,10 +30,11 @@ export type LockInfo = {
 };
 
 // Type for the authentication context
-type AuthContextType = {
+
+export type AuthContextType = {
   user: User | null;
   isLoading: boolean;
-  authToken: string | null; // ✨ agregado authToken
+  authToken: string | null;
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
@@ -68,6 +69,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserData = useCallback(async (token: string) => {
     try {
       const userData = await getCurrentUserFromBackend(token);
+
+      if (userData.accountLockedByAdmins) {
+        console.warn('⛔ User is locked by admins');
+        setUser(null);
+        throw new Error('account-locked-by-admins');
+      }
+
       setUser(userData);
       return userData;
     } catch (error: any) {
@@ -82,7 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshUserData = useCallback(async (tokenOverride?: string) => {
     const tokenToUse = tokenOverride || authToken;
     if (!tokenToUse) return;
-  
+
     setLoading(true);
     try {
       await fetchUserData(tokenToUse);
@@ -90,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   }, [authToken, fetchUserData]);
-  
 
   const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -99,14 +106,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await signInWithEmailAndPassword(auth, email, password);
       const token = await result.user.getIdToken();
       setAuthToken(token);
-
-      // const emailVerified = await isEmailVerified(result.user);
-      // if (!emailVerified) {
-      //   await firebaseLogout();
-      //   setAuthToken(null);
-      //   setUser(null);
-      //   return { success: false, error: 'email-not-verified' as AuthError };
-      // }
 
       try {
         const lockStatus = await checkLockStatus(email);
@@ -121,10 +120,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         await fetchUserData(token);
         return { success: true };
-      } catch {
+      } catch (error: any) {
         await firebaseLogout();
         setAuthToken(null);
         setUser(null);
+        if (error.message === 'account-locked-by-admins') {
+          return { success: false, error: 'account-locked-by-admins' as AuthError };
+        }
         return { success: false, error: 'server-error' as AuthError };
       }
     } catch (firebaseError: any) {
@@ -177,8 +179,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const token = await auth.currentUser.getIdToken();
         setAuthToken(token);
 
-        await fetchUserData(token);
-        return { success: true };
+        try {
+          await fetchUserData(token);
+          return { success: true };
+        } catch (error: any) {
+          await firebaseLogout();
+          setAuthToken(null);
+          setUser(null);
+          if (error.message === 'account-locked-by-admins') {
+            return { success: false, error: 'account-locked-by-admins' as AuthError };
+          }
+          return { success: false, error: 'server-error' as AuthError };
+        }
       } else {
         return { success: false, error: 'user-not-found' as AuthError };
       }
@@ -224,7 +236,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{ 
       user, 
       isLoading, 
-      authToken, // ✨ agregado authToken en el value
+      authToken,
       logout,
       refreshUserData,
       loginWithEmailAndPassword,

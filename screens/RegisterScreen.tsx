@@ -12,7 +12,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <RegisterForm onCancel={() => router.push('/auth/login')} />
+      <RegisterForm onCancel={() => router.push('/login')} />
     </View>
   );
 }
