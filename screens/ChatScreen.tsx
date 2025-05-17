@@ -11,10 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { sendToAI } from '../services/chatIA.ts';
-
-import { dbRealtime } from '../firebase/config';
-import { ref, push, serverTimestamp, onValue, off,set} from 'firebase/database';
+import { sendToAI ,addFeedback} from '../services/chatIA.ts';
 
 type Message = {
   id: string;
@@ -41,12 +38,14 @@ export default function ChatScreen() {
 
   const logUnknownInteraction = async (input: string, userId: string) => {
     try {
-      const unknownRef = ref(dbRealtime, `unknown`);
+      if (!user || !authToken) return;
+      //await addFeedback(input,authToken);
+           /* const unknownRef = ref(dbRealtime, `unknown`);
       await push(unknownRef, {
         question: input,
         createdAt: serverTimestamp(),
         userId: userId,
-      });
+      });*/
     } catch (error) {
       console.error('Error logging unknown input:', error);
     }
@@ -97,32 +96,25 @@ export default function ChatScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [messages]);
 
-    const saveFeedbackToRealtimeDB = async (
+    const saveFeedback = async (
     userId: string,
-    messageId: string,
     rating: number,
+    answer: string,
     comment_feedback?: string,
-    comment?: string
     ) => {
     try {
-        const feedbackRef = ref(dbRealtime, `feedback/${messageId}`);
-        await set(feedbackRef, {
-        rating,
-        comment_feedback: comment_feedback ?? null,
-        createdAt: serverTimestamp(),
-        userId:userId,
-        comment: comment,
-        });
+      if (!user || !authToken) return;
+      await addFeedback(answer,rating,userId,authToken,comment_feedback);
     } catch (error) {
-        console.error('Error saving feedback to Realtime DB:', error);
+        console.error('Error saving feedback:', error);
     }
     };
 
     useEffect(() => {
     if (!user) return;
 
-    const feedbackRef = ref(dbRealtime, `feedback/${user.uuid}`);
-    const unsubscribe = onValue(feedbackRef, (snapshot) => {
+   //const feedbackRef = ref(dbRealtime, `feedback/${user.uuid}`);
+    /*const unsubscribe = onValue(feedbackRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
         const initialFeedback: Record<string, number> = {};
@@ -133,22 +125,22 @@ export default function ChatScreen() {
         });
         setFeedbackSelected(initialFeedback);
         }
-    });
+    });*/
 
-    return () => off(feedbackRef, 'value', unsubscribe);
+    //return () => off(feedbackRef, 'value', unsubscribe);
     }, [user]);
 
     const handleFeedback = async (
     messageId: string,
     rating: number,
+    comment: string,
     comment_feedback?: string,
-    comment?: string
     ) => {
     if (!user) return;
 
     setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
 
-    await saveFeedbackToRealtimeDB(user.uuid, messageId, rating,comment_feedback, comment);
+    await saveFeedback(user.uuid, rating, comment,comment_feedback);
     };
 
     useEffect(() => {
@@ -208,8 +200,8 @@ export default function ChatScreen() {
                     handleFeedback(
                         item.id,
                         5,
+                        item.text,
                         feedbackComments[item.id],
-                        item.text
                     )
                     }
                 >
@@ -225,8 +217,8 @@ export default function ChatScreen() {
                     handleFeedback(
                         item.id,
                         1,
+                        item.text,
                         feedbackComments[item.id],
-                        item.text
                     )
                     }
                 >
@@ -257,8 +249,8 @@ export default function ChatScreen() {
                         handleFeedback(
                         item.id,
                         feedbackSelected[item.id],
+                        item.text,
                         feedbackComments[item.id],
-                        item.text
                         );
                         setEditingCommentId(null);
                     }}

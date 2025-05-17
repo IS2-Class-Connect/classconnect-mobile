@@ -17,3 +17,25 @@ export async function sendToAI(
         throw new Error('Error connecting with IA');
     }
 }
+
+export async function addFeedback(  
+  answer: string,
+  rating: number,
+  userId: string, 
+  token: string,
+  comment_feedback?: string,
+) {
+
+     try {
+        comment_feedback = comment_feedback ?? 'sdasdasd';
+
+        const response = await postToGateway(
+            '/users/chat/feedback',
+            {answer,comment_feedback,rating, userId  }      ,           
+           token
+            );
+        return response.answer; 
+  } catch (error) {
+        throw new Error('Error connecting with IA');
+    }
+}
