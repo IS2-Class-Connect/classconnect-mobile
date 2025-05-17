@@ -6,6 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore'; // 🆕 FIRESTORE
+import { getDatabase } from 'firebase/database';    // Realtime Database
 
 // ✅ First, configure and create the app
 const firebaseConfig = {
@@ -25,5 +26,6 @@ const auth = initializeAuth(app, {
 });
 const storage = getStorage(app);
 const db = getFirestore(app); // 🆕 FIRESTORE INSTANCE
+const dbRealtime = getDatabase(app); // <-- Inicializar Realtime Database
 
-export { app, auth, storage, db }; // 🆕 export db también
+export { app, auth, storage, db, dbRealtime }; // 🆕 export db también

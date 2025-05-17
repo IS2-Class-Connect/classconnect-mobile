@@ -1,8 +1,21 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { SafeAreaView, View, Text, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import {sendToAI} from '../services/chatIA.ts';
+import { sendToAI } from '../services/chatIA.ts';
+
+import { dbRealtime } from '../firebase/config'; 
+import { ref, push, serverTimestamp, onValue, off } from 'firebase/database';
+
 type Message = {
   id: string;
   text: string;
@@ -14,24 +27,69 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const { user, authToken } = useAuth();
-  
 
   const flatListRef = useRef<FlatList>(null);
 
-  const onSend = async () => {
-    if (!input.trim()) return;
-
-    const userMsg: Message = { id: Date.now().toString(), text: input, fromUser: true };
-    setMessages((prev) => [userMsg, ...prev]); 
-    setInput('');
-    if (!authToken || !user) return;
+  const saveMessageToRealtimeDB = async (message: Message, userId: string) => {
     try {
-      const response = await sendToAI(input, authToken);
+      const messagesRef = ref(dbRealtime, `chats/${userId}/messages`);
+      await push(messagesRef, {
+        text: message.text,
+        fromUser: message.fromUser,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error saving message to Realtime DB:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+
+    const messagesRef = ref(dbRealtime, `chats/${user.uuid}/messages`);
+
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const loadedMessages: Message[] = Object.entries(data)
+          .map(([key, value]: any) => ({
+            id: key,
+            text: value.text,
+            fromUser: value.fromUser,
+          }))
+          .sort((a, b) => (a.id < b.id ? 1 : -1));
+
+        setMessages(loadedMessages);
+      } else {
+        setMessages([]);
+      }
+    });
+
+    return () => off(messagesRef, 'value', unsubscribe);
+  }, [user]);
+
+  const onSend = async () => {
+    if (!input.trim() || !user || !authToken) return;
+
+    setLoading(true);
+
+    const userMsg: Message = { id: Date.now().toString(), text: input.trim(), fromUser: true };
+    setInput('');
+    setMessages((prev) => [userMsg, ...prev]);
+
+    try {
+      await saveMessageToRealtimeDB(userMsg, user.uuid);
+
+      const response = await sendToAI(input.trim(), authToken);
+
       const botMsg: Message = { id: (Date.now() + 1).toString(), text: response, fromUser: false };
       setMessages((prev) => [botMsg, ...prev]);
-    } catch {
+
+      await saveMessageToRealtimeDB(botMsg, user.uuid);
+    } catch (error) {
       const errorMsg: Message = { id: (Date.now() + 2).toString(), text: 'Error obtaining answer', fromUser: false };
       setMessages((prev) => [errorMsg, ...prev]);
+      await saveMessageToRealtimeDB(errorMsg, user.uuid);
     } finally {
       setLoading(false);
     }
@@ -67,6 +125,8 @@ export default function ChatScreen() {
             placeholder="Ask anything"
             style={styles.input}
             editable={!loading}
+            onSubmitEditing={onSend}
+            returnKeyType="send"
           />
           <TouchableOpacity onPress={onSend} disabled={loading} style={styles.sendButton}>
             <Text style={{ color: 'white', fontWeight: 'bold' }}>{loading ? '...' : 'Send'}</Text>
@@ -97,8 +157,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 0,
   },
-  messageText: {
-  },
+  messageText: {},
   inputContainer: {
     flexDirection: 'row',
     paddingHorizontal: 10,
