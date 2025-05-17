@@ -9,20 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  TextInputSubmitEditingEventData,
-  NativeSyntheticEvent,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { sendToAI } from '../services/chatIA.ts';
 
 import { dbRealtime } from '../firebase/config';
-import {
-  ref,
-  push,
-  serverTimestamp,
-  onValue,
-  off,
-} from 'firebase/database';
+import { ref, push, serverTimestamp, onValue, off,set} from 'firebase/database';
 
 type Message = {
   id: string;
@@ -33,7 +25,7 @@ type Message = {
 
 type Feedback = {
   rating: number;
-  comment?: string;
+  comment?: string | null;
 };
 
 export default function ChatScreen() {
@@ -41,19 +33,23 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const { user, authToken } = useAuth();
+  const [feedbackSelected, setFeedbackSelected] = useState<Record<string, number>>({});
 
   const flatListRef = useRef<FlatList>(null);
 
-  const saveMessageToRealtimeDB = async (
-    message: Message,
-    userId: string
-  ) => {
+  const saveMessageToRealtimeDB = async (message: Message, userId: string) => {
     try {
       const messagesRef = ref(dbRealtime, `chats/${userId}/messages`);
       await push(messagesRef, {
         text: message.text,
         fromUser: message.fromUser,
         createdAt: serverTimestamp(),
+        feedback: message.feedback
+          ? {
+              rating: message.feedback.rating,
+              comment: message.feedback.comment ?? null,
+            }
+          : null,
       });
     } catch (error) {
       console.error('Error saving message to Realtime DB:', error);
@@ -145,6 +141,56 @@ export default function ChatScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [messages]);
 
+    const saveFeedbackToRealtimeDB = async (
+    userId: string,
+    messageId: string,
+    rating: number,
+    comment?: string
+    ) => {
+    try {
+        const feedbackRef = ref(dbRealtime, `feedback/${messageId}`);
+        await set(feedbackRef, {
+        rating,
+        comment: comment ?? null,
+        createdAt: serverTimestamp(),
+        userId:userId,
+        });
+    } catch (error) {
+        console.error('Error saving feedback to Realtime DB:', error);
+    }
+    };
+
+    useEffect(() => {
+    if (!user) return;
+
+    const feedbackRef = ref(dbRealtime, `feedback/${user.uuid}`);
+    const unsubscribe = onValue(feedbackRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+        const initialFeedback: Record<string, number> = {};
+        Object.entries(data).forEach(([messageId, value]: any) => {
+            if (value?.rating) {
+            initialFeedback[messageId] = value.rating;
+            }
+        });
+        setFeedbackSelected(initialFeedback);
+        }
+    });
+
+    return () => off(feedbackRef, 'value', unsubscribe);
+    }, [user]);
+
+    const handleFeedback = async (
+    messageId: string,
+    rating: number,
+    comment?: string
+    ) => {
+    if (!user) return;
+
+    setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
+
+    await saveFeedbackToRealtimeDB(user.uuid, messageId, rating, comment);
+    };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -171,6 +217,35 @@ export default function ChatScreen() {
               >
                 {item.text}
               </Text>
+
+                    {!item.fromUser && (
+        <View style={styles.feedbackContainer}>
+            <TouchableOpacity
+            style={[
+                styles.ratingButton,
+                feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
+            ]}
+            onPress={() => handleFeedback(item.id, 5, item.text)}
+            >
+            <Text style={styles.feedbackText}>👍</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+            style={[
+                styles.ratingButton,
+                feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
+            ]}
+            onPress={() => handleFeedback(item.id, 1, item.text)}
+            >
+            <Text style={styles.feedbackText}>👎</Text>
+            </TouchableOpacity>
+        </View>
+        )}
+
+              {item.feedback && (
+                <Text style={styles.feedbackReceived}>
+                  Feedback: {item.feedback.rating === 5 ? '👍' : '👎'}
+                </Text>
+              )}
             </View>
           )}
           contentContainerStyle={{ paddingVertical: 10 }}
@@ -264,4 +339,10 @@ const styles = StyleSheet.create({
     color: 'gray',
     marginTop: 4,
   },
+    ratingButtonSelected: {
+    backgroundColor: '#0084ff',
+    borderRadius: 12,
+    padding: 4,
+    },
+
 });
