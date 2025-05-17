@@ -34,6 +34,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const { user, authToken } = useAuth();
   const [feedbackSelected, setFeedbackSelected] = useState<Record<string, number>>({});
+  const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -146,15 +147,17 @@ export default function ChatScreen() {
     userId: string,
     messageId: string,
     rating: number,
+    comment_feedback?: string,
     comment?: string
     ) => {
     try {
         const feedbackRef = ref(dbRealtime, `feedback/${messageId}`);
         await set(feedbackRef, {
         rating,
-        comment: comment ?? null,
+        comment_feedback: comment_feedback ?? null,
         createdAt: serverTimestamp(),
         userId:userId,
+        comment: comment,
         });
     } catch (error) {
         console.error('Error saving feedback to Realtime DB:', error);
@@ -184,13 +187,14 @@ export default function ChatScreen() {
     const handleFeedback = async (
     messageId: string,
     rating: number,
+    comment_feedback?: string,
     comment?: string
     ) => {
     if (!user) return;
 
     setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
 
-    await saveFeedbackToRealtimeDB(user.uuid, messageId, rating, comment);
+    await saveFeedbackToRealtimeDB(user.uuid, messageId, rating,comment_feedback, comment);
     };
 
   return (
@@ -219,34 +223,54 @@ export default function ChatScreen() {
                 {item.text}
               </Text>
 
-                    {!item.fromUser && (
-        <View style={styles.feedbackContainer}>
-            <TouchableOpacity
-            style={[
-                styles.ratingButton,
-                feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
-            ]}
-            onPress={() => handleFeedback(item.id, 5, item.text)}
-            >
-            <Text style={styles.feedbackText}>👍</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-            style={[
-                styles.ratingButton,
-                feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
-            ]}
-            onPress={() => handleFeedback(item.id, 1, item.text)}
-            >
-            <Text style={styles.feedbackText}>👎</Text>
-            </TouchableOpacity>
-        </View>
-        )}
+                 {!item.fromUser && (
+  <View style={styles.feedbackContainer}>
+    <TouchableOpacity
+      style={[
+        styles.ratingButton,
+        feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
+      ]}
+      onPress={() => handleFeedback(item.id, 5,feedbackComments[item.id], item.text)}
+    >
+      <Text style={styles.feedbackText}>👍</Text>
+    </TouchableOpacity>
 
-              {item.feedback && (
-                <Text style={styles.feedbackReceived}>
-                  Feedback: {item.feedback.rating === 5 ? '👍' : '👎'}
-                </Text>
-              )}
+    <TouchableOpacity
+      style={[
+        styles.ratingButton,
+        feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
+      ]}
+      onPress={() => handleFeedback(item.id, 1,feedbackComments[item.id],item.text)}
+    >
+      <Text style={styles.feedbackText}>👎</Text>
+    </TouchableOpacity>
+  </View>
+)}
+
+            {feedbackSelected[item.id] && !item.feedback && (
+            <View style={styles.commentContainer}>
+                <TextInput
+                placeholder="Leave a comment (optional)"
+                value={feedbackComments[item.id] || ''}
+                onChangeText={(text) =>
+                    setFeedbackComments((prev) => ({ ...prev, [item.id]: text }))
+                }
+                onSubmitEditing={() =>
+                    handleFeedback(item.id, feedbackSelected[item.id], feedbackComments[item.id],item.text)
+                }
+                style={styles.commentInput}
+                />
+                <TouchableOpacity
+                style={styles.submitCommentButton}
+                onPress={() =>
+                    handleFeedback(item.id, feedbackSelected[item.id], feedbackComments[item.id],item.text)
+                }
+                >
+                <Text style={{ color: 'white' }}>Submit</Text>
+                </TouchableOpacity>
+            </View>
+            )}
+
             </View>
           )}
           contentContainerStyle={{ paddingVertical: 10 }}
@@ -345,5 +369,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
     },
+commentContainer: {
+  marginTop: 6,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+},
+commentInput: {
+  flex: 1,
+  borderColor: '#ccc',
+  borderWidth: 1,
+  borderRadius: 12,
+  padding: 6,
+  backgroundColor: '#fff',
+},
+submitCommentButton: {
+  backgroundColor: '#0084ff',
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 12,
+},
 
 });
