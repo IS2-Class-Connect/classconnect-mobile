@@ -39,25 +39,6 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const saveMessageToRealtimeDB = async (message: Message, userId: string) => {
-    try {
-      const messagesRef = ref(dbRealtime, `chats/${userId}/messages`);
-      await push(messagesRef, {
-        text: message.text,
-        fromUser: message.fromUser,
-        createdAt: serverTimestamp(),
-        feedback: message.feedback
-          ? {
-              rating: message.feedback.rating,
-              comment: message.feedback.comment ?? null,
-            }
-          : null,
-      });
-    } catch (error) {
-      console.error('Error saving message to Realtime DB:', error);
-    }
-  };
-
   const logUnknownInteraction = async (input: string, userId: string) => {
     try {
       const unknownRef = ref(dbRealtime, `unknown`);
@@ -71,36 +52,6 @@ export default function ChatScreen() {
     }
   };
 
-useEffect(() => {
-  if (!user) return;
-
-  const messagesRef = ref(dbRealtime, `chats/${user.uuid}/messages`);
-  const unsubscribe = onValue(messagesRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      const loadedMessages: Message[] = Object.entries(data)
-        .map(([key, value]: any) => ({
-          id: key,
-          text: value.text,
-          fromUser: value.fromUser,
-          feedback: value.feedback
-            ? {
-                rating: value.feedback.rating,
-                comment: value.feedback.comment_feedback ?? value.feedback.comment ?? null,
-              }
-            : undefined,
-        }))
-        .sort((a, b) => (a.id < b.id ? 1 : -1));
-
-      setMessages(loadedMessages);
-    } else {
-      setMessages([]);
-    }
-  });
-
-  return () => off(messagesRef, 'value', unsubscribe);
-}, [user]);
-
   const onSend = async () => {
     if (!input.trim() || !user || !authToken) return;
 
@@ -113,7 +64,6 @@ useEffect(() => {
     };
     setInput('');
     setMessages((prev) => [userMsg, ...prev]);
-    await saveMessageToRealtimeDB(userMsg, user.uuid);
 
     try {
       const response = await sendToAI(input.trim(), authToken);
@@ -123,7 +73,6 @@ useEffect(() => {
         fromUser: false,
       };
       setMessages((prev) => [botMsg, ...prev]);
-      await saveMessageToRealtimeDB(botMsg, user.uuid);
 
       if (
         response.toLowerCase().includes('no entiendo') ||
@@ -138,7 +87,6 @@ useEffect(() => {
         fromUser: false,
       };
       setMessages((prev) => [errorMsg, ...prev]);
-      await saveMessageToRealtimeDB(errorMsg, user.uuid);
       await logUnknownInteraction(input.trim(), user.uuid);
     } finally {
       setLoading(false);
