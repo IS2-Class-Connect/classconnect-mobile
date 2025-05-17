@@ -35,6 +35,7 @@ export default function ChatScreen() {
   const { user, authToken } = useAuth();
   const [feedbackSelected, setFeedbackSelected] = useState<Record<string, number>>({});
   const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -70,30 +71,35 @@ export default function ChatScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!user) return;
+useEffect(() => {
+  if (!user) return;
 
-    const messagesRef = ref(dbRealtime, `chats/${user.uuid}/messages`);
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const loadedMessages: Message[] = Object.entries(data)
-          .map(([key, value]: any) => ({
-            id: key,
-            text: value.text,
-            fromUser: value.fromUser,
-            feedback: value.feedback ?? undefined,
-          }))
-          .sort((a, b) => (a.id < b.id ? 1 : -1));
+  const messagesRef = ref(dbRealtime, `chats/${user.uuid}/messages`);
+  const unsubscribe = onValue(messagesRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const loadedMessages: Message[] = Object.entries(data)
+        .map(([key, value]: any) => ({
+          id: key,
+          text: value.text,
+          fromUser: value.fromUser,
+          feedback: value.feedback
+            ? {
+                rating: value.feedback.rating,
+                comment: value.feedback.comment_feedback ?? value.feedback.comment ?? null,
+              }
+            : undefined,
+        }))
+        .sort((a, b) => (a.id < b.id ? 1 : -1));
 
-        setMessages(loadedMessages);
-      } else {
-        setMessages([]);
-      }
-    });
+      setMessages(loadedMessages);
+    } else {
+      setMessages([]);
+    }
+  });
 
-    return () => off(messagesRef, 'value', unsubscribe);
-  }, [user]);
+  return () => off(messagesRef, 'value', unsubscribe);
+}, [user]);
 
   const onSend = async () => {
     if (!input.trim() || !user || !authToken) return;
@@ -197,6 +203,22 @@ export default function ChatScreen() {
     await saveFeedbackToRealtimeDB(user.uuid, messageId, rating,comment_feedback, comment);
     };
 
+    useEffect(() => {
+    if (editingCommentId !== null) return;
+
+    const messageToEdit = messages.find(
+        (msg) =>
+        feedbackSelected[msg.id] !== undefined && 
+        (!feedbackComments[msg.id] || feedbackComments[msg.id].trim() === '') 
+    );
+
+    if (messageToEdit) {
+        setEditingCommentId(messageToEdit.id);
+    }
+    }, [messages, feedbackSelected, feedbackComments, editingCommentId]);
+
+
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -207,72 +229,115 @@ export default function ChatScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+        renderItem={({ item }) => {
+        const isFeedbackSelected = feedbackSelected[item.id];
+        const isEditing = editingCommentId === item.id;
+
+        return (
             <View
-              style={[
+            style={[
                 styles.message,
                 item.fromUser ? styles.userMessage : styles.botMessage,
-              ]}
+            ]}
             >
-              <Text
+            <Text
                 style={[
-                  styles.messageText,
-                  { color: item.fromUser ? 'white' : 'black' },
+                styles.messageText,
+                { color: item.fromUser ? 'white' : 'black' },
                 ]}
-              >
+            >
                 {item.text}
-              </Text>
+            </Text>
 
-                 {!item.fromUser && (
-  <View style={styles.feedbackContainer}>
-    <TouchableOpacity
-      style={[
-        styles.ratingButton,
-        feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
-      ]}
-      onPress={() => handleFeedback(item.id, 5,feedbackComments[item.id], item.text)}
-    >
-      <Text style={styles.feedbackText}>👍</Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={[
-        styles.ratingButton,
-        feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
-      ]}
-      onPress={() => handleFeedback(item.id, 1,feedbackComments[item.id],item.text)}
-    >
-      <Text style={styles.feedbackText}>👎</Text>
-    </TouchableOpacity>
-  </View>
-)}
-
-            {feedbackSelected[item.id] && !item.feedback && (
-            <View style={styles.commentContainer}>
-                <TextInput
-                placeholder="Leave a comment (optional)"
-                value={feedbackComments[item.id] || ''}
-                onChangeText={(text) =>
-                    setFeedbackComments((prev) => ({ ...prev, [item.id]: text }))
-                }
-                onSubmitEditing={() =>
-                    handleFeedback(item.id, feedbackSelected[item.id], feedbackComments[item.id],item.text)
-                }
-                style={styles.commentInput}
-                />
+            {!item.fromUser && (
+                <View style={styles.feedbackContainer}>
                 <TouchableOpacity
-                style={styles.submitCommentButton}
-                onPress={() =>
-                    handleFeedback(item.id, feedbackSelected[item.id], feedbackComments[item.id],item.text)
-                }
+                    style={[
+                    styles.ratingButton,
+                    feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
+                    ]}
+                    onPress={() =>
+                    handleFeedback(
+                        item.id,
+                        5,
+                        feedbackComments[item.id],
+                        item.text
+                    )
+                    }
                 >
-                <Text style={{ color: 'white' }}>Submit</Text>
+                    <Text style={styles.feedbackText}>👍</Text>
                 </TouchableOpacity>
-            </View>
+
+                <TouchableOpacity
+                    style={[
+                    styles.ratingButton,
+                    feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
+                    ]}
+                    onPress={() =>
+                    handleFeedback(
+                        item.id,
+                        1,
+                        feedbackComments[item.id],
+                        item.text
+                    )
+                    }
+                >
+                    <Text style={styles.feedbackText}>👎</Text>
+                </TouchableOpacity>
+                </View>
+                
             )}
 
+            {isFeedbackSelected && !item.feedback && (
+                <View style={styles.commentContainer}>
+                {editingCommentId === item.id ? (
+                <>
+                    <TextInput
+                    placeholder="Leave a comment (optional)"
+                    value={feedbackComments[item.id] || ''}
+                    onChangeText={(text) =>
+                        setFeedbackComments((prev) => ({
+                        ...prev,
+                        [item.id]: text,
+                        }))
+                    }
+                    style={styles.commentInput}
+                    />
+                    <TouchableOpacity
+                    style={styles.submitCommentButton}
+                    onPress={() => {
+                        handleFeedback(
+                        item.id,
+                        feedbackSelected[item.id],
+                        feedbackComments[item.id],
+                        item.text
+                        );
+                        setEditingCommentId(null);
+                    }}
+                    >
+                    <Text style={{ color: 'white' }}>Save</Text>
+                    </TouchableOpacity>
+                </>
+                ) : (
+                <>
+                    <Text style={{ flex: 1, color: '#333' }}>
+                    {feedbackComments[item.id]}
+                    </Text>
+                    <TouchableOpacity
+                    style={[styles.submitCommentButton, { backgroundColor: '#aaa' }]}
+                    onPress={() => setEditingCommentId(item.id)}
+                    >
+                    <Text style={{ color: 'white' }}>Editar</Text>
+                    </TouchableOpacity>
+                </>
+                )}
+
+                </View>
+            )}
             </View>
-          )}
+        );
+        }}
+
           contentContainerStyle={{ paddingVertical: 10 }}
           inverted
         />
