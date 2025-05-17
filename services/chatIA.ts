@@ -27,7 +27,7 @@ export async function addFeedback(
 ) {
 
      try {
-        comment_feedback = comment_feedback ?? 'sdasdasd';
+        comment_feedback = comment_feedback ?? '';
 
         const response = await postToGateway(
             '/users/chat/feedback',
