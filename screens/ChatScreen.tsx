@@ -9,17 +9,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  TextInputSubmitEditingEventData,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { sendToAI } from '../services/chatIA.ts';
 
-import { dbRealtime } from '../firebase/config'; 
-import { ref, push, serverTimestamp, onValue, off } from 'firebase/database';
+import { dbRealtime } from '../firebase/config';
+import {
+  ref,
+  push,
+  serverTimestamp,
+  onValue,
+  off,
+} from 'firebase/database';
 
 type Message = {
   id: string;
   text: string;
   fromUser: boolean;
+  feedback?: Feedback;
+};
+
+type Feedback = {
+  rating: number;
+  comment?: string;
 };
 
 export default function ChatScreen() {
@@ -30,7 +44,10 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const saveMessageToRealtimeDB = async (message: Message, userId: string) => {
+  const saveMessageToRealtimeDB = async (
+    message: Message,
+    userId: string
+  ) => {
     try {
       const messagesRef = ref(dbRealtime, `chats/${userId}/messages`);
       await push(messagesRef, {
@@ -43,11 +60,22 @@ export default function ChatScreen() {
     }
   };
 
+  const logUnknownInteraction = async (input: string, userId: string) => {
+    try {
+      const unknownRef = ref(dbRealtime, `chats/${userId}/unknown`);
+      await push(unknownRef, {
+        question: input,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error logging unknown input:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
     const messagesRef = ref(dbRealtime, `chats/${user.uuid}/messages`);
-
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -56,6 +84,7 @@ export default function ChatScreen() {
             id: key,
             text: value.text,
             fromUser: value.fromUser,
+            feedback: value.feedback ?? undefined,
           }))
           .sort((a, b) => (a.id < b.id ? 1 : -1));
 
@@ -73,23 +102,40 @@ export default function ChatScreen() {
 
     setLoading(true);
 
-    const userMsg: Message = { id: Date.now().toString(), text: input.trim(), fromUser: true };
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      text: input.trim(),
+      fromUser: true,
+    };
     setInput('');
     setMessages((prev) => [userMsg, ...prev]);
+    await saveMessageToRealtimeDB(userMsg, user.uuid);
 
     try {
-      await saveMessageToRealtimeDB(userMsg, user.uuid);
-
       const response = await sendToAI(input.trim(), authToken);
-
-      const botMsg: Message = { id: (Date.now() + 1).toString(), text: response, fromUser: false };
+      const botMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        fromUser: false,
+      };
       setMessages((prev) => [botMsg, ...prev]);
-
       await saveMessageToRealtimeDB(botMsg, user.uuid);
+
+      if (
+        response.toLowerCase().includes('no entiendo') ||
+        response.toLowerCase().includes('no puedo ayudarte')
+      ) {
+        await logUnknownInteraction(input.trim(), user.uuid);
+      }
     } catch (error) {
-      const errorMsg: Message = { id: (Date.now() + 2).toString(), text: 'Error obtaining answer', fromUser: false };
+      const errorMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        text: 'Error obtaining answer',
+        fromUser: false,
+      };
       setMessages((prev) => [errorMsg, ...prev]);
       await saveMessageToRealtimeDB(errorMsg, user.uuid);
+      await logUnknownInteraction(input.trim(), user.uuid);
     } finally {
       setLoading(false);
     }
@@ -98,6 +144,7 @@ export default function ChatScreen() {
   useEffect(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [messages]);
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -110,8 +157,20 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={[styles.message, item.fromUser ? styles.userMessage : styles.botMessage]}>
-              <Text style={[styles.messageText, { color: item.fromUser ? 'white' : 'black' }]}>{item.text}</Text>
+            <View
+              style={[
+                styles.message,
+                item.fromUser ? styles.userMessage : styles.botMessage,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.messageText,
+                  { color: item.fromUser ? 'white' : 'black' },
+                ]}
+              >
+                {item.text}
+              </Text>
             </View>
           )}
           contentContainerStyle={{ paddingVertical: 10 }}
@@ -128,8 +187,14 @@ export default function ChatScreen() {
             onSubmitEditing={onSend}
             returnKeyType="send"
           />
-          <TouchableOpacity onPress={onSend} disabled={loading} style={styles.sendButton}>
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>{loading ? '...' : 'Send'}</Text>
+          <TouchableOpacity
+            onPress={onSend}
+            disabled={loading}
+            style={styles.sendButton}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>
+              {loading ? '...' : 'Send'}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -182,5 +247,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  feedbackContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'flex-end',
+  },
+  ratingButton: {
+    marginLeft: 10,
+  },
+  feedbackText: {
+    fontSize: 16,
+  },
+  feedbackReceived: {
+    fontSize: 12,
+    color: 'gray',
+    marginTop: 4,
   },
 });
