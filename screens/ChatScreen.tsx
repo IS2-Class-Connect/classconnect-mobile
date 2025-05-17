@@ -58,10 +58,11 @@ export default function ChatScreen() {
 
   const logUnknownInteraction = async (input: string, userId: string) => {
     try {
-      const unknownRef = ref(dbRealtime, `chats/${userId}/unknown`);
+      const unknownRef = ref(dbRealtime, `unknown`);
       await push(unknownRef, {
         question: input,
         createdAt: serverTimestamp(),
+        userId: userId,
       });
     } catch (error) {
       console.error('Error logging unknown input:', error);
