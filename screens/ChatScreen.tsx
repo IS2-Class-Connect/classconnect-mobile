@@ -66,11 +66,34 @@ export default function ChatScreen() {
         fromUser: false,
       };
       setMessages((prev) => [botMsg, ...prev]);
+      const lowerResponse = response.toLowerCase();
 
-      if (
-        response.toLowerCase().includes('no entiendo') ||
-        response.toLowerCase().includes('no puedo ayudarte')
-      ) {
+      const unknownResponses = [
+        'no entiendo',
+        'no puedo ayudarte',
+        'no tengo suficiente información',
+        'no sé',
+        'no estoy seguro',
+        'no tengo una respuesta',
+        'no puedo responder',
+        'no tengo datos',
+        'no tengo conocimiento sobre eso',
+        'no comprendo',
+        'no tengo información suficiente',
+        'no fue entrenado para',
+        'no logro interpretar',
+        'no encuentro una respuesta',
+        'no puedo procesar',
+        'no tengo contexto suficiente',
+        'no estoy capacitado para',
+        'soy una ia y no puedo',
+        'soy un modelo de lenguaje',
+        'como modelo de lenguaje',
+        'no tengo capacidad para'
+      ];
+
+      const isUnknownResponse = unknownResponses.some(phrase => lowerResponse.includes(phrase));
+      if (isUnknownResponse) {
         await logUnknownInteraction(input.trim(), user.uuid);
       }
     } catch (error) {
