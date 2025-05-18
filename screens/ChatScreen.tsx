@@ -11,7 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { sendToAI ,addFeedback} from '../services/chatIA.ts';
+import { sendToAI, addFeedback } from '../services/chatIA.ts';
 
 type Message = {
   id: string;
@@ -73,19 +73,19 @@ export default function ChatScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [messages]);
 
-    const saveFeedback = async (
+  const saveFeedback = async (
     userId: string,
     rating: number,
     answer: string,
     comment_feedback?: string,
-    ) => {
+  ) => {
     try {
       if (!user || !authToken) return;
-      await addFeedback(answer,rating,userId,authToken,comment_feedback);
+      await addFeedback(answer, rating, userId, authToken, comment_feedback);
     } catch (error) {
-        console.error('Error saving feedback:', error);
+      console.error('Error saving feedback:', error);
     }
-    };
+  };
 
   const handleFeedback = async (
     messageId: string,
@@ -99,25 +99,7 @@ export default function ChatScreen() {
 
     await saveFeedback(user.uuid, rating, comment, comment_feedback);
 
-    setEditingCommentId(messageId);
   };
-
-
-    useEffect(() => {
-    if (editingCommentId !== null) return;
-
-    const messageToEdit = messages.find(
-        (msg) =>
-        feedbackSelected[msg.id] !== undefined && 
-        (!feedbackComments[msg.id] || feedbackComments[msg.id].trim() === '') 
-    );
-
-    if (messageToEdit) {
-        setEditingCommentId(messageToEdit.id);
-    }
-    }, [messages, feedbackSelected, feedbackComments, editingCommentId]);
-
-
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -129,115 +111,114 @@ export default function ChatScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-        const isFeedbackSelected = feedbackSelected[item.id];
-        const isEditing = editingCommentId === item.id;
+          renderItem={({ item }) => {
+            const isFeedbackSelected = feedbackSelected[item.id];
+            const isEditing = editingCommentId === item.id;
 
-        return (
-            <View
-            style={[
-                styles.message,
-                item.fromUser ? styles.userMessage : styles.botMessage,
-            ]}
-            >
-            <Text
+            return (
+              <View
                 style={[
-                styles.messageText,
-                { color: item.fromUser ? 'white' : 'black' },
+                  styles.message,
+                  item.fromUser ? styles.userMessage : styles.botMessage,
                 ]}
-            >
-                {item.text}
-            </Text>
-
-            {!item.fromUser && (
-                <View style={styles.feedbackContainer}>
-                <TouchableOpacity
-                    style={[
-                    styles.ratingButton,
-                    feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
-                    ]}
-                    onPress={() =>
-                    handleFeedback(
-                        item.id,
-                        5,
-                        item.text,
-                        feedbackComments[item.id],
-                    )
-                    }
+              >
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: item.fromUser ? 'white' : 'black' },
+                  ]}
                 >
-                    <Text style={styles.feedbackText}>👍</Text>
-                </TouchableOpacity>
+                  {item.text}
+                </Text>
 
-                <TouchableOpacity
-                    style={[
-                    styles.ratingButton,
-                    feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
-                    ]}
-                    onPress={() =>
-                    handleFeedback(
-                        item.id,
-                        1,
-                        item.text,
-                        feedbackComments[item.id],
-                    )
-                    }
-                >
-                    <Text style={styles.feedbackText}>👎</Text>
-                </TouchableOpacity>
-                </View>
-                
-            )}
-
-            {isFeedbackSelected && !item.feedback && (
-                <View style={styles.commentContainer}>
-                {editingCommentId === item.id ? (
-                <>
-                    <TextInput
-                    placeholder="Leave a comment (optional)"
-                    value={feedbackComments[item.id] || ''}
-                    onChangeText={(text) =>
-                        setFeedbackComments((prev) => ({
-                        ...prev,
-                        [item.id]: text,
-                        }))
-                    }
-                    style={styles.commentInput}
-                    />
+                {!item.fromUser && (
+                  <View style={styles.feedbackContainer}>
                     <TouchableOpacity
-                    style={styles.submitCommentButton}
-                    onPress={() => {
+                      style={[
+                        styles.ratingButton,
+                        feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
+                      ]}
+                      onPress={() =>{
                         handleFeedback(
-                        item.id,
-                        feedbackSelected[item.id],
-                        item.text,
-                        feedbackComments[item.id],
+                          item.id,
+                          5,
+                          item.text,
+                          feedbackComments[item.id]
                         );
-                        setEditingCommentId(null);
-                    }}
+                        setEditingCommentId(item.id);
+                      } }
                     >
-                    <Text style={{ color: 'white' }}>Save</Text>
+                      <Text style={styles.feedbackText}>👍</Text>
                     </TouchableOpacity>
-                </>
-                ) : (
-                <>
-                    <Text style={{ flex: 1, color: '#333' }}>
-                    {feedbackComments[item.id]}
-                    </Text>
+
                     <TouchableOpacity
-                    style={[styles.submitCommentButton, { backgroundColor: '#aaa' }]}
-                    onPress={() => setEditingCommentId(item.id)}
+                      style={[
+                        styles.ratingButton,
+                        feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
+                      ]}
+                      onPress={() =>{
+                        handleFeedback(
+                          item.id,
+                          1,
+                          item.text,
+                          feedbackComments[item.id]
+                        );
+                        setEditingCommentId(item.id);
+                      } }
                     >
-                    <Text style={{ color: 'white' }}>Editar</Text>
+                      <Text style={styles.feedbackText}>👎</Text>
                     </TouchableOpacity>
-                </>
+                  </View>
                 )}
 
-                </View>
-            )}
-            </View>
-        );
-        }}
-
+                {isFeedbackSelected && !item.feedback && (
+                  <View style={styles.commentContainer}>
+                    {isEditing ? (
+                      <>
+                        <TextInput
+                          placeholder="Leave a comment (optional)"
+                          value={feedbackComments[item.id] || ''}
+                          onChangeText={(text) =>
+                            setFeedbackComments((prev) => ({
+                              ...prev,
+                              [item.id]: text,
+                            }))
+                          }
+                          style={styles.commentInput}
+                        />
+                        <TouchableOpacity
+                          style={styles.submitCommentButton}
+                          onPress={() => {
+                            handleFeedback(
+                              item.id,
+                              feedbackSelected[item.id],
+                              item.text,
+                              feedbackComments[item.id],
+                            );
+                            setEditingCommentId(null);
+                          }}
+                        >
+                          <Text style={{ color: 'white' }}>Save</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={{ flex: 1, color: '#333' }}>
+                          {feedbackComments[item.id]}
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.submitCommentButton, { backgroundColor: '#aaa' }]}
+                          onPress={() => setEditingCommentId(item.id)}
+                        >
+                          <Text style={{ color: 'white' }}>Edit</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          }}
           contentContainerStyle={{ paddingVertical: 10 }}
           inverted
         />
@@ -329,30 +310,29 @@ const styles = StyleSheet.create({
     color: 'gray',
     marginTop: 4,
   },
-    ratingButtonSelected: {
+  ratingButtonSelected: {
     backgroundColor: '#0084ff',
     borderRadius: 12,
     padding: 4,
-    },
-commentContainer: {
-  marginTop: 6,
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 8,
-},
-commentInput: {
-  flex: 1,
-  borderColor: '#ccc',
-  borderWidth: 1,
-  borderRadius: 12,
-  padding: 6,
-  backgroundColor: '#fff',
-},
-submitCommentButton: {
-  backgroundColor: '#0084ff',
-  paddingVertical: 6,
-  paddingHorizontal: 10,
-  borderRadius: 12,
-},
-
+  },
+  commentContainer: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  commentInput: {
+    flex: 1,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 6,
+    backgroundColor: '#fff',
+  },
+  submitCommentButton: {
+    backgroundColor: '#0084ff',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
 });
