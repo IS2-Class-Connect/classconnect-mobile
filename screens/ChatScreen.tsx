@@ -11,7 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { sendToAI ,addFeedback} from '../services/chatIA.ts';
+import { sendToAI ,addFeedback ,addUnknownQuestion} from '../services/chatIA.ts';
 
 type Message = {
   id: string;
@@ -39,13 +39,7 @@ export default function ChatScreen() {
   const logUnknownInteraction = async (input: string, userId: string) => {
     try {
       if (!user || !authToken) return;
-      //await addFeedback(input,authToken);
-           /* const unknownRef = ref(dbRealtime, `unknown`);
-      await push(unknownRef, {
-        question: input,
-        createdAt: serverTimestamp(),
-        userId: userId,
-      });*/
+      addUnknownQuestion(input,userId,authToken);
     } catch (error) {
       console.error('Error logging unknown input:', error);
     }
@@ -109,26 +103,6 @@ export default function ChatScreen() {
         console.error('Error saving feedback:', error);
     }
     };
-
-    useEffect(() => {
-    if (!user) return;
-
-   //const feedbackRef = ref(dbRealtime, `feedback/${user.uuid}`);
-    /*const unsubscribe = onValue(feedbackRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-        const initialFeedback: Record<string, number> = {};
-        Object.entries(data).forEach(([messageId, value]: any) => {
-            if (value?.rating) {
-            initialFeedback[messageId] = value.rating;
-            }
-        });
-        setFeedbackSelected(initialFeedback);
-        }
-    });*/
-
-    //return () => off(feedbackRef, 'value', unsubscribe);
-    }, [user]);
 
     const handleFeedback = async (
     messageId: string,
