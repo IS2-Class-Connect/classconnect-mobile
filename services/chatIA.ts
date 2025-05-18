@@ -39,21 +39,3 @@ export async function addFeedback(
         throw new Error('Error connecting with IA');
     }
 }
-
-export async function addUnknownQuestion(  
-  question: string,
-  userId: string, 
-  token: string,
-) {
-
-     try {
-        const response = await postToGateway(
-            '/users/chat/unknown-question',
-            {question, userId  }      ,           
-           token
-            );
-        return response.answer; 
-  } catch (error) {
-        throw new Error('Error connecting with IA');
-    }
-}

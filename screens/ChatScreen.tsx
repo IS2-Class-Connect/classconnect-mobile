@@ -11,7 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { sendToAI ,addFeedback ,addUnknownQuestion} from '../services/chatIA.ts';
+import { sendToAI ,addFeedback} from '../services/chatIA.ts';
 
 type Message = {
   id: string;
@@ -36,15 +36,6 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const logUnknownInteraction = async (input: string, userId: string) => {
-    try {
-      if (!user || !authToken) return;
-      addUnknownQuestion(input,userId,authToken);
-    } catch (error) {
-      console.error('Error logging unknown input:', error);
-    }
-  };
-
   const onSend = async () => {
     if (!input.trim() || !user || !authToken) return;
 
@@ -66,36 +57,6 @@ export default function ChatScreen() {
         fromUser: false,
       };
       setMessages((prev) => [botMsg, ...prev]);
-      const lowerResponse = response.toLowerCase();
-
-      const unknownResponses = [
-        'no entiendo',
-        'no puedo ayudarte',
-        'no tengo suficiente información',
-        'no sé',
-        'no estoy seguro',
-        'no tengo una respuesta',
-        'no puedo responder',
-        'no tengo datos',
-        'no tengo conocimiento sobre eso',
-        'no comprendo',
-        'no tengo información suficiente',
-        'no fue entrenado para',
-        'no logro interpretar',
-        'no encuentro una respuesta',
-        'no puedo procesar',
-        'no tengo contexto suficiente',
-        'no estoy capacitado para',
-        'soy una ia y no puedo',
-        'soy un modelo de lenguaje',
-        'como modelo de lenguaje',
-        'no tengo capacidad para'
-      ];
-
-      const isUnknownResponse = unknownResponses.some(phrase => lowerResponse.includes(phrase));
-      if (isUnknownResponse) {
-        await logUnknownInteraction(input.trim(), user.uuid);
-      }
     } catch (error) {
       const errorMsg: Message = {
         id: (Date.now() + 2).toString(),
@@ -103,7 +64,6 @@ export default function ChatScreen() {
         fromUser: false,
       };
       setMessages((prev) => [errorMsg, ...prev]);
-      await logUnknownInteraction(input.trim(), user.uuid);
     } finally {
       setLoading(false);
     }
