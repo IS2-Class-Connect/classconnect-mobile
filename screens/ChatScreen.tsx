@@ -127,18 +127,21 @@ export default function ChatScreen() {
     }
     };
 
-    const handleFeedback = async (
+  const handleFeedback = async (
     messageId: string,
     rating: number,
     comment: string,
     comment_feedback?: string,
-    ) => {
+  ) => {
     if (!user) return;
 
     setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
 
-    await saveFeedback(user.uuid, rating, comment,comment_feedback);
-    };
+    await saveFeedback(user.uuid, rating, comment, comment_feedback);
+
+    setEditingCommentId(messageId);
+  };
+
 
     useEffect(() => {
     if (editingCommentId !== null) return;
