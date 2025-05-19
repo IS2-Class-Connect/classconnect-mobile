@@ -26,4 +26,4 @@ const auth = initializeAuth(app, {
 const storage = getStorage(app);
 const db = getFirestore(app); // 🆕 FIRESTORE INSTANCE
 
-export { app, auth, storage, db }; // 🆕 export db también
+export { app, auth, storage, db}; // 🆕 export db también
