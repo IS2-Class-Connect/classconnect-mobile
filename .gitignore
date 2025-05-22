@@ -44,3 +44,6 @@ prompt.txt
 .env.local
 .env.*.local
 !.env.example
+
+# locks
+package-lock.json
