@@ -217,6 +217,15 @@ export default function CourseDetailScreen() {
                 <Text style={[styles.meta, { color: theme.text }]}>Start: {new Date(parsedCourse.startDate).toDateString()}</Text>
                 <Text style={[styles.meta, { color: theme.text }]}>Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
                 <Text style={[styles.meta, { color: theme.text }]}>End: {new Date(parsedCourse.endDate).toDateString()}</Text>
+                {(isTeacher || isAssistant || isEnrolled) && (
+                <TouchableOpacity
+                  style={[styles.modulesButton, { backgroundColor: theme.primary }]}
+                  onPress={() =>
+                router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
+                >
+                  <Text style={styles.modulesText}>View Modules</Text>
+                </TouchableOpacity>
+              )}
 
                 <View style={styles.divider} />
 
@@ -376,4 +385,18 @@ const styles = StyleSheet.create({
     opacity: 0.4,
     marginVertical: spacing.lg,
   },
+
+    modulesButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  modulesText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: fonts.size.md,
+  },
+
 });
