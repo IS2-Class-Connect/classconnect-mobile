@@ -5,6 +5,9 @@ import {
   StyleSheet,
   Text,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import TextField from '../fields/TextField';
 import Button from '../buttons/Button';
@@ -17,15 +20,15 @@ import { Module, createModule, patchModule } from '../../../services/modulesMock
 interface ModuleFormProps {
   initialValues?: Module;
   courseId: number;
+  defaultOrder?: number; // 👈 Nuevo prop
   onClose: () => void;
 }
 
-export default function ModuleForm({ initialValues, courseId, onClose }: ModuleFormProps) {
+export default function ModuleForm({ initialValues, courseId, defaultOrder = 0, onClose }: ModuleFormProps) {
   const theme = useTheme();
 
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
-  const [order, setOrder] = useState(initialValues?.order?.toString() ?? '');
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -35,17 +38,24 @@ export default function ModuleForm({ initialValues, courseId, onClose }: ModuleF
       setErrorVisible(true);
       return;
     }
-    if (!order || isNaN(Number(order))) {
-      setErrorMessage('Order must be a valid number.');
-      setErrorVisible(true);
-      return;
-    }
 
     if (initialValues) {
-      patchModule(initialValues.id, { title, description, order: Number(order) });
+      // Edición
+      patchModule(initialValues.id, {
+        title,
+        description,
+        order: initialValues.order,
+      });
       Alert.alert('✅ Module updated');
     } else {
-      createModule({ title, description, order: Number(order), id_course: courseId });
+      // Creación
+      const orderToUse = defaultOrder + 10;
+      createModule({
+        title,
+        description,
+        order: orderToUse,
+        id_course: courseId,
+      });
       Alert.alert('✅ Module created');
     }
 
@@ -53,50 +63,57 @@ export default function ModuleForm({ initialValues, courseId, onClose }: ModuleF
   };
 
   return (
-    <View style={[styles.wrapper, { borderColor: theme.primary }]}>      
-      <Text style={[styles.formTitle, { color: theme.primary }]}>      
-        {initialValues ? 'Edit Module' : 'Create Module'}
-      </Text>
-      <View style={styles.form}>
-        <TextField placeholder="Title" value={title} onChangeText={setTitle} />
-        <TextField
-          placeholder="Description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={5}
-          style={styles.description}
-        />
-        <TextField
-          placeholder="Order"
-          value={order}
-          onChangeText={setOrder}
-          keyboardType="numeric"
-        />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.keyboardContainer}
+    >
+      <ScrollView contentContainerStyle={[styles.wrapper, { borderColor: theme.primary }]}>
+        <Text style={[styles.formTitle, { color: theme.primary }]}>
+          {initialValues ? 'Edit Module' : 'Create Module'}
+        </Text>
 
-        <View style={styles.buttons}>
-          <Button title="Save" onPress={handleSubmit} variant="primary" />
-          <View style={{ marginTop: spacing.md }}>
-            <Button title="Cancel" onPress={onClose} variant="secondary" />
+        <View style={styles.form}>
+          <TextField placeholder="Title" value={title} onChangeText={setTitle} />
+          <TextField
+            placeholder="Description"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={5}
+            style={styles.description}
+          />
+
+          <View style={styles.buttons}>
+            <Button title="Save" onPress={handleSubmit} variant="primary" />
+            <View style={{ marginTop: spacing.md }}>
+              <Button title="Cancel" onPress={onClose} variant="secondary" />
+            </View>
           </View>
         </View>
-      </View>
 
-      <Dialog
-        visible={errorVisible}
-        message={errorMessage}
-        onClose={() => setErrorVisible(false)}
-        type="error"
-      />
-    </View>
+        <Dialog
+          visible={errorVisible}
+          message={errorMessage}
+          onClose={() => setErrorVisible(false)}
+          type="error"
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   wrapper: {
     borderWidth: 1,
     borderRadius: 12,
     padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.xl,
+    justifyContent: 'center',
   },
   form: {
     padding: spacing.lg,

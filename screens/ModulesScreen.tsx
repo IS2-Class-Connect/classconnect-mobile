@@ -3,12 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   Modal,
   Alert,
   Platform,
   SafeAreaView,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import ModuleForm from '../components/ui/forms/ModuleForm';
 import { Module, getModulesByCourse, deleteModule } from '../services/modulesMockApi';
+import ReorderableModuleList from '../components/ui/lists/ReorderableModuleList.tsx';
 
 export default function ModulesScreen() {
   const theme = useTheme();
@@ -30,7 +32,6 @@ export default function ModulesScreen() {
   const isAuthorized = role === 'Professor' || role === 'Assistant';
 
   useEffect(() => {
-    console.log('mi rol es ', role);
     if (courseId && !isNaN(Number(courseId))) {
       const all = getModulesByCourse(Number(courseId));
       setModules(all);
@@ -62,47 +63,26 @@ export default function ModulesScreen() {
     setModalVisible(true);
   };
 
+  const getMaxOrder = () => {
+    if (modules.length === 0) return 0;
+    return Math.max(...modules.map((m) => m.order));
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Back button visible y funcional */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Ionicons name="arrow-back" size={24} color={theme.text} />
       </TouchableOpacity>
 
-      {modules.length > 0 ? (
-        <FlatList
-          data={modules.sort((a, b) => a.order - b.order)}
-          contentContainerStyle={styles.list}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.moduleCard, { backgroundColor: theme.primary + '20', borderColor: theme.primary }]}
-              onPress={() => {}}
-            >
-              <View style={styles.moduleInfo}>
-                <Text style={[styles.moduleTitle, { color: theme.primary }]}>{item.title}</Text>
-              </View>
+      <ReorderableModuleList
+        modules={modules}
+        onUpdate={setModules} // 👈 Este es el correcto
+        isAuthorized={isAuthorized}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
 
-              {isAuthorized && (
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity onPress={() => openEdit(item)}>
-                    <Ionicons name="create-outline" size={20} color={theme.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                    <Ionicons name="trash-outline" size={20} color={theme.error} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-        />
-      ) : (
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: theme.text }]}>No modules yet.</Text>
-        </View>
-      )}
 
-      {/* Floating add button SIEMPRE visible si tiene permiso */}
       {isAuthorized && (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: theme.primary }]}
@@ -112,19 +92,43 @@ export default function ModulesScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Modal de formulario */}
       <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-          <ModuleForm
-            initialValues={editingModule ?? undefined}
-            courseId={Number(courseId)}
-            onClose={() => {
-              setModalVisible(false);
-              const updated = getModulesByCourse(Number(courseId));
-              setModules(updated);
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: theme.background }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: 'center',
+              padding: spacing.lg,
             }}
-          />
-        </View>
+            keyboardShouldPersistTaps="handled"
+          >
+            <View
+              style={{
+                backgroundColor: theme.card,
+                padding: spacing.lg,
+                borderRadius: 16,
+                shadowColor: '#000',
+                shadowOpacity: 0.1,
+                shadowRadius: 10,
+                elevation: 4,
+              }}
+            >
+              <ModuleForm
+                initialValues={editingModule ?? undefined}
+                courseId={Number(courseId)}
+                defaultOrder={getMaxOrder()}
+                onClose={() => {
+                  setModalVisible(false);
+                  const updated = getModulesByCourse(Number(courseId));
+                  setModules(updated);
+                }}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -132,30 +136,10 @@ export default function ModulesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  list: { padding: spacing.lg },
   backButton: {
     marginTop: spacing.lg,
     marginLeft: spacing.lg,
     marginBottom: spacing.sm,
-  },
-  moduleCard: {
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.md,
-    borderWidth: 1.5,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  moduleInfo: { flex: 1, marginRight: spacing.md },
-  moduleTitle: {
-    fontSize: fonts.size.lg,
-    fontWeight: '700',
-    fontFamily: fonts.family.regular,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   fab: {
     position: 'absolute',
@@ -171,21 +155,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 6,
-  },
-  modalContent: {
-    flex: 1,
-    padding: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? spacing.xl : spacing.lg,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyText: {
-    fontSize: fonts.size.lg,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
   },
 });
