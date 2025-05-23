@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
-import { patchToGateway } from '@/services/gatewayClient';
+import { patchToGateway, postToGateway } from '@/services/gatewayClient';
+import { Alert } from 'react-native';
 
 export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -21,4 +22,10 @@ export async function updateUserPushToken(userId: string, pushToken: string, tok
   const endpoint = `/users/${userId}/push-token`;
   const data = { pushToken: pushToken };
   return patchToGateway(endpoint, data, token);
+}
+
+export async function sendNotification(userId: string, title: string, body: string) {
+  const endpoint = '/notifications';
+  const data = { uuid: userId, title, body };
+  return postToGateway(endpoint, data, "gateway-token");
 }

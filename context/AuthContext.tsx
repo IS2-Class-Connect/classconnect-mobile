@@ -272,7 +272,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     registerAndSendToken();
-  }, [user, authToken]);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ 
