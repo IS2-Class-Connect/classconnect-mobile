@@ -247,13 +247,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           await updateUserPushToken(user.uuid, tokenString, authToken);
         } catch (e) {
-          console.log('Failed to update FCM token:',)
+          console.log('Failed to update push token:', e)
         }
       }
     });
   
     return () => subscription.remove();
-  }, []);
+  }, [user, authToken]);
 
   /**
    * Register user's push token for push notifications
@@ -266,7 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           try {
             await updateUserPushToken(user.uuid, tokenString, authToken);
           } catch (e) {
-            console.log('Failed to update FCM token:', e);
+            console.log('Failed to update push token:', e);
           }
         }
       }
