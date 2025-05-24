@@ -13,7 +13,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
   }
 
   if (finalStatus !== 'granted') {
-    alert('Faled to get pus token for push notification!');
+    alert('Failed to get push notification token. Please check your notification permissions and try again.');
     return;
   }
 
