@@ -22,7 +22,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
 
 export async function updateUserPushToken(uuid: string, pushToken: string, token: string) {
   const endpoint = `/users/${uuid}/push-token`;
-  const data = { pushToken: pushToken };
+  const data = { pushToken };
   return patchToGateway(endpoint, data, token);
 }
 

@@ -247,7 +247,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           await updateUserPushToken(user.uuid, tokenString, authToken);
         } catch (e) {
-          console.log(`Failed to update push token: ${e}`)
+          console.log(`Failed to update push token: ${e}`);
         }
       }
     });
