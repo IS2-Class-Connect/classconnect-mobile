@@ -19,7 +19,9 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-video"
     ],
     "ios": {
       "supportsTablet": true,
@@ -43,7 +45,10 @@
               "host": "auth-callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "permissions": [],

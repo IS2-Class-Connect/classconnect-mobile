@@ -1,4 +1,5 @@
 // app/_layout.tsx
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../context/ThemeContext';
@@ -8,12 +9,14 @@ export default function RootLayout() {
   const theme = useTheme();
 
   return (
-    <AppProviders>
-      <Slot />
-      <StatusBar
-        backgroundColor={theme.background}
-        style={theme.dark ? 'light' : 'dark'}
-      />
-    </AppProviders>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppProviders>
+        <Slot />
+        <StatusBar
+          backgroundColor={theme.background}
+          style={theme.dark ? 'light' : 'dark'}
+        />
+      </AppProviders>
+    </GestureHandlerRootView>
   );
 }

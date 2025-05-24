@@ -2,11 +2,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './config';
 
 /**
- * Upload an image to Firebase Storage and return its download URL
+ * Upload an image or video to Firebase Storage and return its download URL.
+ * Accepts only MIME types starting with 'image/' or 'video/'.
  */
-export async function uploadImageAsync(uri: string, path: string): Promise<string> {
+export async function uploadMediaAsync(uri: string, path: string): Promise<string> {
   try {
-    console.log('🚀 Starting image upload...');
+    console.log('🚀 Starting media upload...');
     console.log('URI received:', uri);
     console.log('Storage path:', path);
 
@@ -16,7 +17,7 @@ export async function uploadImageAsync(uri: string, path: string): Promise<strin
       throw new Error('Invalid file URI for upload');
     }
 
-    // Fetch the image and convert it to a blob
+    // Fetch the file and convert it to a Blob
     const response = await fetch(uri);
     const blob = await response.blob();
 
@@ -27,19 +28,24 @@ export async function uploadImageAsync(uri: string, path: string): Promise<strin
       throw new Error('Blob size is 0, cannot upload.');
     }
 
-    // Reference to Firebase storage path
+    // Validate media type
+    if (!blob.type.startsWith('image/') && !blob.type.startsWith('video/')) {
+      console.log('❌ Unsupported MIME type:', blob.type);
+      throw new Error('Only images and videos are allowed.');
+    }
+
+    // Reference to Firebase Storage
     const storageRef = ref(storage, path);
 
     console.log('🔗 Storage ref created:', storageRef.fullPath);
 
-    // Upload the Blob to Firebase Storage
+    // Upload the file
     console.log('⬆️ Uploading to Firebase Storage...');
     await uploadBytes(storageRef, blob);
     console.log('✅ Upload completed.');
 
-    // Get the public download URL
+    // Get public download URL
     const url = await getDownloadURL(storageRef);
-
     console.log('🌐 Download URL obtained:', url);
     return url;
   } catch (error) {

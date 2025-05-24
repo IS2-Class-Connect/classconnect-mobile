@@ -1,3 +1,4 @@
+// screens/ChatScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   SafeAreaView,
@@ -9,63 +10,54 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { sendToAI, addFeedback } from '../services/chatIA.ts';
-
-type Message = {
-  id: string;
-  text: string;
-  fromUser: boolean;
-  feedback?: Feedback;
-};
-
-type Feedback = {
-  rating: number;
-  comment?: string | null;
-};
+import { useTheme } from '../hooks/useTheme';
+import { sendToAI, addFeedback } from '../services/chatIA';
+import { spacing } from '../constants/spacing';
+import { fonts } from '../constants/fonts';
 
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const { user, authToken } = useAuth();
-  const [feedbackSelected, setFeedbackSelected] = useState<Record<string, number>>({});
-  const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-
+  const theme = useTheme();
   const flatListRef = useRef<FlatList>(null);
 
   const onSend = async () => {
     if (!input.trim() || !user || !authToken) return;
 
-    setLoading(true);
-
-    const userMsg: Message = {
+    const userMsg = {
       id: Date.now().toString(),
       text: input.trim(),
       fromUser: true,
     };
-    setInput('');
+
     setMessages((prev) => [userMsg, ...prev]);
+    setInput('');
+    setIsTyping(true);
+    setLoading(true);
 
     try {
-      const response = await sendToAI(input.trim(), authToken);
-      const botMsg: Message = {
+      const response = await sendToAI(userMsg.text, authToken);
+      const botMsg = {
         id: (Date.now() + 1).toString(),
         text: response,
         fromUser: false,
       };
       setMessages((prev) => [botMsg, ...prev]);
-    } catch (error) {
-      const errorMsg: Message = {
-        id: (Date.now() + 2).toString(),
-        text: 'Error obtaining answer',
-        fromUser: false,
-      };
-      setMessages((prev) => [errorMsg, ...prev]);
+    } catch (e) {
+      setMessages((prev) => [
+        { id: (Date.now() + 2).toString(), text: 'Error getting response', fromUser: false },
+        ...prev,
+      ]);
     } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -73,162 +65,100 @@ export default function ChatScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [messages]);
 
-  const saveFeedback = async (
-    userId: string,
-    rating: number,
-    answer: string,
-    comment_feedback?: string,
-  ) => {
-    try {
-      if (!user || !authToken) return;
-      await addFeedback(answer, rating, userId, authToken, comment_feedback);
-    } catch (error) {
-      console.error('Error saving feedback:', error);
-    }
-  };
-
-  const handleFeedback = async (
-    messageId: string,
-    rating: number,
-    comment: string,
-    comment_feedback?: string,
-  ) => {
-    if (!user) return;
-
-    setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
-
-    await saveFeedback(user.uuid, rating, comment, comment_feedback);
-
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>      
       <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        style={styles.container}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={80}
       >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <Image
+               source={require('../assets/icons/classy-logo.png')}
+              style={{ width: 40, height: 40, marginRight: 8 }}
+            />
+            <Text style={[styles.headerText, { color: theme.text }]}>Classy</Text>
+          </View>
+          <Text style={[styles.description, { color: theme.text }]}>Your AI assistant to answer questions about using the ClassConnect app.</Text>
+          <View style={styles.poweredRow}>
+            <Text style={{ color: theme.text, marginRight: 4 }}>powered by</Text>
+            <Image
+               source={require('../assets/icons/gemini-logo.png')}
+              style={{ width: 32, height: 32 }}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+
+        {/* Messages */}
         <FlatList
           ref={flatListRef}
           data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isFeedbackSelected = feedbackSelected[item.id];
-            const isEditing = editingCommentId === item.id;
-
-            return (
-              <View
-                style={[
-                  styles.message,
-                  item.fromUser ? styles.userMessage : styles.botMessage,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: item.fromUser ? 'white' : 'black' },
-                  ]}
-                >
-                  {item.text}
-                </Text>
-
-                {!item.fromUser && (
-                  <View style={styles.feedbackContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.ratingButton,
-                        feedbackSelected[item.id] === 5 && styles.ratingButtonSelected,
-                      ]}
-                      onPress={() =>{
-                        handleFeedback(
-                          item.id,
-                          5,
-                          item.text,
-                          feedbackComments[item.id]
-                        );
-                        setEditingCommentId(item.id);
-                      } }
-                    >
-                      <Text style={styles.feedbackText}>👍</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.ratingButton,
-                        feedbackSelected[item.id] === 1 && styles.ratingButtonSelected,
-                      ]}
-                      onPress={() =>{
-                        handleFeedback(
-                          item.id,
-                          1,
-                          item.text,
-                          feedbackComments[item.id]
-                        );
-                        setEditingCommentId(item.id);
-                      } }
-                    >
-                      <Text style={styles.feedbackText}>👎</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {isFeedbackSelected && !item.feedback && (
-                  <View style={styles.commentContainer}>
-                    {isEditing ? (
-                      <>
-                        <TextInput
-                          placeholder="Leave a comment (optional)"
-                          value={feedbackComments[item.id] || ''}
-                          onChangeText={(text) =>
-                            setFeedbackComments((prev) => ({
-                              ...prev,
-                              [item.id]: text,
-                            }))
-                          }
-                          style={styles.commentInput}
-                        />
-                        <TouchableOpacity
-                          style={styles.submitCommentButton}
-                          onPress={() => {
-                            handleFeedback(
-                              item.id,
-                              feedbackSelected[item.id],
-                              item.text,
-                              feedbackComments[item.id],
-                            );
-                            setEditingCommentId(null);
-                          }}
-                        >
-                          <Text style={{ color: 'white' }}>Save</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={{ flex: 1, color: '#333' }}>
-                          {feedbackComments[item.id]}
-                        </Text>
-                        <TouchableOpacity
-                          style={[styles.submitCommentButton, { backgroundColor: '#aaa' }]}
-                          onPress={() => setEditingCommentId(item.id)}
-                        >
-                          <Text style={{ color: 'white' }}>Edit</Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          }}
-          contentContainerStyle={{ paddingVertical: 10 }}
           inverted
+          contentContainerStyle={{ padding: spacing.md }}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.messageRow,
+                {
+                  alignSelf: item.fromUser ? 'flex-end' : 'flex-start',
+                  flexDirection: item.fromUser ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              {/* Avatar IA o Usuario */}
+              {!item.fromUser ? (
+                <Image
+                  source={require('../assets/icons/classy-logo.png')}
+                  style={{ width: 24, height: 24, marginHorizontal: 8 }}
+                />
+              ) : (
+                user?.urlProfilePhoto && (
+                  <Image
+                    source={{ uri: user.urlProfilePhoto }}
+                    style={{ width: 24, height: 24, marginHorizontal: 8, borderRadius: 12 }}
+                  />
+                )
+              )}
+
+              {/* Mensaje */}
+              <View
+                style={{
+                  backgroundColor: item.fromUser ? theme.primary : theme.surface,
+                  padding: spacing.sm,
+                  borderRadius: 16,
+                  maxWidth: '75%',
+                }}
+              >
+                <Text style={{ color: item.fromUser ? '#fff' : theme.text }}>{item.text}</Text>
+              </View>
+            </View>
+          )}
+
+          ListHeaderComponent={isTyping ? (
+            <View style={styles.messageRow}>
+              <Image
+                source={require('../assets/icons/classy-logo.png')}
+                style={{ width: 24, height: 24, marginRight: 8 }}
+              />
+              <View style={{ backgroundColor: theme.surface, padding: spacing.sm, borderRadius: 16 }}>
+                <Text style={{ color: theme.text }}>Classy is typing...</Text>
+              </View>
+            </View>
+          ) : null}
         />
 
-        <View style={styles.inputContainer}>
+        {/* Input */}
+        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
           <TextInput
+            style={[styles.input, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
             value={input}
             onChangeText={setInput}
-            placeholder="Ask anything"
-            style={styles.input}
+            placeholder="Ask something..."
+            placeholderTextColor={theme.border}
             editable={!loading}
             onSubmitEditing={onSend}
             returnKeyType="send"
@@ -236,11 +166,9 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={onSend}
             disabled={loading}
-            style={styles.sendButton}
+            style={[styles.sendButton, { backgroundColor: theme.primary }]}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>
-              {loading ? '...' : 'Send'}
-            </Text>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>{loading ? '...' : 'Send'}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -249,90 +177,54 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1 },
-  message: {
-    maxWidth: '75%',
-    marginVertical: 4,
-    marginHorizontal: 10,
-    padding: 12,
-    borderRadius: 20,
+  safeArea: { flex: 1 },
+  header: {
+    padding: spacing.lg,
+    alignItems: 'center',
   },
-  userMessage: {
-    backgroundColor: '#0084ff',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 0,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  botMessage: {
-    backgroundColor: '#e5e5ea',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 0,
+  headerText: {
+    fontSize: fonts.size.xl,
+    fontFamily: fonts.family.regular,
+    fontWeight: fonts.weight.bold as '700',
   },
-  messageText: {},
+  description: {
+    marginTop: spacing.sm,
+    fontSize: fonts.size.sm,
+    textAlign: 'center',
+  },
+  poweredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginVertical: spacing.xs,
+    marginHorizontal: spacing.md,
+  },
   inputContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fafafa',
   },
   input: {
     flex: 1,
     height: 40,
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
     borderRadius: 20,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: '#ccc',
   },
   sendButton: {
-    marginLeft: 10,
-    backgroundColor: '#0084ff',
+    marginLeft: spacing.sm,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  feedbackContainer: {
-    flexDirection: 'row',
-    marginTop: 8,
-    justifyContent: 'flex-end',
-  },
-  ratingButton: {
-    marginLeft: 10,
-  },
-  feedbackText: {
-    fontSize: 16,
-  },
-  feedbackReceived: {
-    fontSize: 12,
-    color: 'gray',
-    marginTop: 4,
-  },
-  ratingButtonSelected: {
-    backgroundColor: '#0084ff',
-    borderRadius: 12,
-    padding: 4,
-  },
-  commentContainer: {
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commentInput: {
-    flex: 1,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 6,
-    backgroundColor: '#fff',
-  },
-  submitCommentButton: {
-    backgroundColor: '#0084ff',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
   },
 });

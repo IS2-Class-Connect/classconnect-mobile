@@ -16,7 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
-import { uploadImageAsync } from '../../../firebase/upload';
+import { uploadMediaAsync } from '../../../firebase/upload';
 import { updateUserProfile } from '../../../services/userApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -142,7 +142,7 @@ export default function EditForm({
       if (image && image !== initialProfilePhoto) {
         try {
           console.log('📷 Uploading new profile photo...');
-          newProfilePhotoUrl = await uploadImageAsync(image, `users/${user.uuid}/profilePhoto.jpg`);
+          newProfilePhotoUrl = await uploadMediaAsync(image, `users/${user.uuid}/profilePhoto.jpg`);
           console.log('✅ Profile photo uploaded.');
         } catch (uploadError) {
           console.log('❌ Error uploading photo:', uploadError);
