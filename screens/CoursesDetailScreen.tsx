@@ -31,7 +31,6 @@ import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AssistantSelector from '../components/ui/modals/AssistantSelector';
-import { sendNotification } from '@/services/notifications';
 
 export default function CourseDetailScreen() {
   const theme = useTheme();
