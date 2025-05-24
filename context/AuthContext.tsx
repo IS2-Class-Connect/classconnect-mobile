@@ -10,6 +10,8 @@ import { onAuthStateChangedListener, logout as firebaseLogout, isEmailVerified }
 import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatus } from '../services/userApi';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
+import { addPushTokenListener } from 'expo-notifications';
+import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
 
 export type AuthError = 
   | 'invalid-credentials' 
@@ -230,6 +232,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  /**
+   * Handle spurious changes in the push token
+  */
+  useEffect(() => {
+    const subscription = addPushTokenListener(async (newPushToken) => {
+      const tokenString = typeof newPushToken === 'string'
+        ? newPushToken
+        : newPushToken?.data;
+
+      if (user && user.uuid && authToken && tokenString) {
+        try {
+          await updateUserPushToken(user.uuid, tokenString, authToken);
+        } catch (e) {
+          console.log(`Failed to update push token: ${e}`)
+        }
+      }
+    });
+
+    return () => subscription.remove();
+  }, [user, authToken]);
+
+  /**
+   * Register user's push token for push notifications.
+   */
+  useEffect(() => {
+    async function registerAndSendToken() {
+      if (user && user.uuid && authToken) {
+        const tokenString = await registerForPushNotificationsAsync();
+        if (tokenString) {
+          try {
+            await updateUserPushToken(user.uuid, tokenString, authToken);
+          } catch (e) {
+            console.log(`Failed to update push token: ${e}`);
+          }
+        }
+      }
+    }
+
+    registerAndSendToken();
   }, []);
 
   return (
