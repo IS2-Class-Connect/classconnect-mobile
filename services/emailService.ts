@@ -4,6 +4,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://localhost:300
  * Sends an enrollment confirmation email to a student by hitting the backend.
  */
 export async function sendEnrollmentEmail(
+  uuid: string,
   studentName: string,
   courseName: string,
   studentEmail: string
@@ -13,9 +14,11 @@ export async function sendEnrollmentEmail(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        uuid,
         toName: studentName,
         courseName,
         studentEmail,
+        topic: "enrollment",
       }),
     });
 
@@ -33,6 +36,7 @@ export async function sendEnrollmentEmail(
  * Sends a notification email when a student is assigned as a teaching assistant.
  */
 export async function sendAssistantAssignmentEmail(
+  uuid: string,
   studentName: string,
   professorName: string,
   courseName: string,
@@ -43,10 +47,12 @@ export async function sendAssistantAssignmentEmail(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        uuid,
         toName: studentName,
         professorName,
         courseName,
         studentEmail,
+        topic: "assistant-assignment",
       }),
     });
 
