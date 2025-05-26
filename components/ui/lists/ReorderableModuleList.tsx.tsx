@@ -1,4 +1,3 @@
-// modules/ReorderableModuleList.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -17,7 +16,7 @@ import { useRouter } from 'expo-router';
 interface Props {
   modules: Module[];
   onUpdate: (updated: Module[]) => void;
-  isAuthorized: boolean;
+  role?: 'Professor' | 'Assistant' | 'Student';
   onDelete?: (id: string) => void;
   onEdit?: (mod: Module) => void;
 }
@@ -25,13 +24,15 @@ interface Props {
 export default function ReorderableModuleList({
   modules,
   onUpdate,
-  isAuthorized,
+  role,
   onDelete,
   onEdit,
 }: Props) {
   const theme = useTheme();
   const router = useRouter();
   const [data, setData] = useState<Module[]>([]);
+
+  const isAuthorized = role === 'Professor' || role === 'Assistant';
 
   useEffect(() => {
     setData([...modules].sort((a, b) => a.order - b.order));
@@ -65,7 +66,6 @@ export default function ReorderableModuleList({
         }));
 
     for (const mod of updatedModules) {
-      console.log('🔁 Updating module with order:', mod.order);
       patchModule(mod.id, { order: mod.order });
     }
 
@@ -77,7 +77,7 @@ export default function ReorderableModuleList({
     return (
       <TouchableOpacity
         onPress={() =>
-          router.push(`/module-detail?moduleId=${item.id}&courseId=${item.id_course}`)
+          router.push(`/module-detail?moduleId=${item.id}&courseId=${item.id_course}&role=${role}`)
         }
         onLongPress={isAuthorized ? drag : undefined}
         delayLongPress={150}

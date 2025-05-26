@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Modal, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Modal,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
@@ -18,6 +27,7 @@ interface Props {
 export default function ResourceModal({ visible, onClose, moduleId, onAdded, existingResources }: Props) {
   const theme = useTheme();
   const [link, setLink] = useState('');
+  const [showLinkInput, setShowLinkInput] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const maxOrder = existingResources.length > 0 ? Math.max(...existingResources.map(r => r.order)) : 0;
@@ -66,30 +76,55 @@ export default function ResourceModal({ visible, onClose, moduleId, onAdded, exi
         <View style={[styles.container, { backgroundColor: theme.card }]}>
           <Text style={[styles.title, { color: theme.text }]}>Add Resource</Text>
 
-          <TouchableOpacity onPress={() => handleUpload('image')}>
-            <Text style={[styles.button, { color: theme.primary }]}>Upload Image</Text>
+          <TouchableOpacity
+            style={[styles.optionBox, { borderColor: theme.primary }]}
+            onPress={() => handleUpload('image')}
+            disabled={uploading}
+          >
+            <Text style={[styles.optionText, { color: theme.primary }]}>Upload Image</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => handleUpload('video')}>
-            <Text style={[styles.button, { color: theme.primary }]}>Upload Video</Text>
+          <TouchableOpacity
+            style={[styles.optionBox, { borderColor: theme.primary }]}
+            onPress={() => handleUpload('video')}
+            disabled={uploading}
+          >
+            <Text style={[styles.optionText, { color: theme.primary }]}>Upload Video</Text>
           </TouchableOpacity>
 
-          <TextInput
-            placeholder="Or paste a link"
-            placeholderTextColor="#999"
-            style={[styles.input, { color: theme.text, borderColor: theme.primary }]}
-            value={link}
-            onChangeText={setLink}
-          />
+          <TouchableOpacity
+            style={[styles.optionBox, { borderColor: theme.primary }]}
+            onPress={() => setShowLinkInput(!showLinkInput)}
+            disabled={uploading}
+          >
+            <Text style={[styles.optionText, { color: theme.primary }]}>Paste a Link</Text>
+          </TouchableOpacity>
 
-          <View style={styles.row}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={[styles.button, { color: theme.error }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleAddLink}>
-              <Text style={[styles.button, { color: theme.success }]}>Add</Text>
-            </TouchableOpacity>
-          </View>
+          {showLinkInput && (
+            <>
+              <TextInput
+                placeholder="Enter link"
+                placeholderTextColor="#999"
+                style={[styles.input, { color: theme.text, borderColor: theme.primary }]}
+                value={link}
+                onChangeText={setLink}
+              />
+              <TouchableOpacity onPress={handleAddLink} disabled={uploading}>
+                <Text style={[styles.confirmButton, { color: theme.success }]}>Add</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {uploading && (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={[styles.loadingText, { color: theme.text }]}>Uploading...</Text>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={onClose} style={styles.cancelContainer} disabled={uploading}>
+            <Text style={[styles.cancelText, { color: theme.error }]}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -114,20 +149,45 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
-  button: {
-    fontSize: fonts.size.md,
-    textAlign: 'center',
+  optionBox: {
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     marginVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  optionText: {
+    fontSize: fonts.size.md,
   },
   input: {
     borderWidth: 1,
     borderRadius: 8,
     padding: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  confirmButton: {
+    fontSize: fonts.size.md,
+    textAlign: 'center',
     marginBottom: spacing.md,
   },
-  row: {
+  loadingBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  loadingText: {
+    fontSize: fonts.size.sm,
+    marginLeft: spacing.sm,
+  },
+  cancelContainer: {
+    marginTop: spacing.md,
+    alignItems: 'center',
+  },
+  cancelText: {
+    fontSize: fonts.size.md,
   },
 });

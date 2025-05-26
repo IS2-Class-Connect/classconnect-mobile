@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,12 +12,16 @@ import { useTheme } from '../context/ThemeContext';
 import { fonts } from '../constants/fonts';
 import { spacing } from '../constants/spacing';
 import { getModulesByCourse } from '../services/modulesMockApi';
-import ResourceGrid from '../components/ui/lists/ResourceGrid';
+import ReorderableResourceList from '../components/ui/lists/ReorderableResourceList';
 
 export default function ModuleDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { moduleId, courseId } = useLocalSearchParams<{ moduleId: string; courseId: string }>();
+  const { moduleId, courseId, role } = useLocalSearchParams<{
+    moduleId: string;
+    courseId: string;
+    role?: 'Student' | 'Professor' | 'Assistant';
+  }>();
 
   if (!moduleId || !courseId) return null;
 
@@ -26,43 +30,40 @@ export default function ModuleDetailScreen() {
   if (!current) return null;
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={theme.text} />
-      </TouchableOpacity>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
 
-      <View style={styles.content}>
         <Text style={[styles.title, { color: theme.primary }]}>{current.title}</Text>
         <Text style={[styles.description, { color: theme.text }]}>{current.description}</Text>
-      </View>
 
-      <View style={styles.resourcesSection}>
         <Text style={[styles.resourcesTitle, { color: theme.primary }]}>Resources</Text>
         <View style={styles.resourcesDivider} />
-        <ResourceGrid moduleId={current.id} initialResources={current.resources} />
       </View>
-    </ScrollView>
+
+      <ReorderableResourceList
+        moduleId={current.id}
+        initialResources={current.resources}
+        role={role}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl * 2,
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   backButton: {
-    marginTop: spacing.lg * 2, 
     marginBottom: spacing.md,
     alignSelf: 'flex-start',
-  },
-  content: {
-    alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
   },
   title: {
     fontSize: fonts.size.xl,
@@ -73,9 +74,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: fonts.size.md,
     textAlign: 'center',
-  },
-  resourcesSection: {
-    marginTop: spacing.xl * 2,
+    marginBottom: spacing.md,
   },
   resourcesTitle: {
     fontSize: fonts.size.lg,
@@ -88,7 +87,6 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#ccc',
     marginHorizontal: spacing.md,
-    marginBottom: spacing.lg,
     borderRadius: 1,
   },
 });

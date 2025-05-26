@@ -6362,6 +6362,11 @@ react-native-draggable-flatlist@^4.0.3:
   dependencies:
     "@babel/preset-typescript" "^7.17.12"
 
+react-native-draggable-grid@^2.2.1:
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/react-native-draggable-grid/-/react-native-draggable-grid-2.2.1.tgz#f24a29462dd9b2b65431aa0152601d301393d4a4"
+  integrity sha512-/nYSaHvu3JOBLbgGzzo3bG0z0rnnjINTnTAhjhpd9YCmlbQW8D+S0WT8CNc/9y7ys+DcoBgblgO4VBwohN/NwQ==
+
 react-native-edge-to-edge@1.6.0:
   version "1.6.0"
   resolved "https://registry.npmjs.org/react-native-edge-to-edge/-/react-native-edge-to-edge-1.6.0.tgz"

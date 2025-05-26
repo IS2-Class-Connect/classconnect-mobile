@@ -74,10 +74,15 @@ export default function ModulesScreen() {
         <Ionicons name="arrow-back" size={24} color={theme.text} />
       </TouchableOpacity>
 
-      <ReorderableModuleList
+      <View style={styles.headerContainer}>
+        <Text style={[styles.title, { color: theme.primary }]}>Modules</Text>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+      </View>
+
+     <ReorderableModuleList
         modules={modules}
-        onUpdate={setModules} // 👈 Este es el correcto
-        isAuthorized={isAuthorized}
+        onUpdate={setModules}
+        role={role as 'Professor' | 'Assistant' | 'Student'}
         onEdit={openEdit}
         onDelete={handleDelete}
       />
@@ -140,6 +145,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginLeft: spacing.lg,
     marginBottom: spacing.sm,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontSize: fonts.size.xl,
+    fontFamily: fonts.family.regular,
+    fontWeight: fonts.weight.bold as any,
+    marginBottom: spacing.sm,
+  },
+  divider: {
+    height: 1,
+    alignSelf: 'stretch',
   },
   fab: {
     position: 'absolute',
