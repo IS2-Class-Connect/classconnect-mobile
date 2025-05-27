@@ -17,9 +17,11 @@ import { getAllUsers, User } from '../services/userApi';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 
+const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/1077/1077114.png';
+
 export default function ActivityRegisterScreen() {
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
-  const { authToken } = useAuth();
+  const { authToken, user } = useAuth();
   const theme = useTheme();
   const router = useRouter();
 
@@ -27,24 +29,31 @@ export default function ActivityRegisterScreen() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Track failed images
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     const fetchData = async () => {
-      if (!authToken || !courseId) return;
+      if (!authToken || !courseId || !user?.uuid) {
+        setLoading(false);
+        return;
+      }
       try {
         const [activityRes, userRes] = await Promise.all([
-          getCourseActivities(Number(courseId), authToken),
+          getCourseActivities(Number(courseId), authToken, user.uuid),
           getAllUsers(authToken),
         ]);
         setActivities(activityRes);
         setUsers(userRes);
-      } catch (e) {
-        console.error('Error loading activity data:', e);
+      } catch {
+        setActivities([]);
+        setUsers([]);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [authToken, courseId]);
+  }, [authToken, courseId, user?.uuid]);
 
   const getUser = (userId: string) => users.find((u) => u.uuid === userId);
 
@@ -65,13 +74,24 @@ export default function ActivityRegisterScreen() {
     }
   };
 
+  const onImageError = (userId: string) => {
+    setFailedImages((prev) => ({ ...prev, [userId]: true }));
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.background, justifyContent: 'center', paddingTop: spacing.xl * 2 },
+      ]}
+    >
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={theme.text} />
+        <Ionicons name="arrow-back" size={28} color={theme.text} />
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: theme.primary }]}>Assistant Activity Log</Text>
+      <Text style={[styles.title, { color: theme.primary, textAlign: 'center', marginBottom: spacing.xl }]}>
+        Assistant Activity Log
+      </Text>
 
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
@@ -79,26 +99,44 @@ export default function ActivityRegisterScreen() {
         <FlatList
           data={activities}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: spacing.xl * 2, flexGrow: 1 }]}
           renderItem={({ item }) => {
-            const user = getUser(item.user_id);
+            const userItem = getUser(item.userId);
+            const userId = userItem?.uuid || item.userId;
+            const imgUri = userItem?.urlProfilePhoto;
+
             return (
               <View style={[styles.card, { backgroundColor: theme.card }]}>
                 <View style={styles.userRow}>
                   <Image
-                    source={{ uri: user?.urlProfilePhoto || 'https://via.placeholder.com/40' }}
+                    source={
+                      failedImages[userId]
+                        ? { uri: DEFAULT_AVATAR }
+                        : imgUri
+                          ? { uri: imgUri }
+                          : { uri: DEFAULT_AVATAR }
+                    }
                     style={styles.avatar}
+                    onError={() => onImageError(userId)}
                   />
                   <View>
-                    <Text style={[styles.userName, { color: theme.text }]}>{user?.name || item.user_id}</Text>
-                    <Text style={[styles.meta, { color: theme.text }]}> {formatActivityText(item.activity)}</Text>
-                    <Text style={[styles.meta, { color: theme.text }]}> {new Date(item.createdAt).toLocaleString()}</Text>
+                    <Text style={[styles.userName, { color: theme.text }]}>
+                      {userItem?.name || userId}
+                    </Text>
+                    <Text style={[styles.meta, { color: theme.text }]}>
+                      {formatActivityText(item.activity)}
+                    </Text>
+                    <Text style={[styles.meta, { color: theme.text }]}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </Text>
                   </View>
                 </View>
               </View>
             );
           }}
-          ListEmptyComponent={<Text style={[styles.empty, { color: theme.text }]}>No activity yet.</Text>}
+          ListEmptyComponent={
+            <Text style={[styles.empty, { color: theme.text }]}>No activity yet.</Text>
+          }
         />
       )}
     </View>
@@ -108,22 +146,22 @@ export default function ActivityRegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   backButton: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    alignSelf: 'flex-start',
   },
   title: {
     fontSize: fonts.size.xl,
     fontWeight: 'bold',
-    marginBottom: spacing.md,
   },
   list: {
-    paddingBottom: spacing.xl,
+    paddingHorizontal: 0,
   },
   card: {
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: '#ccc',
@@ -134,13 +172,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#999',
   },
   userName: {
     fontSize: fonts.size.md,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   meta: {
     fontSize: fonts.size.sm,

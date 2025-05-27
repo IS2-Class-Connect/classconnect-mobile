@@ -57,21 +57,19 @@ export async function updateCourse(
   token: string,
   userId: string
 ): Promise<Course> {
+  const { teacherId, ...rest } = data; //
+
   const payload = {
-    ...data,
-    startDate: data.startDate ?? '',
-    endDate: data.endDate ?? '',
-    registrationDeadline: data.registrationDeadline ?? '',
-    userId,
-    teacherId: data.teacherId ?? '',
+    ...rest,
+    userId, 
   };
 
   console.log('PATCH payload:', payload);
 
   const response = await patchToGateway(`/courses/${id}`, payload, token);
-  console.log(`✅ Course ${id} updated by user ${userId}`);
   return response.data as Course;
 }
+
 
 
 
@@ -124,8 +122,8 @@ export async function deleteEnrollment(courseId: number, userId: string, token: 
 
 export interface CourseActivity {
   id: string;
-  course_id: number;
-  user_id: string;
+  courseId: number;
+  userId: string;
   activity:
     | 'EDIT_COURSE'
     | 'ADD_MODULE'

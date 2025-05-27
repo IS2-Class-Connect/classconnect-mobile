@@ -110,15 +110,30 @@ export default function CourseForm({
       return;
     }
 
-    const data = {
+    const baseData = {
       title,
       description,
       totalPlaces: Number(totalPlaces),
       startDate: startDate.toISOString(),
       registrationDeadline: registrationDeadline.toISOString(),
       endDate: endDate.toISOString(),
-      teacherId: user.uuid, // required even for PATCH
     };
+
+    let data: Partial<Omit<Course, 'id' | 'createdAt'>> & { userId?: string; teacherId?: string };
+
+    if (initialValues.id) {
+      data = { userId: user.uuid };
+
+      if (title !== initialValues.title) data.title = title;
+      if (description !== initialValues.description) data.description = description;
+      if (Number(totalPlaces) !== initialValues.totalPlaces) data.totalPlaces = Number(totalPlaces);
+      if (startDate.toISOString() !== initialValues.startDate) data.startDate = startDate.toISOString();
+      if (registrationDeadline.toISOString() !== initialValues.registrationDeadline)
+        data.registrationDeadline = registrationDeadline.toISOString();
+      if (endDate.toISOString() !== initialValues.endDate) data.endDate = endDate.toISOString();
+    } else {
+      data = { ...baseData, teacherId: user.uuid };
+    }
 
     if (initialValues.id && authToken) {
       try {
@@ -132,6 +147,9 @@ export default function CourseForm({
 
     onSubmit(data);
   };
+
+
+
 
   const renderDateField = (label: string, date: Date, field: 'start' | 'deadline' | 'end') => (
     <TouchableOpacity

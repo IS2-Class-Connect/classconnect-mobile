@@ -58,6 +58,8 @@ export async function patchToGateway(endpoint: string, data: any, token?: string
     body: JSON.stringify(data),
   });
 
+  console.log(`PATCH request to ${GATEWAY_URL}${endpoint} with data:`, JSON.stringify(data));
+
   if (!res.ok) {
     let errorText;
     try {
