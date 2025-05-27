@@ -23,7 +23,7 @@ export type DialogType = 'error' | 'confirm';
 
 type CourseFormProps = {
   initialValues?: Partial<Course>;
-  onSubmit: (data: Omit<Course, 'id' | 'createdAt'>) => void;
+  onSubmit: (data: Partial<Omit<Course, 'id' | 'createdAt'>>) => void;
   onCancel?: () => void;
   loading?: boolean;
   submitLabel?: string;
@@ -110,19 +110,19 @@ export default function CourseForm({
       return;
     }
 
-    const data: Omit<Course, 'id' | 'createdAt'> = {
+    const data = {
       title,
       description,
-      teacherId: user.uuid,
       totalPlaces: Number(totalPlaces),
       startDate: startDate.toISOString(),
       registrationDeadline: registrationDeadline.toISOString(),
       endDate: endDate.toISOString(),
+      teacherId: user.uuid, // required even for PATCH
     };
 
     if (initialValues.id && authToken) {
       try {
-        await updateCourse(initialValues.id, data, authToken);
+        await updateCourse(initialValues.id, data, authToken, user.uuid);
         Alert.alert('✅ Success', 'Course updated successfully.');
       } catch (e) {
         Alert.alert('❌ Error', 'Failed to update course.');
@@ -147,8 +147,8 @@ export default function CourseForm({
 
   return (
     <View style={[styles.wrapper, { borderColor: theme.primary }]}>
-     <Text style={[styles.formTitle, { color: theme.primary }]}>
-      {initialValues.id ? 'Edit Course' : 'Create Your Course'}
+      <Text style={[styles.formTitle, { color: theme.primary }]}> 
+        {initialValues.id ? 'Edit Course' : 'Create Your Course'}
       </Text>
       <View style={[styles.form]}>
         <TextField placeholder="Title" value={title} onChangeText={setTitle} />

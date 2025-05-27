@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
@@ -110,7 +110,6 @@ export default function CourseDetailScreen() {
       console.error('❌ Error updating favorite status:', e);
     }
   };
-  
 
   const handleEnroll = async () => {
     if (!authToken || !user) return;
@@ -159,6 +158,10 @@ export default function CourseDetailScreen() {
         },
       },
     ]);
+  };
+
+  const handleViewActivities = () => {
+    router.push(`/activity-register?courseId=${parsedCourse.id}`);
   };
 
   return (
@@ -218,14 +221,14 @@ export default function CourseDetailScreen() {
                 <Text style={[styles.meta, { color: theme.text }]}>Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
                 <Text style={[styles.meta, { color: theme.text }]}>End: {new Date(parsedCourse.endDate).toDateString()}</Text>
                 {(isTeacher || isAssistant || isEnrolled) && (
-                <TouchableOpacity
-                  style={[styles.modulesButton, { backgroundColor: theme.primary }]}
-                  onPress={() =>
-                router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
-                >
-                  <Text style={styles.modulesText}>View Modules</Text>
-                </TouchableOpacity>
-              )}
+                  <TouchableOpacity
+                    style={[styles.modulesButton, { backgroundColor: theme.primary }]}
+                    onPress={() =>
+                      router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
+                  >
+                    <Text style={styles.modulesText}>View Modules</Text>
+                  </TouchableOpacity>
+                )}
 
                 <View style={styles.divider} />
 
@@ -238,6 +241,9 @@ export default function CourseDetailScreen() {
                       <>
                         <TouchableOpacity onPress={() => setShowAssistantSelector(true)}>
                           <Ionicons name="person-add-outline" size={28} color={theme.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleViewActivities}>
+                          <MaterialIcons name="history" size={28} color={theme.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleDelete}>
                           <Ionicons name="trash-outline" size={28} color={theme.error} />
@@ -385,8 +391,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
     marginVertical: spacing.lg,
   },
-
-    modulesButton: {
+  modulesButton: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: 8,
@@ -398,5 +403,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: fonts.size.md,
   },
-
 });
