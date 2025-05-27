@@ -116,7 +116,7 @@ export default function CourseDetailScreen() {
     try {
       await enrollInCourse(parsedCourse.id, user.uuid, authToken);
       setIsEnrolled(true);
-      await sendEnrollmentEmail(user.name, parsedCourse.title, user.email);
+      await sendEnrollmentEmail(user.uuid, user.name, parsedCourse.title, user.email);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
       console.error('❌ Error enrolling:', e);
