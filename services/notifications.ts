@@ -1,9 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { patchToGateway, postToGateway } from '@/services/gatewayClient';
 
-// Token the gateway expects to receive when POST /notifications is requested
-const GATEWAY_TOKEN = process.env.EXPO_GATEWAY_TOKEN || 'gateway-token';
-
 export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -25,11 +22,3 @@ export async function updateUserPushToken(uuid: string, pushToken: string, token
   const data = { pushToken };
   return patchToGateway(endpoint, data, token);
 }
-
-export async function sendNotification(uuid: string, title: string, body: string) {
-  const endpoint = '/notifications';
-  const data = { uuid, title, body };
-  return postToGateway(endpoint, data, GATEWAY_TOKEN);
-}
-
-
