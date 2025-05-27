@@ -83,6 +83,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
                 await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
               }
               await sendAssistantAssignmentEmail(
+                selectedUser.uuid,
                 selectedUser.name,
                 currentUser.name,
                 courseName,
