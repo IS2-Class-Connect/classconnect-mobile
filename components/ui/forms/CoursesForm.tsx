@@ -23,7 +23,7 @@ export type DialogType = 'error' | 'confirm';
 
 type CourseFormProps = {
   initialValues?: Partial<Course>;
-  onSubmit: (data: Omit<Course, 'id' | 'createdAt'>) => void;
+  onSubmit: (data: Partial<Omit<Course, 'id' | 'createdAt'>>) => void;
   onCancel?: () => void;
   loading?: boolean;
   submitLabel?: string;
@@ -110,19 +110,34 @@ export default function CourseForm({
       return;
     }
 
-    const data: Omit<Course, 'id' | 'createdAt'> = {
+    const baseData = {
       title,
       description,
-      teacherId: user.uuid,
       totalPlaces: Number(totalPlaces),
       startDate: startDate.toISOString(),
       registrationDeadline: registrationDeadline.toISOString(),
       endDate: endDate.toISOString(),
     };
 
+    let data: Partial<Omit<Course, 'id' | 'createdAt'>> & { userId?: string; teacherId?: string };
+
+    if (initialValues.id) {
+      data = { userId: user.uuid };
+
+      if (title !== initialValues.title) data.title = title;
+      if (description !== initialValues.description) data.description = description;
+      if (Number(totalPlaces) !== initialValues.totalPlaces) data.totalPlaces = Number(totalPlaces);
+      if (startDate.toISOString() !== initialValues.startDate) data.startDate = startDate.toISOString();
+      if (registrationDeadline.toISOString() !== initialValues.registrationDeadline)
+        data.registrationDeadline = registrationDeadline.toISOString();
+      if (endDate.toISOString() !== initialValues.endDate) data.endDate = endDate.toISOString();
+    } else {
+      data = { ...baseData, teacherId: user.uuid };
+    }
+
     if (initialValues.id && authToken) {
       try {
-        await updateCourse(initialValues.id, data, authToken);
+        await updateCourse(initialValues.id, data, authToken, user.uuid);
         Alert.alert('✅ Success', 'Course updated successfully.');
       } catch (e) {
         Alert.alert('❌ Error', 'Failed to update course.');
@@ -132,6 +147,9 @@ export default function CourseForm({
 
     onSubmit(data);
   };
+
+
+
 
   const renderDateField = (label: string, date: Date, field: 'start' | 'deadline' | 'end') => (
     <TouchableOpacity
@@ -147,8 +165,8 @@ export default function CourseForm({
 
   return (
     <View style={[styles.wrapper, { borderColor: theme.primary }]}>
-     <Text style={[styles.formTitle, { color: theme.primary }]}>
-      {initialValues.id ? 'Edit Course' : 'Create Your Course'}
+      <Text style={[styles.formTitle, { color: theme.primary }]}> 
+        {initialValues.id ? 'Edit Course' : 'Create Your Course'}
       </Text>
       <View style={[styles.form]}>
         <TextField placeholder="Title" value={title} onChangeText={setTitle} />
