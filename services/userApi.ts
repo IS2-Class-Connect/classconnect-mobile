@@ -24,6 +24,12 @@ export interface User {
   lockUntil: Date | null;
   lastFailedAt: Date | null;
   createdAt: string;
+  pushToken: string | null;
+  pushTaskAssignment: boolean;
+  pushMessageReceived: boolean;
+  pushDeadlineReminder: boolean;
+  emailEnrollment: boolean;
+  emailAssistantAssignment: boolean;
 }
 
 /**
@@ -150,3 +156,22 @@ export async function updateUserProfile(
   console.log('✅ User profile updated:', response);
   return response as User;
 }
+
+/**
+  * Updates the user's notification configuration.
+  */
+export async function updateUserNotificationConfiguration(
+  uiud: string,
+  updates: Partial<Pick<User,
+    'pushTaskAssignment' |
+    'pushMessageReceived' |
+    'pushDeadlineReminder' |
+    'emailEnrollment' |
+    'emailAssistantAssignment'
+  >>,
+  token: string,
+): Promise<User> {
+  const response = await patchToGateway(`/users/me`, updates, token);
+  console.log('✅ User notifiation configuration updated:', response);
+  return response as User;
+} 
