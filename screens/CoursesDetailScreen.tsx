@@ -26,7 +26,7 @@ import {
   updateEnrollment,
   Enrollment,
 } from '../services/coursesApi';
-import { getAllUsers, User } from '../services/userApi'; // Assume User is exported here
+import { getAllUsers, User } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +41,7 @@ export default function CourseDetailScreen() {
 
   // State for enrollments and user list (needed for feedback modal to show names/photos)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [studentEnrollments, setStudentEnrollments] = useState<Enrollment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   // State for user roles and UI states
@@ -63,7 +64,7 @@ export default function CourseDetailScreen() {
   let parsedCourse: Course;
   try {
     parsedCourse = JSON.parse(course);
-  } catch (e) {
+  } catch {
     return null;
   }
 
@@ -78,18 +79,26 @@ export default function CourseDetailScreen() {
         const resEnrollments = await getCourseEnrollments(parsedCourse.id, authToken);
         setEnrollments(resEnrollments);
 
+        // Filter only student enrollments (exclude assistants, teachers)
+        const studentsOnly = resEnrollments.filter(e => e.role === 'STUDENT');
+        setStudentEnrollments(studentsOnly);
+
         // Detect if current user is enrolled or assistant, favorite status
         const mine = resEnrollments.find((e) => e.userId === user?.uuid);
         if (mine) {
           setIsEnrolled(true);
           setIsAssistant(mine.role === 'ASSISTANT');
           setIsFavorite(mine.favorite);
+        } else {
+          setIsEnrolled(false);
+          setIsAssistant(false);
+          setIsFavorite(false);
         }
 
-        // Check if registration is closed or course is full
+        // Check if registration is closed or course is full based on student count
         const now = new Date();
         setIsClosed(new Date(parsedCourse.registrationDeadline) < now);
-        setIsFull(resEnrollments.length >= parsedCourse.totalPlaces);
+        setIsFull(studentsOnly.length >= parsedCourse.totalPlaces);
 
         // Fetch all users to show names and photos in feedback modal
         const resUsers = await getAllUsers(authToken);
@@ -123,6 +132,17 @@ export default function CourseDetailScreen() {
     if (isAssistant || isEnrolled) return theme.primary;
     return theme.success;
   }, [theme, isTeacher, isAssistant, isEnrolled, isClosed, isFull]);
+
+  // Calculate how many buttons to show dynamically to adapt alignment
+  const buttonsCount = (() => {
+    let count = 0;
+    if (isTeacher || isAssistant || isEnrolled) count++; // Modules button
+    if (isTeacher || isAssistant) count += 2; // Feedback + Edit buttons
+    if (isTeacher) count++; // Delete button
+    if (!isTeacher && !isAssistant && !isEnrolled) count++; // Enroll button
+    if (!isTeacher && !isAssistant && isEnrolled) count += 2; // Feedback + Unenroll buttons
+    return count;
+  })();
 
   // --- Handlers ---
 
@@ -192,10 +212,6 @@ export default function CourseDetailScreen() {
         },
       },
     ]);
-  };
-
-  const handleViewActivities = () => {
-    router.push(`/activity-register?courseId=${parsedCourse.id}`);
   };
 
   const handleOpenFeedbackModal = () => {
@@ -302,7 +318,7 @@ export default function CourseDetailScreen() {
               {/* Course meta information */}
               <View style={styles.contentArea}>
                 <Text style={[styles.status, { color: theme.text }]}>
-                  Places: {enrollments.length}/{parsedCourse.totalPlaces}
+                  Places: {studentEnrollments.length}/{parsedCourse.totalPlaces}
                 </Text>
                 {statusLabel && (
                   <Text style={[styles.status, { color: theme.error }]}>Status: {statusLabel}</Text>
@@ -317,8 +333,13 @@ export default function CourseDetailScreen() {
                   End: {new Date(parsedCourse.endDate).toDateString()}
                 </Text>
 
-                {/* Action buttons - adapted with wrap to prevent overflow */}
-                <View style={styles.iconActionsContainer}>
+                {/* Action buttons - adapt alignment based on number of buttons */}
+                <View
+                  style={[
+                    styles.iconActionsContainer,
+                    { justifyContent: buttonsCount === 1 ? 'center' : 'flex-start' },
+                  ]}
+                >
                   {(isTeacher || isAssistant || isEnrolled) && (
                     <TouchableOpacity
                       style={styles.iconAction}
@@ -347,6 +368,31 @@ export default function CourseDetailScreen() {
                     <TouchableOpacity style={styles.iconAction} onPress={handleDelete}>
                       <Ionicons name="trash-outline" size={36} color={theme.error} />
                       <Text style={[styles.iconActionText, { color: theme.error }]}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {!isTeacher && !isAssistant && !isEnrolled && (
+                    <TouchableOpacity
+                      style={[
+                        styles.iconAction,
+                        (isClosed || isFull) && { opacity: 0.5 },
+                      ]}
+                      disabled={isClosed || isFull}
+                      onPress={handleEnroll}
+                    >
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={36}
+                        color={isClosed || isFull ? '#aaa' : theme.success}
+                      />
+                      <Text
+                        style={[
+                          styles.iconActionText,
+                          { color: isClosed || isFull ? '#aaa' : theme.success },
+                        ]}
+                      >
+                        Enroll
+                      </Text>
                     </TouchableOpacity>
                   )}
 
@@ -478,21 +524,20 @@ const styles = StyleSheet.create({
   },
   iconActionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-start', // Align buttons to start (left)
     marginTop: spacing.md,
     marginBottom: spacing.md,
-    gap: spacing.md, // consistent gap between buttons
-    flexWrap: 'wrap', // Allow buttons to wrap to next line if no space
-    paddingHorizontal: spacing.md, // Padding so buttons don't touch edges
+    gap: spacing.md,
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.md,
   },
   iconAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 60,    // Smaller min width to fit more buttons per line
-    maxWidth: 100,   // Limit max width to avoid oversized buttons
-    marginRight: spacing.md, // Margin right between buttons
-    marginBottom: spacing.md, // Margin bottom for wrap spacing
-    flexGrow: 1, // Allow flexible growing if space allows
+    minWidth: 60,
+    maxWidth: 100,
+    marginRight: spacing.md,
+    marginBottom: spacing.md,
+    flexGrow: 1,
   },
   iconActionText: {
     marginTop: 6,

@@ -45,8 +45,19 @@ export async function postToGateway(endpoint: string, data: any, token?: string)
   });
 
   if (!res.ok) await handleError(res, 'POST', endpoint);
-  return res.json();
+
+  if (res.status === 204) return null; // No Content
+
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
+
 
 export async function patchToGateway(endpoint: string, data: any, token?: string) {
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {

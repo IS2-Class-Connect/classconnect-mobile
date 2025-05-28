@@ -1,5 +1,3 @@
-// app/(tabs)/profile.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -90,6 +88,10 @@ export default function ProfileScreen() {
     router.push('/search-users');
   };
 
+  const handleFeedbackPress = () => {
+    router.push('/student-feedback');
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Edit Profile Modal */}
@@ -132,6 +134,10 @@ export default function ProfileScreen() {
 
         <TouchableOpacity onPress={handleSearchUsers} style={styles.iconButton}>
           <Feather name="users" size={28} color="#339CFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleFeedbackPress} style={styles.iconButton}>
+          <Feather name="message-circle" size={28} color="#339CFF" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>

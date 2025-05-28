@@ -15,7 +15,7 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { Enrollment, updateEnrollment } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
-import { useTheme } from '../../../context/ThemeContext'; // Import theme hook
+import { useTheme } from '../../../context/ThemeContext';
 
 interface User {
   uuid: string;
@@ -29,7 +29,7 @@ interface FeedbackModalProps {
   onSubmit: (rating: number, feedback: string, studentId?: string) => Promise<void>;
   mode: 'self' | 'professor';
   students?: Enrollment[];
-  users?: User[];          // User list to cross-reference names/photos
+  users?: User[];
   courseId?: number;
   courseName?: string;
 }
@@ -44,7 +44,7 @@ export default function FeedbackModal({
   courseId,
   courseName,
 }: FeedbackModalProps) {
-  const theme = useTheme(); // Use app theme colors
+  const theme = useTheme();
   const { authToken } = useAuth();
 
   const [rating, setRating] = useState(0);
@@ -52,13 +52,15 @@ export default function FeedbackModal({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
-  // Reset modal state when visibility changes
+  const [viewMode, setViewMode] = useState<'showFeedbacks' | 'giveFeedback'>('showFeedbacks');
+
   useEffect(() => {
     if (!visible) {
       setRating(0);
       setFeedbackText('');
       setSelectedStudentId(null);
       setShowFeedbackForm(false);
+      setViewMode('showFeedbacks');
     }
   }, [visible]);
 
@@ -93,30 +95,28 @@ export default function FeedbackModal({
     }
   };
 
-  // Render star rating buttons
-  const renderStars = () => {
+  const renderStars = (starCount: number) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <TouchableOpacity key={i} onPress={() => handleStarPress(i)}>
-          <Ionicons
-            name={i <= rating ? 'star' : 'star-outline'}
-            size={36}
-            color={theme.warning} // Use theme warning color (yellow star)
-            style={{ marginHorizontal: 4 }}
-          />
-        </TouchableOpacity>
+        <Ionicons
+          key={i}
+          name={i <= starCount ? 'star' : 'star-outline'}
+          size={24}
+          color={theme.warning}
+          style={{ marginHorizontal: 2 }}
+        />
       );
     }
-    return <View style={styles.starsContainer}>{stars}</View>;
+    return <View style={{ flexDirection: 'row' }}>{stars}</View>;
   };
 
-  // Find user info by UUID to show name and photo
   const getUserById = (userId: string): User | undefined => {
     return users.find(u => u.uuid === userId);
   };
 
-  // Render students list for professor mode (select to give feedback)
+  const studentsOnly = students.filter(s => s.role === 'STUDENT');
+
   if (mode === 'professor' && !showFeedbackForm) {
     if (!visible) return null;
 
@@ -125,41 +125,127 @@ export default function FeedbackModal({
         <View style={[styles.modalOverlay, { backgroundColor: theme.background + 'CC' }]}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <Text style={[styles.title, { color: theme.text }]}>
-              Students List - {courseName}
+              {courseName} - Feedback
             </Text>
-            <FlatList
-              data={students}
-              keyExtractor={(item) => item.userId}
-              renderItem={({ item }) => {
-                const user = getUserById(item.userId);
-                return (
-                  <View style={styles.studentRow}>
-                    {user?.urlProfilePhoto ? (
-                      <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
-                    ) : (
-                      <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
-                        <Text style={[styles.studentAvatarText, { color: theme.text }]}>
-                          {user?.name ? user.name[0] : '?'}
-                        </Text>
+
+            <View style={styles.toggleButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'showFeedbacks' && { backgroundColor: theme.primary },
+                ]}
+                onPress={() => setViewMode('showFeedbacks')}
+              >
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    { color: viewMode === 'showFeedbacks' ? theme.background : theme.primary },
+                  ]}
+                >
+                  View Feedbacks
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'giveFeedback' && { backgroundColor: theme.primary },
+                ]}
+                onPress={() => setViewMode('giveFeedback')}
+              >
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    { color: viewMode === 'giveFeedback' ? theme.background : theme.primary },
+                  ]}
+                >
+                  Give Feedback
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+
+            {viewMode === 'showFeedbacks' ? (
+              <FlatList
+                data={studentsOnly.filter(s => s.student_note !== undefined || s.student_feedback !== undefined)}
+                keyExtractor={(item) => item.userId}
+                renderItem={({ item }) => {
+                  const user = getUserById(item.userId);
+                  if (!user) return null;
+
+                  return (
+                    <View style={styles.feedbackRow}>
+                      {user.urlProfilePhoto ? (
+                        <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
+                      ) : (
+                        <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
+                          <Text style={[styles.studentAvatarText, { color: theme.text }]}>
+                            {user.name[0]}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                        <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
+                        <View style={{ marginTop: spacing.xs }}>
+                          {renderStars(item.student_note ?? 0)}
+                          <View style={[styles.feedbackCommentBox, { borderColor: theme.border }]}>
+                            <Text style={[styles.feedbackText, { color: theme.text }]}>
+                              “{item.student_feedback || 'No comment'}”
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                    )}
-                    <Text style={[styles.studentName, { color: theme.text }]}>
-                      {user?.name ?? item.userId}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.giveFeedbackBtn, { backgroundColor: theme.primary }]}
-                      onPress={() => {
-                        setSelectedStudentId(item.userId);
-                        setShowFeedbackForm(true);
-                      }}
-                    >
-                      <Text style={styles.giveFeedbackBtnText}>Give Feedback</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              }}
-              ListEmptyComponent={<Text style={{ color: theme.text }}>No students enrolled.</Text>}
-            />
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
+                    No feedbacks from students yet.
+                  </Text>
+                }
+                style={{ marginTop: spacing.md }}
+              />
+            ) : (
+              <FlatList
+                data={studentsOnly}
+                keyExtractor={(item) => item.userId}
+                renderItem={({ item }) => {
+                  const user = getUserById(item.userId);
+                  if (!user) return null;
+                  return (
+                    <View style={styles.studentRow}>
+                      {user.urlProfilePhoto ? (
+                        <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
+                      ) : (
+                        <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
+                          <Text style={[styles.studentAvatarText, { color: theme.text }]}>
+                            {user.name[0]}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
+                      <TouchableOpacity
+                        style={[styles.giveFeedbackBtn, { backgroundColor: theme.primary }]}
+                        onPress={() => {
+                          setSelectedStudentId(item.userId);
+                          setShowFeedbackForm(true);
+                        }}
+                      >
+                        <Text style={[styles.giveFeedbackBtnText, { color: theme.text }]}>Give Feedback</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
+                    No students enrolled.
+                  </Text>
+                }
+                style={{ marginTop: spacing.md }}
+              />
+            )}
+
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={[styles.closeText, { color: theme.primary }]}>Close</Text>
             </TouchableOpacity>
@@ -169,8 +255,10 @@ export default function FeedbackModal({
     );
   }
 
-  // Feedback form (for self or selected student)
+  // Feedback form for self or selected student
   const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
@@ -183,11 +271,22 @@ export default function FeedbackModal({
               ? `Give Feedback to ${userForFeedback.name}`
               : 'Give Feedback'}
           </Text>
-          {renderStars()}
+          <View style={styles.starsContainer}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <TouchableOpacity key={i} onPress={() => setRating(i)}>
+                <Ionicons
+                  name={i <= rating ? 'star' : 'star-outline'}
+                  size={36}
+                  color={theme.warning}
+                  style={{ marginHorizontal: 4 }}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
           <TextInput
             multiline
             placeholder="Optional feedback..."
-            placeholderTextColor={theme.text + '99'} // Slightly transparent placeholder text
+            placeholderTextColor={theme.text + '99'}
             style={[styles.textInput, { borderColor: theme.border, color: theme.text }]}
             value={feedbackText}
             onChangeText={setFeedbackText}
@@ -195,7 +294,10 @@ export default function FeedbackModal({
           <View style={styles.buttonsRow}>
             <TouchableOpacity
               style={[styles.cancelButton, { backgroundColor: theme.border }]}
-              onPress={onClose}
+              onPress={() => {
+                setShowFeedbackForm(false);
+                setSelectedStudentId(null);
+              }}
             >
               <Text style={[styles.cancelText, { color: theme.text }]}>Cancel</Text>
             </TouchableOpacity>
@@ -227,6 +329,21 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.xl,
     fontWeight: '700',
     marginBottom: spacing.md,
+  },
+  toggleButtonsRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  toggleButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  toggleButtonText: {
+    fontWeight: '700',
   },
   starsContainer: {
     flexDirection: 'row',
@@ -262,6 +379,22 @@ const styles = StyleSheet.create({
   },
   submitText: {
     fontWeight: '700',
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  feedbackCommentBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  feedbackText: {
+    fontSize: fonts.size.md,
   },
   studentRow: {
     flexDirection: 'row',
@@ -299,7 +432,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   giveFeedbackBtnText: {
-    color: 'white',
     fontWeight: '600',
   },
   closeButton: {

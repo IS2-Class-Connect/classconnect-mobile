@@ -66,15 +66,32 @@ export default function CoursesScreen() {
       setLoading(false);
     }
   };
-  
 
   useEffect(() => {
     fetchCourses();
   }, [authToken]);
 
-  const handleCreateCourse = async (data: Omit<Course, 'id' | 'createdAt'>) => {
+  // Cambiar la firma de `handleCreateCourse` para que sea compatible con el tipo que espera el CourseForm
+  const handleCreateCourse = async (data: Partial<Omit<Course, 'id' | 'createdAt'>> & { teacherId?: string }) => {
     if (!authToken || !user) return;
-    const payload = { ...data, teacherId: user.uuid };
+
+    // Validación: Aseguramos que `title` nunca sea undefined
+    const validatedTitle = data.title?.trim() || ''; // Si `title` es undefined o vacío, lo convertimos a una cadena vacía
+    if (!validatedTitle) {
+      console.error("❌ Title is required");
+      return;
+    }
+
+    const payload = {
+      teacherId: user.uuid,
+      title: validatedTitle,
+      description: data.description ?? '',
+      startDate: data.startDate ?? '',
+      registrationDeadline: data.registrationDeadline ?? '',
+      endDate: data.endDate ?? '',
+      totalPlaces: data.totalPlaces ?? 0,
+    };
+
     try {
       await createCourse(payload, authToken);
       setModalVisible(false);
@@ -114,16 +131,16 @@ export default function CoursesScreen() {
       case 'enrolled':
         if (!isEnrolled || !match) return false;
         return enrolledSubtab === 'active' ? !isFinished : isFinished;
-        case 'favorites':
-          const isRelated =
-            isTeacher ||
-            enrollments.some(
-              (e) =>
-                e.courseId === course.id &&
-                e.userId === user?.uuid &&
-                (e.role === 'ASSISTANT' || e.role === 'STUDENT')
-            );
-          return isFavorite && isRelated && match;        
+      case 'favorites':
+        const isRelated =
+          isTeacher ||
+          enrollments.some(
+            (e) =>
+              e.courseId === course.id &&
+              e.userId === user?.uuid &&
+              (e.role === 'ASSISTANT' || e.role === 'STUDENT')
+          );
+        return isFavorite && isRelated && match;        
       case 'public':
         return !isTeacher && !isEnrolled && match;
       default:
@@ -143,12 +160,12 @@ export default function CoursesScreen() {
     return (
       <CourseCard
         course={item}
+        enrollments={courseEnrollments} 
         isTeacher={isTeacher}
         isEnrolled={isEnrolled}
         isAssistant={isAssistant}
         isFull={isFull}
         isClosed={registrationClosed || isFull}
-        enrolledCount={courseEnrollments.length}
       />
     );
   };
@@ -242,7 +259,7 @@ export default function CoursesScreen() {
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
                 <CourseForm
-                  onSubmit={handleCreateCourse}
+                  onSubmit={handleCreateCourse} // Aquí pasamos la función de creación de curso
                   onCancel={() => setModalVisible(false)}
                   submitLabel="Create Course"
                 />
