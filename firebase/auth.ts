@@ -92,30 +92,23 @@ import {
 	  throw error;
 	}
   }
-  import * as React from 'react';
-import { Button, Alert } from 'react-native';
-WebBrowser.maybeCompleteAuthSession();
-
-// 🔐 Google Sign-In
+   // 🔐 Google Sign-In
   export function useGoogleSignIn() {
-	const redirectUri = 'https://auth.expo.io/@classconnect/classconnect-mobile';
-  
-	const [request, response, promptAsync] = Google.useAuthRequest({
+	//const redirectUri = 'https://auth.expo.io/@classconnect/classconnect-mobile';
+    const redirectUri = makeRedirectUri({
+            scheme: 'classconnect',
+            path: '/',
+          });
+	const [request, response, promptAsync] = useAuthRequest(
+	  {
+		
 		clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com',
-		androidClientId: '278336937854-pkodj3tagodrj84a2uca6e1i5458075j.apps.googleusercontent.com',
-	
-	});
-
-	React.useEffect(() => {
-		if (response?.type === 'success') {
-		const { authentication } = response;
-		console.log("hola",response)
-		//fetchUserInfo(authentication?.accessToken);
-		} else if (response?.type === 'error') {
-		Alert.alert("Error", "Autenticación fallida.");
-		}
-	}, [response]);
-
+		redirectUri,
+		scopes: ['openid', 'profile', 'email'],
+	  },
+	  Google.discovery
+	);
+  
 	async function handleGoogleResponse() {
 	  try {
 		console.log('🔁 Google response:', JSON.stringify(response, null, 2));
@@ -140,7 +133,8 @@ WebBrowser.maybeCompleteAuthSession();
   
 	return { request, response, promptAsync, handleGoogleResponse };
   }
-  
+
+
   // ✏️ Update email
   export async function updateFirebaseEmail(newEmail: string) {
 	const currentUser = getAuth().currentUser;
