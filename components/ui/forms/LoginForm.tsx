@@ -9,6 +9,7 @@ import IconButton from '../buttons/IconButton';
 import Dialog from '../alerts/Dialog';
 import ResetPasswordModal from '../modals/ResetPasswordModal'; 
 import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
+import GoogleAuth from '../../../firebase/GoogleAuth';
 /**
  * Login form component that handles user authentication
  */
@@ -24,6 +25,7 @@ export default function LoginForm({
   const router = useRouter();
   const theme = useTheme();
   const { loginWithEmailAndPassword, loginWithGoogle, isLoading: authIsLoading } = useAuth();
+  const { user, loading, error, signIn, signOut } = GoogleAuth();
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -193,7 +195,7 @@ const getErrorMessage = (errorType: AuthError): string => {
       <IconButton
         title="Continue with Google"
         icon={require('../../../assets/icons/google-blue.png')}
-        onPress={handleGoogleLogin}
+        onPress={signIn}
         disabled={isLoading}
         loading={isLoading}
       />
