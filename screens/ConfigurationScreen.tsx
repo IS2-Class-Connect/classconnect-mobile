@@ -30,6 +30,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { authToken, user } = useAuth();
 
+  // Apply the default settings
   const [settings, setSettings] = useState({
     pushTaskAssignment: true,
     pushMessageReceived: true,
@@ -38,11 +39,27 @@ export default function SettingsScreen() {
     emailAssistantAssignment: true,
   });
 
-  const toggleSetting = (key: keyof typeof settings) => {
+  // Update once we have the user's information
+  useEffect(() => {
+    if (user) {
+      setSettings({
+        pushTaskAssignment: user.pushTaskAssignment,
+        pushMessageReceived: user.pushMessageReceived,
+        pushDeadlineReminder: user.pushDeadlineReminder,
+        emailEnrollment: user.emailEnrollment,
+        emailAssistantAssignment: user.emailAssistantAssignment,
+      });
+    }
+  }, [user]);
+
+  const toggleSetting = async (key: keyof typeof settings) => {
+    if (!user || !authToken) { return; }
     const updated = { ...settings, [key]: !settings[key] };
     setSettings(updated);
-    if (user?.uuid && authToken) {
-      updateUserNotificationConfiguration(user.uuid, updated, authToken);
+    try {
+      await updateUserNotificationConfiguration(user.uuid, updated, authToken);
+    } catch (e) {
+      console.error('❌ Error setting notification settings:', e);
     }
   }
 
