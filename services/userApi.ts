@@ -172,6 +172,6 @@ export async function updateUserNotificationConfiguration(
   token: string,
 ): Promise<User> {
   const response = await patchToGateway(`/users/me`, updates, token);
-  console.log('✅ User notifiation configuration updated:', response);
+  console.log('✅ User notification configuration updated:', response);
   return response as User;
 } 
