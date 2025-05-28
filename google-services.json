@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "737983419302",
+    "firebase_url": "https://classconnect-2f725-default-rtdb.firebaseio.com",
+    "project_id": "classconnect-2f725",
+    "storage_bucket": "classconnect-2f725.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737983419302:android:57c9a168b1ddc7ec547567",
+        "android_client_info": {
+          "package_name": "com.classconnect.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "737983419302-r38ianoq87iidmnmg46jpugajg1tbebh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.classconnect.mobile",
+            "certificate_hash": "d40d81050d73ce86db76d88d8cac9545ea65ba7d"
+          }
+        },
+        {
+          "client_id": "737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3E6cDjYjSu8tH3VD4FL_0UJA4rA_8ui8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
