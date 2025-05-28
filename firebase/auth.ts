@@ -99,7 +99,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // 🔐 Google Sign-In
   export function useGoogleSignIn() {
-	const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+	const [request, response, promptAsync] = Google.useAuthRequest({
 		clientId: '278336937854-pots3anfn9ops568409sn276v4moqnre.apps.googleusercontent.com',
 		androidClientId: '278336937854-pkodj3tagodrj84a2uca6e1i5458075j.apps.googleusercontent.com',
 	});
