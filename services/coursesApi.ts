@@ -194,3 +194,28 @@ export async function getCourseActivities(
   const response = await getFromGateway(url, token);
   return response.data as CourseActivity[];
 }
+
+// MOCK: Generar resumen random de feedbacks del alumno
+export function getMockStudentFeedbackSummary(): string {
+  const summaries = [
+    "Most feedback highlights strong commitment and participation, with some suggestions for better time management.",
+    "Overall, the student is praised for consistency, but a few comments mention the need to improve engagement in discussions.",
+    "Feedback suggests solid academic performance and curiosity, with minor notes on collaborative work.",
+    "The student has received very positive feedback, especially regarding analytical skills and responsibility.",
+    "Some mixed feedback: good understanding of topics, but occasional lack of punctuality.",
+  ];
+  return summaries[Math.floor(Math.random() * summaries.length)];
+}
+
+// MOCK: Generar resumen random de feedbacks de un curso específico
+export function getMockCourseFeedbackSummary(courseId: number): string {
+  const summaries = [
+    "Students appreciated the course structure and the clarity of explanations. Some requested more practical examples.",
+    "Overall feedback is positive, with high ratings for the teacher's clarity. Areas to improve include assignment difficulty.",
+    "The course is described as comprehensive and well-paced. Suggestions include more interactive activities.",
+    "Feedback indicates students enjoyed the content, though a few noted the fast pace of some modules.",
+    "Students highlighted the usefulness of the materials. Several asked for more real-world case studies.",
+  ];
+  const summary = summaries[Math.floor(Math.random() * summaries.length)];
+  return `${summary}`;
+}

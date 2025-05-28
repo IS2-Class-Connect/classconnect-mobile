@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
-import { Enrollment, updateEnrollment } from '../../../services/coursesApi';
+import { Enrollment, updateEnrollment, getMockCourseFeedbackSummary } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 
@@ -51,8 +51,9 @@ export default function FeedbackModal({
   const [feedbackText, setFeedbackText] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
-
   const [viewMode, setViewMode] = useState<'showFeedbacks' | 'giveFeedback'>('showFeedbacks');
+  const [search, setSearch] = useState('');
+  const [classyModalVisible, setClassyModalVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -61,12 +62,12 @@ export default function FeedbackModal({
       setSelectedStudentId(null);
       setShowFeedbackForm(false);
       setViewMode('showFeedbacks');
+      setSearch('');
+      setClassyModalVisible(false);
     }
   }, [visible]);
 
-  const handleStarPress = (star: number) => {
-    setRating(star);
-  };
+  const handleStarPress = (star: number) => setRating(star);
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -95,38 +96,52 @@ export default function FeedbackModal({
     }
   };
 
-  const renderStars = (starCount: number) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
+  const renderStars = (starCount: number) => (
+    <View style={{ flexDirection: 'row' }}>
+      {Array.from({ length: 5 }, (_, i) => (
         <Ionicons
           key={i}
-          name={i <= starCount ? 'star' : 'star-outline'}
+          name={i < starCount ? 'star' : 'star-outline'}
           size={24}
           color={theme.warning}
           style={{ marginHorizontal: 2 }}
         />
-      );
-    }
-    return <View style={{ flexDirection: 'row' }}>{stars}</View>;
-  };
+      ))}
+    </View>
+  );
 
-  const getUserById = (userId: string): User | undefined => {
-    return users.find(u => u.uuid === userId);
-  };
+  const getUserById = (userId: string): User | undefined =>
+    users.find(u => u.uuid === userId);
 
   const studentsOnly = students.filter(s => s.role === 'STUDENT');
 
-  if (mode === 'professor' && !showFeedbackForm) {
+  const filteredStudents = studentsOnly.filter(s => {
+    const user = getUserById(s.userId);
+    const feedback = s.student_feedback?.toLowerCase() || '';
+    return (
+      (user?.name.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+      feedback.includes(search.toLowerCase())
+    );
+  });
+
+    if (mode === 'professor' && !showFeedbackForm) {
     if (!visible) return null;
 
     return (
-      <Modal visible={visible} animationType="slide" transparent={true}>
+      <Modal visible={visible} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: theme.background + 'CC' }]}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <Text style={[styles.title, { color: theme.text }]}>
               {courseName} - Feedback
             </Text>
+
+            <TextInput
+              placeholder="Search by student or feedback..."
+              placeholderTextColor={theme.text + '99'}
+              style={[styles.textInput, { borderColor: theme.border, color: theme.text }]}
+              value={search}
+              onChangeText={setSearch}
+            />
 
             <View style={styles.toggleButtonsRow}>
               <TouchableOpacity
@@ -162,12 +177,19 @@ export default function FeedbackModal({
                   Give Feedback
                 </Text>
               </TouchableOpacity>
-            </View>
 
+              <TouchableOpacity
+                style={[styles.toggleButton, { backgroundColor: theme.primary }]}
+                onPress={() => setClassyModalVisible(true)}
+              >
+                <Image source={require('../../../assets/icons/classy-logo.png')} style={styles.classyLogoSmall} />
+                <Text style={{ color: theme.background, marginLeft: spacing.xs }}>Classy Summary</Text>
+              </TouchableOpacity>
+            </View>
 
             {viewMode === 'showFeedbacks' ? (
               <FlatList
-                data={studentsOnly.filter(s => s.student_note !== undefined || s.student_feedback !== undefined)}
+                data={filteredStudents.filter(s => s.student_note !== undefined || s.student_feedback !== undefined)}
                 keyExtractor={(item) => item.userId}
                 renderItem={({ item }) => {
                   const user = getUserById(item.userId);
@@ -184,37 +206,26 @@ export default function FeedbackModal({
                           </Text>
                         </View>
                       )}
-
                       <View style={{ flex: 1, marginLeft: spacing.sm }}>
                         <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
-                        <View style={{ marginTop: spacing.xs }}>
-                          {renderStars(item.student_note ?? 0)}
-                          <View style={[styles.feedbackCommentBox, { borderColor: theme.border }]}>
-                            <Text style={[styles.feedbackText, { color: theme.text }]}>
-                              “{item.student_feedback || 'No comment'}”
-                            </Text>
-                          </View>
-                        </View>
+                        {renderStars(item.student_note ?? 0)}
+                        <Text style={{ color: theme.text, fontStyle: 'italic' }}>
+                          "{item.student_feedback || 'No comment'}"
+                        </Text>
                       </View>
                     </View>
                   );
                 }}
-                ListEmptyComponent={
-                  <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
-                    No feedbacks from students yet.
-                  </Text>
-                }
-                style={{ marginTop: spacing.md }}
               />
             ) : (
               <FlatList
-                data={studentsOnly}
+                data={filteredStudents}
                 keyExtractor={(item) => item.userId}
                 renderItem={({ item }) => {
                   const user = getUserById(item.userId);
                   if (!user) return null;
                   return (
-                    <View style={styles.studentRow}>
+                    <View style={styles.feedbackRow}>
                       {user.urlProfilePhoto ? (
                         <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
                       ) : (
@@ -237,31 +248,49 @@ export default function FeedbackModal({
                     </View>
                   );
                 }}
-                ListEmptyComponent={
-                  <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
-                    No students enrolled.
-                  </Text>
-                }
-                style={{ marginTop: spacing.md }}
               />
             )}
 
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={[styles.closeText, { color: theme.primary }]}>Close</Text>
             </TouchableOpacity>
+
+            {/* Classy Modal */}
+            <Modal visible={classyModalVisible} transparent animationType="fade">
+              <View style={styles.summaryModalOverlay}>
+                <View style={[styles.summaryModalContent, { backgroundColor: theme.surface }]}>
+                  <View style={styles.summaryHeader}>
+                    <Image source={require('../../../assets/icons/classy-logo.png')} style={styles.classyLogoSmall} />
+                    <Text style={[styles.summaryTitle, { color: theme.text }]}>Classy's Opinion</Text>
+                    <View style={styles.poweredByRow}>
+                      <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
+                      <Image source={require('../../../assets/icons/gemini-logo.png')} style={styles.geminiLogo} />
+                    </View>
+                  </View>
+                  <Text style={[styles.summaryText, { color: theme.text }]}>
+                    Course: {courseName}
+                  </Text>
+                  <Text style={[styles.summaryText, { color: theme.text }]}>
+                    {courseId ? getMockCourseFeedbackSummary(courseId) : 'No summary available.'}
+                  </Text>
+                  <TouchableOpacity onPress={() => setClassyModalVisible(false)} style={{ marginTop: spacing.md }}>
+                    <Text style={{ color: theme.primary, fontWeight: '700' }}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
           </View>
         </View>
       </Modal>
     );
   }
 
-  // Feedback form for self or selected student
-  const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;
+    const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;
 
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
+    <Modal visible={visible} animationType="slide" transparent>
       <View style={[styles.modalOverlay, { backgroundColor: theme.background + 'CC' }]}>
         <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
           <Text style={[styles.title, { color: theme.text }]}>
@@ -323,7 +352,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 16,
     padding: spacing.lg,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   title: {
     fontSize: fonts.size.xl,
@@ -332,53 +361,59 @@ const styles = StyleSheet.create({
   },
   toggleButtonsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    gap: spacing.sm,
     marginBottom: spacing.md,
-    justifyContent: 'center',
-    gap: spacing.md,
   },
   toggleButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.lg,
+  borderRadius: 12,
+  borderWidth: 1,
+  alignItems: 'center',
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 'auto',
+},
+
   toggleButtonText: {
-    fontWeight: '700',
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  textInput: {
-    height: 100,
+  fontWeight: '700',
+  textAlign: 'center',
+},
+
+  searchInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.md,
-    textAlignVertical: 'top',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     marginBottom: spacing.md,
-    fontSize: fonts.size.md,
+    fontSize: fonts.size.sm,
+    height: 36,
   },
-  buttonsRow: {
+  classyButton: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.md,
-  },
-  cancelButton: {
+    alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
+    marginLeft: spacing.sm,
+    backgroundColor: '#00000010',
   },
-  cancelText: {
+  classyText: {
+    fontSize: fonts.size.md,
     fontWeight: '700',
+    marginLeft: spacing.sm,
   },
-  submitButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
+  classyIcon: {
+    width: 28,
+    height: 28,
   },
-  submitText: {
-    fontWeight: '700',
+  classyLogoSmall: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
   feedbackRow: {
     flexDirection: 'row',
@@ -441,5 +476,83 @@ const styles = StyleSheet.create({
   closeText: {
     fontSize: fonts.size.md,
     fontWeight: '600',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  textInput: {
+    height: 100,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.md,
+    textAlignVertical: 'top',
+    marginBottom: spacing.md,
+    fontSize: fonts.size.md,
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
+  cancelButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+  },
+  cancelText: {
+    fontWeight: '700',
+  },
+  submitButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+  },
+  submitText: {
+    fontWeight: '700',
+  },
+  summaryModalOverlay: {
+    flex: 1,
+    backgroundColor: '#000000CC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  summaryModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: spacing.lg,
+    maxWidth: '90%',
+    alignItems: 'center',
+  },
+  summaryHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  summaryTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  summaryText: {
+    fontSize: fonts.size.md,
+    marginVertical: spacing.sm,
+    textAlign: 'center',
+  },
+  poweredByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  poweredByText: {
+    fontSize: fonts.size.sm,
+    marginRight: spacing.xs,
+  },
+  geminiLogo: {
+    width: 36,
+    height: 36,
+    resizeMode: 'contain',
   },
 });
