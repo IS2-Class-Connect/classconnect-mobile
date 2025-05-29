@@ -20,7 +20,7 @@ import { Feather } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout, refreshUserData } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -54,25 +54,6 @@ export default function ProfileScreen() {
     } finally {
       setLoadingLocation(false);
     }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Confirm Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   const handleEditProfile = () => {
@@ -138,10 +119,6 @@ export default function ProfileScreen() {
 
         <TouchableOpacity onPress={handleFeedbackPress} style={styles.iconButton}>
           <Feather name="message-circle" size={28} color="#339CFF" />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
-          <Feather name="log-out" size={28} color="#FF3B30" />
         </TouchableOpacity>
       </View>
 

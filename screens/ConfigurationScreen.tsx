@@ -1,36 +1,25 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Keyboard,
-  TextInput,
-  Switch,
   ScrollView,
+  Switch,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing } from '../constants/spacing';
-import {
-  Course,
-  getAllCourses,
-  getCourseEnrollments,
-  createCourse,
-  Enrollment,
-} from '../services/coursesApi';
 import { useAuth } from '../context/AuthContext';
 import { updateUserNotificationConfiguration } from '@/services/userApi';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { authToken, user } = useAuth();
+  const { authToken, user, logout } = useAuth();
+  const router = useRouter();
 
-  // Apply the default settings
   const [settings, setSettings] = useState({
     pushTaskAssignment: true,
     pushMessageReceived: true,
@@ -39,7 +28,6 @@ export default function SettingsScreen() {
     emailAssistantAssignment: true,
   });
 
-  // Update once we have the user's information
   useEffect(() => {
     if (user) {
       setSettings({
@@ -53,7 +41,7 @@ export default function SettingsScreen() {
   }, [user]);
 
   const toggleSetting = async (key: keyof typeof settings) => {
-    if (!user || !authToken) { return; }
+    if (!user || !authToken) return;
     const updated = { ...settings, [key]: !settings[key] };
     setSettings(updated);
     try {
@@ -61,7 +49,26 @@ export default function SettingsScreen() {
     } catch (e) {
       console.error('❌ Error setting notification settings:', e);
     }
-  }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -83,7 +90,8 @@ export default function SettingsScreen() {
         onToggle={() => toggleSetting('pushDeadlineReminder')}
       />
 
-      <Text style={[styles.padding]}></Text>
+      <View style={styles.divider} />
+
       <Text style={[styles.title, { color: theme.text }]}>Email Notifications</Text>
 
       <SettingToggle
@@ -96,6 +104,13 @@ export default function SettingsScreen() {
         value={settings.emailAssistantAssignment}
         onToggle={() => toggleSetting('emailAssistantAssignment')}
       />
+
+      <View style={styles.divider} />
+
+      <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#FF3B30' }]} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={20} color="#fff" />
+        <Text style={styles.logoutButtonText}>Log out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -113,35 +128,56 @@ function SettingToggle({
   return (
     <View style={styles.row}>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
-      <Switch value={value} onValueChange={onToggle} />
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        thumbColor="#fff"
+        trackColor={{ false: '#ccc', true: '#339CFF' }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderColor: '#ddd',
-    paddingHorizontal: 16,
-  },
-  label: {
-    fontSize: 16,
-    color: '#333',
-  },
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
-  padding: {
-    paddingVertical: 18,
-  }
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: '#ffffff10',
+    borderRadius: 10,
+    marginBottom: spacing.sm,
+  },
+  label: {
+    fontSize: 16,
+    flexShrink: 1,
+  },
+  divider: {
+    height: spacing.lg,
+  },
+  logoutButton: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
