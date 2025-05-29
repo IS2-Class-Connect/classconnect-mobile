@@ -178,6 +178,15 @@ export async function getCourseEnrollments(courseId: number, token: string): Pro
   return enrollmentsWithExtras;
 }
 
+export async function getEnrollmentsByUser(
+  userId: string,
+  token: string
+): Promise<Enrollment[]> {
+  const response = await getFromGateway(`/courses/enrollments?userId=${userId}`, token);
+  return response.data as Enrollment[];
+}
+
+
 export async function deleteEnrollment(courseId: number, userId: string, token: string): Promise<void> {
   await deleteFromGateway(`/courses/${courseId}/enrollments/${userId}`, token);
 }

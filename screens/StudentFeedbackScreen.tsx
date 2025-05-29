@@ -12,7 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import {
   getAllCourses,
-  getCourseEnrollments,
+  getEnrollmentsByUser,
   Enrollment,
   Course,
   getMockStudentFeedbackSummary,
@@ -32,44 +32,40 @@ export default function StudentFeedbackScreen() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!authToken || !user) return;
+  
+useEffect(() => {
+  const fetchData = async () => {
+    if (!authToken || !user) return;
 
-      try {
-        const allCourses = await getAllCourses(authToken);
-        setCourses(allCourses);
+    try {
+      const [allCourses, userEnrollments] = await Promise.all([
+        getAllCourses(authToken),
+        getEnrollmentsByUser(user.uuid, authToken),
+      ]);
 
-        const userEnrollments: Enrollment[] = [];
+      setCourses(allCourses);
 
-        for (const course of allCourses) {
-          const enrollmentsForCourse = await getCourseEnrollments(course.id, authToken);
-          const userEnrollment = enrollmentsForCourse.find(
-            (e) => e.userId === user.uuid && e.role === 'STUDENT'
-          );
-          if (userEnrollment) userEnrollments.push(userEnrollment);
-        }
+      const filtered = userEnrollments.filter((e) => e.role === 'STUDENT');
+      setEnrollments(filtered);
 
-        setEnrollments(userEnrollments);
+      const totalRating = filtered.reduce(
+        (sum, enrollment) => sum + (enrollment.student_note || 0),
+        0
+      );
+      const avgRating = totalRating / filtered.length;
+      setAverageRating(avgRating);
 
-        const totalRating = userEnrollments.reduce(
-          (sum, enrollment) => sum + (enrollment.student_note || 0),
-          0
-        );
-        const avgRating = totalRating / userEnrollments.length;
-        setAverageRating(avgRating);
+      const summary = getMockStudentFeedbackSummary();
+      setAiSummary(summary);
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const summary = getMockStudentFeedbackSummary();
-        setAiSummary(summary);
-      } catch (error) {
-        console.error('Error fetching enrollments:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user, authToken]);
+  fetchData();
+}, [user, authToken]);
 
   const renderStars = (rating: number) => {
     return (
@@ -180,26 +176,41 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   feedbackRow: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    width: '100%',
+    backgroundColor: '#ffffff10',
+    borderRadius: 16,
+    padding: spacing.md,
     marginBottom: spacing.md,
-    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+    flexShrink: 1,
   },
   courseName: {
-    fontSize: fonts.size.md,
-    fontWeight: fonts.weight.medium as '500',
+    fontSize: fonts.size.lg,
+    fontWeight: fonts.weight.bold as '700',
+    marginBottom: spacing.xs,
+    flexWrap: 'wrap',
   },
   starsContainer: {
     flexDirection: 'row',
-    marginVertical: spacing.sm,
+    marginBottom: spacing.xs,
+    flexWrap: 'nowrap',
   },
   feedbackText: {
-    fontSize: fonts.size.sm,
+    fontSize: fonts.size.md,
     fontStyle: 'italic',
+    lineHeight: 20,
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    flexGrow: 1,
+    width: '100%',
   },
   list: {
     marginTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     marginTop: spacing.sm,
@@ -244,3 +255,4 @@ const styles = StyleSheet.create({
     height: 24,
   },
 });
+
