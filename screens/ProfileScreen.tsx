@@ -1,5 +1,3 @@
-// app/(tabs)/profile.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -22,7 +20,7 @@ import { Feather } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout, refreshUserData } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const router = useRouter();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -58,25 +56,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Confirm Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
   const handleEditProfile = () => {
     setModalVisible(true);
   };
@@ -88,6 +67,10 @@ export default function ProfileScreen() {
 
   const handleSearchUsers = () => {
     router.push('/search-users');
+  };
+
+  const handleFeedbackPress = () => {
+    router.push('/student-feedback');
   };
 
   return (
@@ -134,8 +117,8 @@ export default function ProfileScreen() {
           <Feather name="users" size={28} color="#339CFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
-          <Feather name="log-out" size={28} color="#FF3B30" />
+        <TouchableOpacity onPress={handleFeedbackPress} style={styles.iconButton}>
+          <Feather name="message-circle" size={28} color="#339CFF" />
         </TouchableOpacity>
       </View>
 

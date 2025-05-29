@@ -26,11 +26,12 @@ import {
   updateEnrollment,
   Enrollment,
 } from '../services/coursesApi';
-import { getAllUsers } from '../services/userApi';
+import { getAllUsers, User } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
 import CourseForm from '../components/ui/forms/CoursesForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AssistantSelector from '../components/ui/modals/AssistantSelector';
+import FeedbackModal from '../components/ui/modals/FeedbackModal';
 
 export default function CourseDetailScreen() {
   const theme = useTheme();
@@ -38,7 +39,12 @@ export default function CourseDetailScreen() {
   const { user, authToken } = useAuth();
   const { course } = useLocalSearchParams<{ course: string }>();
 
+  // State for enrollments and user list (needed for feedback modal to show names/photos)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [studentEnrollments, setStudentEnrollments] = useState<Enrollment[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  // State for user roles and UI states
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isAssistant, setIsAssistant] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -46,36 +52,60 @@ export default function CourseDetailScreen() {
   const [isFull, setIsFull] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
   const [showAssistantSelector, setShowAssistantSelector] = useState(false);
-  const [teacherInfo, setTeacherInfo] = useState<any>(null);
+
+  // Control modal visibility for feedback
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+
+  // Info about the teacher (for display)
+  const [teacherInfo, setTeacherInfo] = useState<User | null>(null);
 
   if (typeof course !== 'string') return null;
+
   let parsedCourse: Course;
   try {
     parsedCourse = JSON.parse(course);
-  } catch (e) {
+  } catch {
     return null;
   }
 
+  // Determine if current user is the teacher
   const isTeacher = parsedCourse.teacherId === user?.uuid;
 
   useEffect(() => {
     const fetchData = async () => {
       if (!authToken) return;
       try {
-        const res = await getCourseEnrollments(parsedCourse.id, authToken);
-        setEnrollments(res);
-        const mine = res.find((e) => e.userId === user?.uuid);
+        // Fetch enrollments for this course
+        const resEnrollments = await getCourseEnrollments(parsedCourse.id, authToken);
+        setEnrollments(resEnrollments);
+
+        // Filter only student enrollments (exclude assistants, teachers)
+        const studentsOnly = resEnrollments.filter(e => e.role === 'STUDENT');
+        setStudentEnrollments(studentsOnly);
+
+        // Detect if current user is enrolled or assistant, favorite status
+        const mine = resEnrollments.find((e) => e.userId === user?.uuid);
         if (mine) {
           setIsEnrolled(true);
           setIsAssistant(mine.role === 'ASSISTANT');
           setIsFavorite(mine.favorite);
+        } else {
+          setIsEnrolled(false);
+          setIsAssistant(false);
+          setIsFavorite(false);
         }
+
+        // Check if registration is closed or course is full based on student count
         const now = new Date();
         setIsClosed(new Date(parsedCourse.registrationDeadline) < now);
-        setIsFull(res.length >= parsedCourse.totalPlaces);
+        setIsFull(studentsOnly.length >= parsedCourse.totalPlaces);
 
-        const allUsers = await getAllUsers(authToken);
-        const teacher = allUsers.find((u) => u.uuid === parsedCourse.teacherId);
+        // Fetch all users to show names and photos in feedback modal
+        const resUsers = await getAllUsers(authToken);
+        setUsers(resUsers);
+
+        // Get teacher info from users list
+        const teacher = resUsers.find((u) => u.uuid === parsedCourse.teacherId) ?? null;
         setTeacherInfo(teacher);
       } catch (e) {
         console.error(e);
@@ -84,12 +114,18 @@ export default function CourseDetailScreen() {
     fetchData();
   }, [authToken, parsedCourse.id, user?.uuid]);
 
+  // Role string for display
   const role = useMemo(() => {
-    return isTeacher ? 'Professor' : isAssistant ? 'Assistant' : isEnrolled ? 'Student' : null;
+    if (isTeacher) return 'Professor';
+    if (isAssistant) return 'Assistant';
+    if (isEnrolled) return 'Student';
+    return null;
   }, [isTeacher, isAssistant, isEnrolled]);
 
+  // Status label if full or closed registration
   const statusLabel = isFull ? 'FULL' : isClosed ? 'Registration closed' : null;
 
+  // Border color depends on role and status
   const borderColor = useMemo(() => {
     if (isTeacher) return theme.primary;
     if (isClosed || isFull) return theme.error;
@@ -97,11 +133,29 @@ export default function CourseDetailScreen() {
     return theme.success;
   }, [theme, isTeacher, isAssistant, isEnrolled, isClosed, isFull]);
 
+  // Calculate how many buttons to show dynamically to adapt alignment
+  const buttonsCount = (() => {
+    let count = 0;
+    if (isTeacher || isAssistant || isEnrolled) count++; // Modules button
+    if (isTeacher || isAssistant) count += 2; // Feedback + Edit buttons
+    if (isTeacher) count++; // Delete button
+    if (!isTeacher && !isAssistant && !isEnrolled) count++; // Enroll button
+    if (!isTeacher && !isAssistant && isEnrolled) count += 2; // Feedback + Unenroll buttons
+    return count;
+  })();
+
+  // --- Handlers ---
+
   const handleFavorite = async () => {
     if (!authToken || !user) return;
     try {
       const roleToSend = isAssistant ? 'ASSISTANT' : 'STUDENT';
-      await updateEnrollment(parsedCourse.id, user.uuid, { favorite: !isFavorite, role: roleToSend }, authToken);
+      await updateEnrollment(
+        parsedCourse.id,
+        user.uuid,
+        { favorite: !isFavorite, role: roleToSend },
+        authToken
+      );
       setIsFavorite(!isFavorite);
       if (Platform.OS === 'android') {
         ToastAndroid.show(`⭐ ${!isFavorite ? 'Added to' : 'Removed from'} favorites`, ToastAndroid.SHORT);
@@ -160,19 +214,64 @@ export default function CourseDetailScreen() {
     ]);
   };
 
-  const handleViewActivities = () => {
-    router.push(`/activity-register?courseId=${parsedCourse.id}`);
+  const handleOpenFeedbackModal = () => {
+    setFeedbackModalVisible(true);
   };
+
+  const handleCloseFeedbackModal = () => {
+    setFeedbackModalVisible(false);
+  };
+
+  // Handle sending feedback, either professor to student or student to course
+  const handleSendFeedback = async (rating: number, feedback: string, studentId?: string) => {
+    if (!authToken || !user) return;
+    try {
+      if (studentId) {
+        // Feedback from professor/assistant to a student
+        await updateEnrollment(
+          parsedCourse.id,
+          studentId,
+          {
+            teacher_note: rating,
+            teacher_feedback: feedback || '',
+          },
+          authToken
+        );
+        Alert.alert('Success', 'Feedback sent to student!');
+      } else {
+        // Feedback from student to the course (self feedback)
+        await updateEnrollment(
+          parsedCourse.id,
+          user.uuid,
+          {
+            student_note: rating,
+            student_feedback: feedback || '',
+          },
+          authToken
+        );
+        Alert.alert('Success', 'Thank you for your feedback!');
+      }
+      setFeedbackModalVisible(false);
+    } catch (error) {
+      console.error('❌ Error sending feedback:', error);
+      Alert.alert('Error', 'Failed to send feedback.');
+    }
+  };
+
+  // --- UI Rendering ---
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Back button */}
         <TouchableOpacity onPress={() => router.replace('/courses')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
 
+        {/* Main card */}
         <View style={[styles.cardExpanded, { borderColor, backgroundColor: theme.card }]}>
           {editing ? (
+            // Show course editing form
             <CourseForm
               initialValues={parsedCourse}
               onSubmit={() => setEditing(false)}
@@ -181,6 +280,7 @@ export default function CourseDetailScreen() {
             />
           ) : (
             <>
+              {/* Title and favorite star */}
               <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
                 {(isEnrolled || isAssistant) && (
@@ -194,6 +294,7 @@ export default function CourseDetailScreen() {
                 )}
               </View>
 
+              {/* Role badge */}
               {role && (
                 <View style={[styles.roleBadge, { backgroundColor: borderColor + '20' }]}>
                   <Ionicons name="person-circle-outline" size={16} color={borderColor} />
@@ -201,10 +302,12 @@ export default function CourseDetailScreen() {
                 </View>
               )}
 
+              {/* Description box */}
               <View style={[styles.descriptionBox, { backgroundColor: theme.primary + '20' }]}>
                 <Text style={[styles.description, { color: theme.text }]}>{parsedCourse.description}</Text>
               </View>
 
+              {/* Teacher info */}
               {teacherInfo && (
                 <View style={styles.teacherRow}>
                   <Image source={{ uri: teacherInfo.urlProfilePhoto }} style={styles.avatar} />
@@ -212,70 +315,107 @@ export default function CourseDetailScreen() {
                 </View>
               )}
 
+              {/* Course meta information */}
               <View style={styles.contentArea}>
-                <Text style={[styles.status, { color: theme.text }]}>Places: {enrollments.length}/{parsedCourse.totalPlaces}</Text>
+                <Text style={[styles.status, { color: theme.text }]}>
+                  Places: {studentEnrollments.length}/{parsedCourse.totalPlaces}
+                </Text>
                 {statusLabel && (
                   <Text style={[styles.status, { color: theme.error }]}>Status: {statusLabel}</Text>
                 )}
-                <Text style={[styles.meta, { color: theme.text }]}>Start: {new Date(parsedCourse.startDate).toDateString()}</Text>
-                <Text style={[styles.meta, { color: theme.text }]}>Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}</Text>
-                <Text style={[styles.meta, { color: theme.text }]}>End: {new Date(parsedCourse.endDate).toDateString()}</Text>
-                {(isTeacher || isAssistant || isEnrolled) && (
-                  <TouchableOpacity
-                    style={[styles.modulesButton, { backgroundColor: theme.primary }]}
-                    onPress={() =>
-                      router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
-                  >
-                    <Text style={styles.modulesText}>View Modules</Text>
-                  </TouchableOpacity>
-                )}
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  Start: {new Date(parsedCourse.startDate).toDateString()}
+                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}
+                </Text>
+                <Text style={[styles.meta, { color: theme.text }]}>
+                  End: {new Date(parsedCourse.endDate).toDateString()}
+                </Text>
 
-                <View style={styles.divider} />
-
-                {(isTeacher || isAssistant) && (
-                  <View style={styles.editRow}>
-                    <TouchableOpacity onPress={() => setEditing(true)}>
-                      <Ionicons name="create-outline" size={28} color={theme.primary} />
+                {/* Action buttons - adapt alignment based on number of buttons */}
+                <View
+                  style={[
+                    styles.iconActionsContainer,
+                    { justifyContent: buttonsCount === 1 ? 'center' : 'flex-start' },
+                  ]}
+                >
+                  {(isTeacher || isAssistant || isEnrolled) && (
+                    <TouchableOpacity
+                      style={styles.iconAction}
+                      onPress={() => router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
+                    >
+                      <MaterialIcons name="view-module" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Modules</Text>
                     </TouchableOpacity>
-                    {isTeacher && (
-                      <>
-                        <TouchableOpacity onPress={() => setShowAssistantSelector(true)}>
-                          <Ionicons name="person-add-outline" size={28} color={theme.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleViewActivities}>
-                          <MaterialIcons name="history" size={28} color={theme.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleDelete}>
-                          <Ionicons name="trash-outline" size={28} color={theme.error} />
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                )}
+                  )}
 
-                {!isTeacher && !isAssistant && isEnrolled && (
-                  <TouchableOpacity
-                    style={[styles.enrollButton, { backgroundColor: theme.error }]}
-                    onPress={handleUnenroll}
-                  >
-                    <Text style={styles.enrollText}>Unenroll</Text>
-                  </TouchableOpacity>
-                )}
+                  {(isTeacher || isAssistant) && (
+                    <>
+                      <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
+                      </TouchableOpacity>
 
-                {!isTeacher && !isAssistant && !isEnrolled && (
-                  <TouchableOpacity
-                    disabled={isClosed || isFull}
-                    style={[styles.enrollButton, { backgroundColor: isClosed || isFull ? '#aaa' : theme.success }]}
-                    onPress={handleEnroll}
-                  >
-                    <Text style={styles.enrollText}>Enroll</Text>
-                  </TouchableOpacity>
-                )}
+                      <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
+                        <Ionicons name="create-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Edit</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
+                  {isTeacher && (
+                    <TouchableOpacity style={styles.iconAction} onPress={handleDelete}>
+                      <Ionicons name="trash-outline" size={36} color={theme.error} />
+                      <Text style={[styles.iconActionText, { color: theme.error }]}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {!isTeacher && !isAssistant && !isEnrolled && (
+                    <TouchableOpacity
+                      style={[
+                        styles.iconAction,
+                        (isClosed || isFull) && { opacity: 0.5 },
+                      ]}
+                      disabled={isClosed || isFull}
+                      onPress={handleEnroll}
+                    >
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={36}
+                        color={isClosed || isFull ? '#aaa' : theme.success}
+                      />
+                      <Text
+                        style={[
+                          styles.iconActionText,
+                          { color: isClosed || isFull ? '#aaa' : theme.success },
+                        ]}
+                      >
+                        Enroll
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {!isTeacher && !isAssistant && isEnrolled && (
+                    <>
+                      <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.iconAction} onPress={handleUnenroll}>
+                        <Ionicons name="exit-outline" size={36} color={theme.error} />
+                        <Text style={[styles.iconActionText, { color: theme.error }]}>Unenroll</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
               </View>
             </>
           )}
         </View>
 
+        {/* Assistant selector modal */}
         <AssistantSelector
           visible={showAssistantSelector}
           onClose={() => setShowAssistantSelector(false)}
@@ -283,11 +423,24 @@ export default function CourseDetailScreen() {
           enrollments={enrollments}
           courseName={parsedCourse.title}
         />
+
+        {/* Feedback modal */}
+        <FeedbackModal
+          visible={feedbackModalVisible}
+          onClose={handleCloseFeedbackModal}
+          onSubmit={handleSendFeedback}
+          mode={isTeacher || isAssistant ? 'professor' : 'self'}
+          students={isTeacher || isAssistant ? enrollments : undefined}
+          users={users} // pass user list for displaying names/photos in modal
+          courseId={parsedCourse.id}
+          courseName={parsedCourse.title}
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -369,38 +522,26 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontStyle: 'italic',
   },
-  enrollButton: {
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  enrollText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: fonts.size.md,
-  },
-  editRow: {
+  iconActionsContainer: {
     flexDirection: 'row',
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.md,
+  },
+  iconAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.lg,
+    minWidth: 60,
+    maxWidth: 100,
+    marginRight: spacing.md,
+    marginBottom: spacing.md,
+    flexGrow: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#ccc',
-    opacity: 0.4,
-    marginVertical: spacing.lg,
-  },
-  modulesButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  modulesText: {
-    color: 'white',
+  iconActionText: {
+    marginTop: 6,
+    fontSize: fonts.size.sm,
     fontWeight: '600',
-    fontSize: fonts.size.md,
   },
 });

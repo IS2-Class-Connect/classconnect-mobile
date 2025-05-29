@@ -23,11 +23,12 @@ export type DialogType = 'error' | 'confirm';
 
 type CourseFormProps = {
   initialValues?: Partial<Course>;
-  onSubmit: (data: Partial<Omit<Course, 'id' | 'createdAt'>>) => void;
+  onSubmit: (data: Partial<Omit<Course, 'id' | 'createdAt'>> & { teacherId?: string }) => void; // Aquí he añadido teacherId opcional
   onCancel?: () => void;
   loading?: boolean;
   submitLabel?: string;
 };
+
 
 export default function CourseForm({
   initialValues = {},
@@ -147,9 +148,6 @@ export default function CourseForm({
 
     onSubmit(data);
   };
-
-
-
 
   const renderDateField = (label: string, date: Date, field: 'start' | 'deadline' | 'end') => (
     <TouchableOpacity
