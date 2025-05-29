@@ -32,56 +32,67 @@ export default function StudentFeedbackScreen() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const router = useRouter();
 
-  
-useEffect(() => {
-  const fetchData = async () => {
-    if (!authToken || !user) return;
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!authToken || !user?.uuid) {
+        console.warn('⛔ No auth token or user UUID');
+        return;
+      }
 
-    try {
-      const [allCourses, userEnrollments] = await Promise.all([
-        getAllCourses(authToken),
-        getEnrollmentsByUser(user.uuid, authToken),
-      ]);
+      try {
+        console.log('🚀 Fetching courses and enrollments...');
+        const [allCourses, userEnrollments] = await Promise.all([
+          getAllCourses(authToken),
+          getEnrollmentsByUser(user.uuid, authToken),
+        ]);
 
-      setCourses(allCourses);
+        console.log('📚 Courses fetched:', allCourses.length);
+        console.log('👨‍🎓 Enrollments fetched:', userEnrollments);
 
-      const filtered = userEnrollments.filter((e) => e.role === 'STUDENT');
-      setEnrollments(filtered);
+        setCourses(allCourses);
 
-      const totalRating = filtered.reduce(
-        (sum, enrollment) => sum + (enrollment.student_note || 0),
-        0
-      );
-      const avgRating = totalRating / filtered.length;
-      setAverageRating(avgRating);
+        const filtered = userEnrollments.filter(
+          (e) => e.role === 'STUDENT'
+        );
+        console.log('🎯 Filtered student enrollments:', filtered.length);
 
-      const summary = getMockStudentFeedbackSummary();
-      setAiSummary(summary);
-    } catch (error) {
-      console.error('Error fetching enrollments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setEnrollments(filtered);
 
-  fetchData();
-}, [user, authToken]);
+        const totalRating = filtered.reduce(
+          (sum, enrollment) => sum + (enrollment.student_note || 0),
+          0
+        );
+        const avgRating = filtered.length > 0 ? totalRating / filtered.length : 0;
+        setAverageRating(avgRating);
+        console.log('⭐ Calculated average rating:', avgRating.toFixed(1));
 
-  const renderStars = (rating: number) => {
-    return (
-      <View style={{ flexDirection: 'row' }}>
-        {Array.from({ length: 5 }, (_, i) => (
-          <Ionicons
-            key={i}
-            name={i < rating ? 'star' : 'star-outline'}
-            size={24}
-            color={theme.warning}
-            style={{ marginHorizontal: 2 }}
-          />
-        ))}
-      </View>
-    );
-  };
+        const summary = getMockStudentFeedbackSummary();
+        console.log('🧠 AI Summary:', summary);
+        setAiSummary(summary);
+      } catch (error) {
+        console.error('❌ Error fetching enrollments:', error);
+      } finally {
+        setLoading(false);
+        console.log('✅ Fetch complete');
+      }
+    };
+
+    fetchData();
+  }, [user?.uuid, authToken]);
+
+  const renderStars = (rating: number) => (
+    <View style={{ flexDirection: 'row' }}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <Ionicons
+          key={i}
+          name={i < rating ? 'star' : 'star-outline'}
+          size={24}
+          color={theme.warning}
+          style={{ marginHorizontal: 2 }}
+        />
+      ))}
+    </View>
+  );
 
   const renderFeedback = ({ item }: { item: Enrollment }) => {
     const course = courses.find((c) => c.id === item.courseId);
@@ -90,7 +101,9 @@ useEffect(() => {
         <Text style={[styles.courseName, { color: theme.text }]}>
           Course: {course ? course.title : 'Course not found'}
         </Text>
-        <View style={styles.starsContainer}>{renderStars(item.student_note || 0)}</View>
+        <View style={styles.starsContainer}>
+          {renderStars(item.student_note || 0)}
+        </View>
         <Text style={[styles.feedbackText, { color: theme.text }]}>
           {item.student_feedback || 'No feedback provided'}
         </Text>
@@ -108,7 +121,7 @@ useEffect(() => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/profile')}>
         <Ionicons name="arrow-back" size={30} color={theme.primary} />
       </TouchableOpacity>
 
@@ -145,7 +158,9 @@ useEffect(() => {
 
       <FlatList
         data={enrollments}
-        keyExtractor={(item) => item.courseId.toString()}
+        keyExtractor={(item, index) =>
+          `${item.courseId ?? 'unknown'}-${item.userId ?? 'nouser'}-${index}`
+        }
         renderItem={renderFeedback}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
@@ -255,4 +270,3 @@ const styles = StyleSheet.create({
     height: 24,
   },
 });
-

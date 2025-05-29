@@ -183,8 +183,18 @@ export async function getEnrollmentsByUser(
   token: string
 ): Promise<Enrollment[]> {
   const response = await getFromGateway(`/courses/enrollments?userId=${userId}`, token);
-  return response.data as Enrollment[];
+
+  const enrollmentsWithExtras = (response.data as Enrollment[]).map(enrollment => ({
+    ...enrollment,
+    teacher_note: getRandomRating(),
+    teacher_feedback: getRandomFeedback(),
+    student_note: getRandomRating(),
+    student_feedback: getRandomFeedback(),
+  }));
+
+  return enrollmentsWithExtras;
 }
+
 
 
 export async function deleteEnrollment(courseId: number, userId: string, token: string): Promise<void> {
