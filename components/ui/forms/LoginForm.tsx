@@ -10,6 +10,7 @@ import Dialog from '../alerts/Dialog';
 import ResetPasswordModal from '../modals/ResetPasswordModal'; 
 import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
+import { Modal } from 'react-native';
 /**
  * Login form component that handles user authentication
  */
@@ -24,7 +25,7 @@ export default function LoginForm({
 }) {
   const router = useRouter();
   const theme = useTheme();
-  const { loginWithEmailAndPassword, loginWithGoogle, isLoading: authIsLoading } = useAuth();
+  const { loginWithEmailAndPassword, loginWithGoogle,emailExists,linkAccountsWithPassword, isLoading: authIsLoading } = useAuth();
   const { user, loading, error, signIn, signOut } = GoogleAuth();
   // Form state
   const [email, setEmail] = useState('');
@@ -104,28 +105,32 @@ export default function LoginForm({
     }
   };
 
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkPassword, setLinkPassword] = useState('');
+
+  function askToLinkAccount(email: string) {
+    setLinkEmail(email);
+    setLinkPassword('');
+    setShowLinkModal(true);
+  }
+
   /**
    * Handle Google sign-in
    */
   const handleGoogleLogin = async () => {
     setExternalIsLoading(true);
-    
-    try {
-      // Use the Google login function from the context
-      const result = await loginWithGoogle();
-      if (result.success) {
-        // Navigate to the main application
-        router.replace('/(tabs)');
-      } else {
-        // Handle error
-        setErrorType(result.error || 'unknown-error');
+    const result= await signIn();
+    const emailString: string = result?.email ?? "";
+    const methods = await emailExists(emailString);
+    if(methods.length>0){
+      if (methods.includes('password')) {
+        askToLinkAccount(emailString);
       }
-    } catch (error) {
-      console.log('❌ Unexpected error during Google login:', error);
-      setErrorType('unknown-error');
-    } finally {
-      setExternalIsLoading(false);
     }
+
+    setExternalIsLoading(false);
+      
   };
 
 /**
@@ -195,7 +200,7 @@ const getErrorMessage = (errorType: AuthError): string => {
       <IconButton
         title="Continue with Google"
         icon={require('../../../assets/icons/google-blue.png')}
-        onPress={signIn}
+        onPress={handleGoogleLogin}
         disabled={isLoading}
         loading={isLoading}
       />
@@ -236,11 +241,61 @@ const getErrorMessage = (errorType: AuthError): string => {
         onClose={() => setErrorType(null)}
         type="error"
       />
+<Modal visible={showLinkModal} transparent animationType="slide">
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalTitle}>Existing Account</Text>
+      <Text style={styles.modalMessage}>
+      An account already exists with the email {linkEmail} using email/password. Enter your password to link the accounts.
+      </Text>
+      <TextField
+        placeholder="Password"
+        value={linkPassword}
+        onChangeText={setLinkPassword}
+        secureTextEntry
+      />
+      <View style={styles.modalButtons}>
+        <Button title="Cancel" onPress={() => setShowLinkModal(false)} />
+        <Button title="Link" onPress={async () => {
+          setShowLinkModal(false);
+          if (linkPassword) {
+            await linkAccountsWithPassword(linkEmail, linkPassword);
+          }
+        }} />
+      </View>
+    </View>
+  </View>
+</Modal>
+
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  modalContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalContent: {
+      margin: 20,
+      padding: 20,
+      borderRadius: 10,
+      backgroundColor: 'white',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 10,
+    },
+    modalMessage: {
+      marginBottom: 10,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
   resetLink: {
     marginTop: spacing.md,
     textAlign: 'center',

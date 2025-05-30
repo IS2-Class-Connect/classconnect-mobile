@@ -7,6 +7,15 @@ import {
 import { useEffect, useState } from 'react';
 
 // Configure Google Sign-In
+type User = {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+  givenName?: string | null;
+  familyName?: string | null;
+  photo?: string | null
+  id_token?: string | null;
+};
 
 GoogleSignin.configure({
   webClientId: '278336937854-pots3anfn9ops568409sn276v4moqnre.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
@@ -21,7 +30,7 @@ GoogleSignin.configure({
   profileImageSize: 120, // [iOS] The desired height (and width) of the profile image. Defaults to 120px
 });
 const GoogleAuth = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,9 +40,21 @@ const GoogleAuth = () => {
       await GoogleSignin.hasPlayServices();
       await GoogleSignin.signOut();
       const response = await GoogleSignin.signIn();
+
       console.log(response)
       if (isSuccessResponse(response)) {
-       // setState({ userInfo: response.data });
+        const signedInUser: User = {
+          id: response.data?.user.id ?? "",
+          email: response.data?.user.email ?? "",
+          name: response.data?.user.name ?? "",
+          givenName: response.data?.user.givenName ?? "",
+          familyName: response.data?.user.familyName ?? "",
+          photo: response.data?.user.photo ?? undefined,
+          id_token: response.data?.idToken,
+        };
+
+        setUser(signedInUser);
+        return signedInUser;
       } else {
         // sign in was cancelled by user
       }

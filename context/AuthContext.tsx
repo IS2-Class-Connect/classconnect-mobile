@@ -8,10 +8,12 @@ import React, {
 } from 'react';
 import { onAuthStateChangedListener, logout as firebaseLogout, isEmailVerified } from '../firebase';
 import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatus } from '../services/userApi';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword,fetchSignInMethodsForEmail } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
 import { addPushTokenListener } from 'expo-notifications';
 import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
+import { Alert } from 'react-native';
+import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider } from 'firebase/auth';
 
 export type AuthError = 
   | 'invalid-credentials' 
@@ -43,6 +45,9 @@ export type AuthContextType = {
   loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError }>;
   startRegistration: () => void;
   finishRegistration: () => void;
+  emailExists: (email: string) => Promise<string[]>; 
+  linkAccountsWithPassword: (email: string, password: string) => Promise<void>;
+
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -55,6 +60,8 @@ export const AuthContext = createContext<AuthContextType>({
   loginWithGoogle: async () => ({ success: false }),
   startRegistration: () => {},
   finishRegistration: () => {},
+  emailExists: async () => [],
+  linkAccountsWithPassword: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -100,6 +107,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   }, [authToken, fetchUserData]);
+  
+  const linkAccountsWithPassword = useCallback(async (email: string, password: string) => {
+    try {
+      const auth = getAuth();
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYyMjc4MCwiZXhwIjoxNzQ4NjI2MzgwfQ.ICfikGa6DOfQ2_F9e9JjrrmFbmtCvxOZBKBpgeve2gh3lbFBlHHmo__lC5c5R6ub-_hpCkeRaDvo6qtaG5vsEhFDYHNuBiQLiyYEd_85daMWDVjQ7EkwKQS9UPfopwESAe5eRyFyKLNMr5I2tEXDq5benyTZj-BG9osqyQxqTVm13GrOoioIxoCQ8k9OatpIUygRSVb4d-YUw6gwzhVzTI8CuPdtYjyhLlwynIbIRVVO_2TQgZsJZZ4Ys4a-aWl9SlacOFybCyE9g1mZkRfpn1f-y7HlzlRAuE1ZG8reD0DNzRpV6b2zQGbmep4bwjhU9IudkOrOzrdfnKzJQXyjZQ");     
+      const result = await linkWithCredential(userCredential.user, googleCredential);
+      console.log("✅ Linked accounts:", result.user.email);
+      Alert.alert("Success", "Your account was successfully linked.");
+
+    } catch (error) {
+      console.log("❌ Error linking account:", error);
+      Alert.alert("Error", "Account linking failed. Please check your password.");
+    }
+  }, []);
+
+  const emailExists = useCallback(async (email: string): Promise<string[]> => {
+    const auth = getAuth();
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      return methods;
+    } catch (error) {
+      console.error('Error checking email existence:', error);
+      return [];
+    }
+  }, []);
+
 
   const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -283,6 +317,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logout,
       refreshUserData,
       loginWithEmailAndPassword,
+      emailExists,
+      linkAccountsWithPassword,
       loginWithGoogle,
       startRegistration,
       finishRegistration
