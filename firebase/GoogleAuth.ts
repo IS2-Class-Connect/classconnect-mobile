@@ -29,6 +29,7 @@ const GoogleAuth = () => {
   const signIn = async () => {
     try {
       await GoogleSignin.hasPlayServices();
+      await GoogleSignin.signOut();
       const response = await GoogleSignin.signIn();
       console.log(response)
       if (isSuccessResponse(response)) {
