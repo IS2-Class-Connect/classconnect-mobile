@@ -124,7 +124,7 @@ export default function LoginForm({
     const emailString: string = result?.email ?? "";
     const methods = await emailExists(emailString);
     if(methods.length>0){
-    if (methods.includes("password") && methods.includes("google.com")) {
+    if (methods.includes("google.com")) {
       const userCredential = await loginWithGoogle();
       console.log("✅ Started with Google (already linked)", userCredential);
 
