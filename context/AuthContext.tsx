@@ -13,7 +13,7 @@ import { useGoogleSignIn } from '../firebase';
 import { addPushTokenListener } from 'expo-notifications';
 import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
 import { Alert } from 'react-native';
-import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider } from 'firebase/auth';
+import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider,signInWithCredential } from 'firebase/auth';
 
 export type AuthError = 
   | 'invalid-credentials' 
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const auth = getAuth();
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYyMjc4MCwiZXhwIjoxNzQ4NjI2MzgwfQ.ICfikGa6DOfQ2_F9e9JjrrmFbmtCvxOZBKBpgeve2gh3lbFBlHHmo__lC5c5R6ub-_hpCkeRaDvo6qtaG5vsEhFDYHNuBiQLiyYEd_85daMWDVjQ7EkwKQS9UPfopwESAe5eRyFyKLNMr5I2tEXDq5benyTZj-BG9osqyQxqTVm13GrOoioIxoCQ8k9OatpIUygRSVb4d-YUw6gwzhVzTI8CuPdtYjyhLlwynIbIRVVO_2TQgZsJZZ4Ys4a-aWl9SlacOFybCyE9g1mZkRfpn1f-y7HlzlRAuE1ZG8reD0DNzRpV6b2zQGbmep4bwjhU9IudkOrOzrdfnKzJQXyjZQ");     
+      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYzNDc1NSwiZXhwIjoxNzQ4NjM4MzU1fQ.ALMvmaUr4YhALj0efoWxetAiPSqoL30hrW3PZzx2zv6Vh4K9aNMfrdShMGw1U9EFmDXvpARM340SY5zWYq754BGPDHEh4ls2pNu2H_SwlfyGZarf1IvQtXpONDe_MVJjDCydQ3OMj-bGBVZCukDmiWxfFO6t2r9M6_Tvs2D_hy9n8keuTS0uFycXM66MieThxhETbjLpDclID4BRSQAMgEYrmORWY_C2MvRva6artqinyLu9Sb8sVuj2N78FBJBWJvGxiA6NRy0Ofv9DpTL5iQ1HWL4m2fPDqzrk9j97iKMy-ZQB1ZkO8DDnAP43Lkk9-7CC1DW_JlMyEMzuVsWFPg");     
       const result = await linkWithCredential(userCredential.user, googleCredential);
       console.log("✅ Linked accounts:", result.user.email);
       Alert.alert("Success", "Your account was successfully linked.");
@@ -200,42 +200,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loginWithGoogle = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await promptAsync();
-      if (result?.type === 'success') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const auth = getAuth();
-        if (!auth.currentUser) throw new Error('No user after Google login');
-
-        const emailVerified = await isEmailVerified(auth.currentUser);
-        if (!emailVerified) {
-          await firebaseLogout();
-          return { success: false, error: 'email-not-verified' as AuthError };
-        }
-
-        const token = await auth.currentUser.getIdToken();
-        setAuthToken(token);
-
-        try {
-          await fetchUserData(token);
-          return { success: true };
-        } catch (error: any) {
-          await firebaseLogout();
-          setAuthToken(null);
-          setUser(null);
-          if (error.message === 'account-locked-by-admins') {
-            return { success: false, error: 'account-locked-by-admins' as AuthError };
-          }
-          return { success: false, error: 'server-error' as AuthError };
-        }
-      } else {
-        return { success: false, error: 'user-not-found' as AuthError };
-      }
+      const auth = getAuth();
+      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYzNDc1NSwiZXhwIjoxNzQ4NjM4MzU1fQ.ALMvmaUr4YhALj0efoWxetAiPSqoL30hrW3PZzx2zv6Vh4K9aNMfrdShMGw1U9EFmDXvpARM340SY5zWYq754BGPDHEh4ls2pNu2H_SwlfyGZarf1IvQtXpONDe_MVJjDCydQ3OMj-bGBVZCukDmiWxfFO6t2r9M6_Tvs2D_hy9n8keuTS0uFycXM66MieThxhETbjLpDclID4BRSQAMgEYrmORWY_C2MvRva6artqinyLu9Sb8sVuj2N78FBJBWJvGxiA6NRy0Ofv9DpTL5iQ1HWL4m2fPDqzrk9j97iKMy-ZQB1ZkO8DDnAP43Lkk9-7CC1DW_JlMyEMzuVsWFPg");     
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      return { success: true };
     } catch {
       return { success: false, error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
-  }, [fetchUserData, promptAsync]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChangedListener(async (fbUser) => {
