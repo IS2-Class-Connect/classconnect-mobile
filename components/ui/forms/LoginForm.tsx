@@ -12,6 +12,7 @@ import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
+import { notifyRegisterToDB } from '../../../services/userApi';
 
 /**
  * Login form component that handles user authentication
@@ -129,22 +130,31 @@ export default function LoginForm({
     const methods = await emailExists(emailString);
     const token = result?.id_token ?? '';
     if(methods.length>0){
-            if (token) {
-
-    if (methods.includes("google.com")) {
-        try{
-          await verificateToken({idToken:token});
-          const userCredential = await loginWithGoogle(token);
-          console.log("✅ Started with Google (already linked)", userCredential);
-        } catch (err) {          console.log("Invalid token" );
-        } 
-
-      
+      if (token) {
+        if (methods.includes("google.com")) {
+          try{
+            await verificateToken({idToken:token});
+            const userCredential = await loginWithGoogle(token);
+            console.log("✅ Started with Google (already linked)", userCredential);
+          } catch (err) {   
+            console.log("Invalid token");
+          } 
     } else if (methods.includes('password')) {
         askToLinkAccount(emailString,token);
     }
     } 
-  }
+    } else {
+      const userCredential = await loginWithGoogle(token);
+      const userCreated = await notifyRegisterToDB({
+        uuid: result?.id!, 
+        email:  result?.email!,
+        name:  result?.name ?? "",
+        urlProfilePhoto:  result?.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result?.name}`,
+        provider: 'google.com',
+      });
+
+      console.log('✅ User registered in backend:', userCreated);
+    }
 
     setExternalIsLoading(false);
       

@@ -14,7 +14,6 @@ import {
 	getAuth,
   } from 'firebase/auth';
   
-  import * as Google from 'expo-auth-session/providers/google';
   import * as WebBrowser from 'expo-web-browser';
   import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
   import { Platform } from 'react-native';
@@ -93,49 +92,9 @@ import {
 	}
   }
 
-  import * as React from 'react';
-import { Button, Alert } from 'react-native';
-WebBrowser.maybeCompleteAuthSession();
 
 // 🔐 Google Sign-In
-  export function useGoogleSignIn() {
-	const [request, response, promptAsync] = Google.useAuthRequest({
-		clientId: '278336937854-pots3anfn9ops568409sn276v4moqnre.apps.googleusercontent.com',
-		androidClientId: '278336937854-pkodj3tagodrj84a2uca6e1i5458075j.apps.googleusercontent.com',
-	});
-
-	React.useEffect(() => {
-		if (response?.type === 'success') {
-			handleGoogleResponse(); 
-		} else if (response?.type === 'error') {
-			Alert.alert("Error", "Autenticación fallida.");
-		}
-	}, [response]);
-
-
-	async function handleGoogleResponse() {
-	  try {
-		console.log('🔁 Google response:', JSON.stringify(response, null, 2));
-		if (response?.type === 'success') {
-		  const { idToken } = response.authentication!;
-		  if (idToken) {
-			const credential = GoogleAuthProvider.credential(idToken);
-			const result = await signInWithCredential(auth, credential);
-			console.log('🔥 Google login success:', result.user.email);
-  
-			await AsyncStorage.setItem('lastLogin', Date.now().toString());
-			const saved = await AsyncStorage.getItem('lastLogin');
-			console.log('🕒 [google] lastLogin set to:', saved);
-		  }
-		} else {
-		  console.log('⚠️ Google response not successful:', response?.type);
-		}
-	  } catch (e) {
-		console.log('❌ Error handling Google login:', e);
-	  }
-	}
-  
-	return { request, response, promptAsync, handleGoogleResponse };
+  export async function useGoogleSignIn(email: string, token: string) {
   }
   
 
