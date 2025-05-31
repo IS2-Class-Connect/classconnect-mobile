@@ -11,6 +11,8 @@ import ResetPasswordModal from '../modals/ResetPasswordModal';
 import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
+import { verificateToken } from '../../../services/userApi';
+
 /**
  * Login form component that handles user authentication
  */
@@ -125,12 +127,19 @@ export default function LoginForm({
     const methods = await emailExists(emailString);
     if(methods.length>0){
     if (methods.includes("google.com")) {
-      const userCredential = await loginWithGoogle();
-      console.log("✅ Started with Google (already linked)", userCredential);
+      const token = result?.id_token ?? '';
+      if (token) {
+        try{
+          await verificateToken({idToken:token});
+          const userCredential = await loginWithGoogle(token);
+          console.log("✅ Started with Google (already linked)", userCredential);
+        } catch (err) {          console.log("Invalid token" );
+        } 
 
+      }
     } else if (methods.includes('password')) {
         askToLinkAccount(emailString);
-      }
+    }
     }
 
     setExternalIsLoading(false);

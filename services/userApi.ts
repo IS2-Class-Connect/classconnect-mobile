@@ -37,6 +37,18 @@ export type RegisterPayload = {
   provider: string;
 };
 
+export interface FederatedUser {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+}
+
+export interface Token {
+  idToken: string;
+
+}
+
 /**
  * Notify the backend about a new user registration.
  */
@@ -46,6 +58,18 @@ export async function notifyRegisterToDB(user: RegisterPayload): Promise<User> {
   console.log('✅ Backend response for user registration:', response);
   return response as User;
 }
+
+
+/**
+ * Notify the backend about a new user registration.
+ */
+export async function verificateToken(token: Token): Promise<FederatedUser> {
+  console.log('📡 Verificate google token:', token);
+  const response = await postToGateway('/users/auth/google', token,token.idToken);
+  console.log('✅ Backend response for user verification of token:', response);
+  return response as FederatedUser;
+}
+
 
 /**
  * Payload shape for login notification.

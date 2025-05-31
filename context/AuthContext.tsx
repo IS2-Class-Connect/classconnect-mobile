@@ -42,11 +42,11 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError }>;
+  loginWithGoogle: (token: string) => Promise<{ success: boolean; error?: AuthError }>;
   startRegistration: () => void;
   finishRegistration: () => void;
   emailExists: (email: string) => Promise<string[]>; 
-  linkAccountsWithPassword: (email: string, password: string) => Promise<void>;
+  linkAccountsWithPassword: (email: string, password: string, token: string) => Promise<void>;
 
 };
 
@@ -108,11 +108,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authToken, fetchUserData]);
   
-  const linkAccountsWithPassword = useCallback(async (email: string, password: string) => {
+  const linkAccountsWithPassword = useCallback(async (email: string, password: string, token: string) => {
     try {
       const auth = getAuth();
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYzNDc1NSwiZXhwIjoxNzQ4NjM4MzU1fQ.ALMvmaUr4YhALj0efoWxetAiPSqoL30hrW3PZzx2zv6Vh4K9aNMfrdShMGw1U9EFmDXvpARM340SY5zWYq754BGPDHEh4ls2pNu2H_SwlfyGZarf1IvQtXpONDe_MVJjDCydQ3OMj-bGBVZCukDmiWxfFO6t2r9M6_Tvs2D_hy9n8keuTS0uFycXM66MieThxhETbjLpDclID4BRSQAMgEYrmORWY_C2MvRva6artqinyLu9Sb8sVuj2N78FBJBWJvGxiA6NRy0Ofv9DpTL5iQ1HWL4m2fPDqzrk9j97iKMy-ZQB1ZkO8DDnAP43Lkk9-7CC1DW_JlMyEMzuVsWFPg");     
+      const googleCredential = GoogleAuthProvider.credential(token);     
       const result = await linkWithCredential(userCredential.user, googleCredential);
       console.log("✅ Linked accounts:", result.user.email);
       Alert.alert("Success", "Your account was successfully linked.");
@@ -197,11 +197,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: false, error: 'unknown-error' as AuthError };
   };
 
-  const loginWithGoogle = useCallback(async () => {
+  const loginWithGoogle = useCallback(async (token: string) => {
     setLoading(true);
     try {
       const auth = getAuth();
-      const googleCredential = GoogleAuthProvider.credential("eyJhbGciOiJSUzI1NiIsImtpZCI6ImJhYTY0ZWZjMTNlZjIzNmJlOTIxZjkyMmUzYTY3Y2M5OTQxNWRiOWIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiIyNzgzMzY5Mzc4NTQtNXQ4ZGJobDJvZjg3Z242a2dwc204ZHM5N2dpMDlnNmYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiIyNzgzMzY5Mzc4NTQtcG90czNhbmZuOW9wczU2ODQwOXNuMjc2djRtb3FucmUuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMDgyMzE0ODU4MjUzNTc5OTk5OTIiLCJlbWFpbCI6InNvbHU3Mzk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoicyIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLLVhUQzVnbDZUQ1lLYTlVLWRacFludk5BS0pGckRXNUUybURzSE15SmN1NTFFb0E9czk2LWMiLCJnaXZlbl9uYW1lIjoicyIsImlhdCI6MTc0ODYzNDc1NSwiZXhwIjoxNzQ4NjM4MzU1fQ.ALMvmaUr4YhALj0efoWxetAiPSqoL30hrW3PZzx2zv6Vh4K9aNMfrdShMGw1U9EFmDXvpARM340SY5zWYq754BGPDHEh4ls2pNu2H_SwlfyGZarf1IvQtXpONDe_MVJjDCydQ3OMj-bGBVZCukDmiWxfFO6t2r9M6_Tvs2D_hy9n8keuTS0uFycXM66MieThxhETbjLpDclID4BRSQAMgEYrmORWY_C2MvRva6artqinyLu9Sb8sVuj2N78FBJBWJvGxiA6NRy0Ofv9DpTL5iQ1HWL4m2fPDqzrk9j97iKMy-ZQB1ZkO8DDnAP43Lkk9-7CC1DW_JlMyEMzuVsWFPg");     
+      const googleCredential = GoogleAuthProvider.credential(token);     
       const userCredential = await signInWithCredential(auth, googleCredential);
       return { success: true };
     } catch {
