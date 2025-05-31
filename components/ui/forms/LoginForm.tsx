@@ -110,11 +110,13 @@ export default function LoginForm({
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkEmail, setLinkEmail] = useState('');
   const [linkPassword, setLinkPassword] = useState('');
+  const [linkToken, setToken] = useState('');
 
-  function askToLinkAccount(email: string) {
+  function askToLinkAccount(email: string, token: string) {
     setLinkEmail(email);
     setLinkPassword('');
     setShowLinkModal(true);
+    setToken(token);
   }
 
   /**
@@ -125,10 +127,11 @@ export default function LoginForm({
     const result= await signIn();
     const emailString: string = result?.email ?? "";
     const methods = await emailExists(emailString);
+    const token = result?.id_token ?? '';
     if(methods.length>0){
+            if (token) {
+
     if (methods.includes("google.com")) {
-      const token = result?.id_token ?? '';
-      if (token) {
         try{
           await verificateToken({idToken:token});
           const userCredential = await loginWithGoogle(token);
@@ -136,11 +139,12 @@ export default function LoginForm({
         } catch (err) {          console.log("Invalid token" );
         } 
 
-      }
+      
     } else if (methods.includes('password')) {
-        askToLinkAccount(emailString);
+        askToLinkAccount(emailString,token);
     }
-    }
+    } 
+  }
 
     setExternalIsLoading(false);
       
@@ -272,7 +276,7 @@ const getErrorMessage = (errorType: AuthError): string => {
         <Button title="Link" onPress={async () => {
           setShowLinkModal(false);
           if (linkPassword) {
-            await linkAccountsWithPassword(linkEmail, linkPassword);
+            await linkAccountsWithPassword(linkEmail, linkPassword,linkToken);
           }
         }} />
       </View>
