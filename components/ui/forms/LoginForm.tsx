@@ -8,7 +8,7 @@ import Button from '../buttons/Button';
 import IconButton from '../buttons/IconButton';
 import Dialog from '../alerts/Dialog';
 import ResetPasswordModal from '../modals/ResetPasswordModal'; 
-import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
+import { useAuth, AuthError, LockInfo, fetchUserData } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
@@ -30,7 +30,7 @@ export default function LoginForm({
 }) {
   const router = useRouter();
   const theme = useTheme();
-  const { loginWithEmailAndPassword, loginWithGoogle,emailExists,linkAccountsWithPassword, isLoading: authIsLoading } = useAuth();
+  const { loginWithEmailAndPassword, loginWithGoogle,emailExists,linkAccountsWithPassword,fetchUserData, isLoading: authIsLoading } = useAuth();
   const { user, loading, error, signIn, signOut } = GoogleAuth();
   // Form state
   const [email, setEmail] = useState('');
@@ -120,8 +120,8 @@ export default function LoginForm({
   function askToLinkAccount(email: string, token: string) {
     setLinkEmail(email);
     setLinkPassword('');
-    setShowLinkModal(true);
     setToken(token);
+    setShowLinkModal(true);
   }
 
   /**
@@ -149,12 +149,12 @@ const handleGoogleLogin = async () => {
 
     await AsyncStorage.setItem("token", token);
     const methods = await emailExists(emailString);
-
     if (methods.length > 0) {
       if (methods.includes("google.com")) {
         try {
           const userCredential = await loginWithGoogle(token);
           console.log("✅ Started with Google (already linked)", userCredential);
+          await fetchUserData(userCredential.id_token);
           router.replace('/(tabs)');
         } catch (err: any) {
           console.log("❌ Error logging in with Google:", err);
@@ -176,6 +176,7 @@ const handleGoogleLogin = async () => {
           provider: "google.com",
         });
         console.log("✅ User registered in backend:", userCreated);
+        await fetchUserData(userCredential.id_token);
         router.replace('/(tabs)');
       } catch (err) {
         console.log("❌ Error registering new user:", err);
@@ -326,7 +327,7 @@ const getErrorMessage = (errorType: AuthError): string => {
           setShowLinkModal(false);
           if (linkPassword) {
             const result = await linkAccountsWithPassword(linkEmail, linkPassword, linkToken);
-                  try {
+            try {
             console.log('🧾 Updating backend user profile...');
             await updateUserProfile(
               result.uid,
@@ -336,7 +337,8 @@ const getErrorMessage = (errorType: AuthError): string => {
               result.id_token
             );
             console.log('✅ Backend user profile updated.');
-            router.replace('/(tabs)');
+            await fetchUserData(result.id_token);
+            router.replace('/(tabs)'); 
           } catch (backendError) {
             console.log('❌ Backend update error:', backendError);
             return;

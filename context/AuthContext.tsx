@@ -43,7 +43,8 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: (token: string) => Promise<{ uid:string, success: boolean; error?: AuthError }>;
+  loginWithGoogle: (token: string) => Promise<{ uid:string, success: boolean; error?: AuthError; id_token: string;}>;
+  fetchUserData: (token: string) => Promise<User | null>;
   startRegistration: () => void;
   finishRegistration: () => void;
   emailExists: (email: string) => Promise<string[]>; 
@@ -58,7 +59,8 @@ export const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   refreshUserData: async () => {},
   loginWithEmailAndPassword: async () => ({ success: false }),
-  loginWithGoogle: async () => ({uid: "", success: false }),
+  loginWithGoogle: async () => ({uid: "", success: false, id_token: "" }),
+  fetchUserData: async () => null, 
   startRegistration: () => {},
   finishRegistration: () => {},
   emailExists: async () => [],
@@ -208,11 +210,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem('lastLogin', Date.now().toString());
 			const saved = await AsyncStorage.getItem('lastLogin');
 			console.log('🕒 [login] lastLogin set to:', saved);
-			console.log('auth', auth);
-			console.log('userCredential', userCredential);
-      return { uid: userCredential.user.uid,success: true };
+      const idToken = await userCredential.user.getIdToken();
+      setAuthToken(idToken);
+      return { uid: userCredential.user.uid,success: true, id_token: idToken };
     } catch {
-      return { uid:"",success: false, error: 'unknown-error' as AuthError };
+      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
@@ -298,6 +300,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logout,
       refreshUserData,
       loginWithEmailAndPassword,
+      fetchUserData,
       emailExists,
       linkAccountsWithPassword,
       loginWithGoogle,
