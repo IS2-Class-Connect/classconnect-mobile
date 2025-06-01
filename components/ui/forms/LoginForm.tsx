@@ -12,7 +12,7 @@ import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
-import { notifyRegisterToDB } from '../../../services/userApi';
+import { notifyRegisterToDB, updateUserProfile } from '../../../services/userApi';
 
 /**
  * Login form component that handles user authentication
@@ -141,6 +141,25 @@ export default function LoginForm({
           } 
     } else if (methods.includes('password')) {
         askToLinkAccount(emailString,token);
+      try {
+        const { user} = useAuth();
+        if (!user) {
+          console.log('User not authenticated.');
+          return;
+        }
+        console.log('🧾 Updating backend user profile...');
+        await updateUserProfile(
+          user.uuid,
+          {   name:  result?.name! ,
+              urlProfilePhoto:  result?.photo! ,
+          },
+          token
+        );
+        console.log('✅ Backend user profile updated.');
+      } catch (backendError) {
+        console.log('❌ Backend update error:', backendError);
+        return;
+      }
     }
     } 
     } else {
