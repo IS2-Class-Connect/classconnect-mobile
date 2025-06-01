@@ -116,14 +116,7 @@ export default function LoginForm({
   const [linkToken, setToken] = useState('');
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState('');
-  const [id, setId] = useState('');
-  type LinkResult = {
-    uid: string;
-    success: boolean;
-    error?: AuthError;
-  };
 
-  const [linkedUser, setLinkedUser] = useState<LinkResult | null>(null);
   function askToLinkAccount(email: string, token: string) {
     setLinkEmail(email);
     setLinkPassword('');
@@ -170,7 +163,6 @@ const handleGoogleLogin = async () => {
       } else if (methods.includes("password")) {
         setName(result.name!);
         setPhoto(result.photo!);
-        setId(result.id!);
         askToLinkAccount(emailString, token); 
       }
     } else {
@@ -334,10 +326,8 @@ const getErrorMessage = (errorType: AuthError): string => {
           setShowLinkModal(false);
           if (linkPassword) {
             const result = await linkAccountsWithPassword(linkEmail, linkPassword, linkToken);
-            setLinkedUser(result);
                   try {
             console.log('🧾 Updating backend user profile...');
-            console.log(result)
             await updateUserProfile(
               result.uid,
               {   name:  name,
