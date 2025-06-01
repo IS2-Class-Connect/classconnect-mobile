@@ -115,8 +115,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const googleCredential = GoogleAuthProvider.credential(token);     
       const result = await linkWithCredential(userCredential.user, googleCredential);
       console.log("✅ Linked accounts:", result.user.email);
-      console.log("✅ Linked accounts:", result.user.getIdToken());
-      console.log("✅ Linked accounts:", userCredential);
       Alert.alert("Success", "Your account was successfully linked.");
       const idToken = await result.user.getIdToken();
       return { uid: userCredential.user.uid,success: true , id_token: idToken};
