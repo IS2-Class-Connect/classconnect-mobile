@@ -162,6 +162,7 @@ const handleGoogleLogin = async () => {
         try {
           const userCredential = await loginWithGoogle(token);
           console.log("✅ Started with Google (already linked)", userCredential);
+          router.replace('/(tabs)');
         } catch (err: any) {
           console.log("❌ Error logging in with Google:", err);
           Alert.alert("Error", "Authentication failed. Please try again.");
@@ -183,6 +184,7 @@ const handleGoogleLogin = async () => {
           provider: "google.com",
         });
         console.log("✅ User registered in backend:", userCreated);
+        router.replace('/(tabs)');
       } catch (err) {
         console.log("❌ Error registering new user:", err);
         Alert.alert("Error", "Failed to complete registration. Please try again.");
@@ -344,6 +346,7 @@ const getErrorMessage = (errorType: AuthError): string => {
               result.id_token
             );
             console.log('✅ Backend user profile updated.');
+            router.replace('/(tabs)');
           } catch (backendError) {
             console.log('❌ Backend update error:', backendError);
             return;
