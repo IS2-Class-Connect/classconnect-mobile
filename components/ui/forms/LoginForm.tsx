@@ -13,6 +13,7 @@ import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
 import { notifyRegisterToDB, updateUserProfile } from '../../../services/userApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Login form component that handles user authentication
@@ -138,7 +139,9 @@ export default function LoginForm({
     const emailString: string = result?.email ?? "";
     const methods = await emailExists(emailString);
     const token = result?.id_token ?? '';
-
+    await AsyncStorage.setItem('token', token);
+    const saved = await AsyncStorage.getItem('token');
+    console.log('token is saved:', saved);
     if(methods.length>0){
       if (token) {
         if (methods.includes("google.com")) {
