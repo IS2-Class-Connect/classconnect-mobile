@@ -139,6 +139,7 @@ export default function LoginForm({
     const emailString: string = result?.email ?? "";
     const methods = await emailExists(emailString);
     const token = result?.id_token ?? '';
+    await verificateToken({idToken:token});
     await AsyncStorage.setItem('token', token);
     const saved = await AsyncStorage.getItem('token');
     console.log('token is saved:', saved);
@@ -146,7 +147,6 @@ export default function LoginForm({
       if (token) {
         if (methods.includes("google.com")) {
           try{
-            await verificateToken({idToken:token});
             const userCredential = await loginWithGoogle(token);
             console.log("✅ Started with Google (already linked)", userCredential);
           } catch (err) {   
