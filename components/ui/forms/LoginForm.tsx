@@ -14,6 +14,7 @@ import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
 import { notifyRegisterToDB, updateUserProfile } from '../../../services/userApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 /**
  * Login form component that handles user authentication
@@ -133,48 +134,76 @@ export default function LoginForm({
   /**
    * Handle Google sign-in
    */
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
+  try {
     setExternalIsLoading(true);
-    const result= await signIn();
-    const emailString: string = result?.email ?? "";
+
+    const result = await signIn(); 
+    if (!result?.id_token) {
+      throw new Error("No ID token returned from Google");
+    }
+
+    const emailString: string = result.email ?? "";
+    const token = result.id_token;
+
+    try {
+      await verificateToken({ idToken: token });
+    } catch (e) {
+      Alert.alert("Error", "Invalid or expired Google token. Please try logging in again.");
+      setExternalIsLoading(false);
+      return;
+    }
+
+    await AsyncStorage.setItem("token", token);
     const methods = await emailExists(emailString);
-    const token = result?.id_token ?? '';
-    await verificateToken({idToken:token});
-    await AsyncStorage.setItem('token', token);
-    const saved = await AsyncStorage.getItem('token');
-    console.log('token is saved:', saved);
-    if(methods.length>0){
-      if (token) {
-        if (methods.includes("google.com")) {
-          try{
-            const userCredential = await loginWithGoogle(token);
-            console.log("✅ Started with Google (already linked)", userCredential);
-          } catch (err) {   
-            console.log("Invalid token");
-          } 
-    } else if (methods.includes('password')) {
-        setName(result?.name!)
-        setPhoto(result?.photo!)
-        setId(result?.id!)
-        askToLinkAccount(emailString,token);
-    }
-    } 
+
+    if (methods.length > 0) {
+      if (methods.includes("google.com")) {
+        try {
+          const userCredential = await loginWithGoogle(token);
+          console.log("✅ Started with Google (already linked)", userCredential);
+        } catch (err: any) {
+          console.log("❌ Error logging in with Google:", err);
+          Alert.alert("Error", "Authentication failed. Please try again.");
+        }
+      } else if (methods.includes("password")) {
+        setName(result.name!);
+        setPhoto(result.photo!);
+        setId(result.id!);
+        askToLinkAccount(emailString, token); 
+      }
     } else {
-      const userCredential = await loginWithGoogle(token);
-      const userCreated = await notifyRegisterToDB({
-        uuid: userCredential?.uid!, 
-        email:  result?.email!,
-        name:  result?.name ?? "",
-        urlProfilePhoto:  result?.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result?.name}`,
-        provider: 'google.com',
-      });
-
-      console.log('✅ User registered in backend:', userCreated);
+      try {
+        const userCredential = await loginWithGoogle(token);
+        const userCreated = await notifyRegisterToDB({
+          uuid: userCredential.uid,
+          email: result.email!,
+          name: result.name ?? "",
+          urlProfilePhoto: result.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result.name}`,
+          provider: "google.com",
+        });
+        console.log("✅ User registered in backend:", userCreated);
+      } catch (err) {
+        console.log("❌ Error registering new user:", err);
+        Alert.alert("Error", "Failed to complete registration. Please try again.");
+      }
     }
 
+  } catch (error: any) {
+    console.log("❌ Google login error:", error);
+    Alert.alert(
+      "Authentication Failed",
+      "There was an issue logging in with Google. You can try again or choose another method.",
+      [
+        { text: "Retry", onPress: handleGoogleLogin },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  } finally {
     setExternalIsLoading(false);
-      
-  };
+  }
+};
+
 
 /**
  * Map error types to user-friendly messages
