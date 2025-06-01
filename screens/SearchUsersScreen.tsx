@@ -67,7 +67,7 @@ export default function SearchUsersScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Back Button */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity onPress={() => router.push('/profile')} style={styles.backButton}>
         <Ionicons name="arrow-back" size={24} color="#339CFF" />
       </TouchableOpacity>
 

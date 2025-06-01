@@ -1,33 +1,39 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Course } from '../../../services/coursesApi';
 import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useRouter } from 'expo-router';
+import { Enrollment } from '../../../services/coursesApi';
 
 interface CourseCardProps {
   course: Course;
+   enrollments: Enrollment[];
   isTeacher: boolean;
   isEnrolled: boolean;
   isAssistant: boolean;
   isFull: boolean;
   isClosed: boolean;
-  enrolledCount: number;
 }
 
 export default function CourseCard({
   course,
+  enrollments,
   isTeacher,
   isEnrolled,
   isAssistant,
   isFull,
   isClosed,
-  enrolledCount,
 }: CourseCardProps) {
   const theme = useTheme();
   const router = useRouter();
+
+  // Filter enrollments to only count students (excluding assistants and professors)
+  const studentsOnly = enrollments.filter((e) => e.role === 'STUDENT');
+  console.log('Students Only:', studentsOnly);
+  const enrolledCount = studentsOnly.length;
 
   const role = isTeacher
     ? 'Professor'

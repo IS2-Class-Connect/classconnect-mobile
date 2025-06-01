@@ -1,12 +1,28 @@
-// services/gatewayClient.ts
-
-// Base URL for the Gateway, configurable via environment variable or defaults to localhost
+// Base URL for the Gateway
 const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://localhost:3000';
 
-/**
- * Helper for sending GET requests to the Gateway.
- * If a Firebase token is provided, it's included in the Authorization header.
- */
+async function handleError(res: Response, method: string, endpoint: string) {
+  let errorBody: any;
+  let isJson = res.headers.get('content-type')?.includes('application/json');
+
+  try {
+    errorBody = isJson ? await res.json() : await res.text();
+  } catch {
+    errorBody = await res.text();
+  }
+
+  console.log(`🚨 ${method} request to ${endpoint} failed`);
+  console.log(`Status: ${res.status} ${res.statusText}`);
+  console.log('Response:', errorBody);
+
+  const message = typeof errorBody === 'object'
+    ? errorBody.message || JSON.stringify(errorBody)
+    : errorBody;
+
+  throw new Error(`Error ${res.status}: ${message}`);
+}
+
+
 export async function getFromGateway(endpoint: string, token?: string) {
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     headers: {
@@ -14,19 +30,10 @@ export async function getFromGateway(endpoint: string, token?: string) {
     },
   });
 
-  if (!res.ok) {
-    const error = await res.text();
-    console.log('🚨 GET request error:', error);
-    throw new Error(`Error ${res.status}: ${error}`);
-  }
-
+  if (!res.ok) await handleError(res, 'GET', endpoint);
   return res.json();
 }
 
-/**
- * Helper for sending POST requests to the Gateway.
- * Requires data and optionally a Firebase token.
- */
 export async function postToGateway(endpoint: string, data: any, token?: string) {
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: 'POST',
@@ -37,19 +44,21 @@ export async function postToGateway(endpoint: string, data: any, token?: string)
     body: JSON.stringify(data),
   });
 
-  if (!res.ok) {
-    const error = await res.text();
-    console.log('🚨 POST request error:', error);
-    throw new Error(`Error ${res.status}: ${error}`);
-  }
+  if (!res.ok) await handleError(res, 'POST', endpoint);
 
-  return res.json();
+  if (res.status === 204) return null; // No Content
+
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Helper for sending PATCH requests to the Gateway.
- * Requires data and optionally a Firebase token.
- */
+
 export async function patchToGateway(endpoint: string, data: any, token?: string) {
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: 'PATCH',
@@ -60,19 +69,28 @@ export async function patchToGateway(endpoint: string, data: any, token?: string
     body: JSON.stringify(data),
   });
 
+  console.log(`PATCH request to ${GATEWAY_URL}${endpoint} with data:`, JSON.stringify(data));
+
   if (!res.ok) {
-    const error = await res.text();
-    console.log('🚨 PATCH request error:', error);
-    throw new Error(`Error ${res.status}: ${error}`);
+    let errorText;
+    try {
+      const json = await res.json();
+      errorText = json?.message || JSON.stringify(json);
+    } catch (e) {
+      errorText = await res.text();
+    }
+
+    console.log(`🚨 PATCH request to ${endpoint} failed`);
+    console.log(`Status: ${res.status} ${res.statusText}`);
+    console.log('Response:', errorText);
+
+    throw new Error(`Error ${res.status}: ${errorText}`);
   }
 
   return res.json();
 }
 
-/**
- * Helper for sending DELETE requests to the Gateway.
- * Optionally includes a Firebase token.
- */
+
 export async function deleteFromGateway(endpoint: string, token?: string) {
   const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: 'DELETE',
@@ -81,9 +99,5 @@ export async function deleteFromGateway(endpoint: string, token?: string) {
     },
   });
 
-  if (!res.ok) {
-    const error = await res.text();
-    console.log('🚨 DELETE request error:', error);
-    throw new Error(`Error ${res.status}: ${error}`);
-  }
+  if (!res.ok) await handleError(res, 'DELETE', endpoint);
 }

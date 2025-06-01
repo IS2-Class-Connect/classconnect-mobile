@@ -1,8 +1,7 @@
-const BACKEND_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://localhost:3000';
+import { postToGateway } from './gatewayClient';
 
-/**
- * Sends an enrollment confirmation email to a student by hitting the backend.
- */
+const TOKEN = process.env.EXPO_PUBLIC_GATEWAY_TOKEN;
+
 export async function sendEnrollmentEmail(
   uuid: string,
   studentName: string,
@@ -10,31 +9,23 @@ export async function sendEnrollmentEmail(
   studentEmail: string
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/email/student-enrollment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    await postToGateway(
+      '/email/student-enrollment',
+      {
         uuid,
         toName: studentName,
         courseName,
         studentEmail,
-        topic: "enrollment",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to send enrollment email. Status: ${response.status}`);
-    }
-
+        topic: 'enrollment',
+      },
+      TOKEN
+    );
     console.log('📧 Enrollment email request sent successfully');
   } catch (error) {
     console.error('❌ Error sending enrollment email:', error);
   }
 }
 
-/**
- * Sends a notification email when a student is assigned as a teaching assistant.
- */
 export async function sendAssistantAssignmentEmail(
   uuid: string,
   studentName: string,
@@ -43,23 +34,18 @@ export async function sendAssistantAssignmentEmail(
   studentEmail: string
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/email/assistant-assignment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    await postToGateway(
+      '/email/assistant-assignment',
+      {
         uuid,
         toName: studentName,
         professorName,
         courseName,
         studentEmail,
-        topic: "assistant-assignment",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to send assistant assignment email. Status: ${response.status}`);
-    }
-
+        topic: 'assistant-assignment',
+      },
+      TOKEN
+    );
     console.log('📧 Assistant assignment email request sent successfully');
   } catch (error) {
     console.error('❌ Error sending assistant assignment email:', error);
