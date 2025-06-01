@@ -112,7 +112,16 @@ export default function LoginForm({
   const [linkEmail, setLinkEmail] = useState('');
   const [linkPassword, setLinkPassword] = useState('');
   const [linkToken, setToken] = useState('');
+  const [name, setName] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [id, setId] = useState('');
+  type LinkResult = {
+    uid: string;
+    success: boolean;
+    error?: AuthError;
+  };
 
+  const [linkedUser, setLinkedUser] = useState<LinkResult | null>(null);
   function askToLinkAccount(email: string, token: string) {
     setLinkEmail(email);
     setLinkPassword('');
@@ -129,6 +138,7 @@ export default function LoginForm({
     const emailString: string = result?.email ?? "";
     const methods = await emailExists(emailString);
     const token = result?.id_token ?? '';
+
     if(methods.length>0){
       if (token) {
         if (methods.includes("google.com")) {
@@ -140,32 +150,16 @@ export default function LoginForm({
             console.log("Invalid token");
           } 
     } else if (methods.includes('password')) {
+        setName(result?.name!)
+        setPhoto(result?.photo!)
+        setId(result?.id!)
         askToLinkAccount(emailString,token);
-      try {
-        const { user} = useAuth();
-        if (!user) {
-          console.log('User not authenticated.');
-          return;
-        }
-        console.log('🧾 Updating backend user profile...');
-        await updateUserProfile(
-          user.uuid,
-          {   name:  result?.name! ,
-              urlProfilePhoto:  result?.photo! ,
-          },
-          token
-        );
-        console.log('✅ Backend user profile updated.');
-      } catch (backendError) {
-        console.log('❌ Backend update error:', backendError);
-        return;
-      }
     }
     } 
     } else {
       const userCredential = await loginWithGoogle(token);
       const userCreated = await notifyRegisterToDB({
-        uuid: userCredential.user_id_token, 
+        uuid: userCredential?.uid!, 
         email:  result?.email!,
         name:  result?.name ?? "",
         urlProfilePhoto:  result?.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result?.name}`,
@@ -305,7 +299,23 @@ const getErrorMessage = (errorType: AuthError): string => {
         <Button title="Link" onPress={async () => {
           setShowLinkModal(false);
           if (linkPassword) {
-            await linkAccountsWithPassword(linkEmail, linkPassword,linkToken);
+            const result = await linkAccountsWithPassword(linkEmail, linkPassword, linkToken);
+            setLinkedUser(result);
+                  try {
+            console.log('🧾 Updating backend user profile...');
+            console.log(result)
+            await updateUserProfile(
+              result.uid,
+              {   name:  name,
+                  urlProfilePhoto: photo,
+              },
+              result.id_token
+            );
+            console.log('✅ Backend user profile updated.');
+          } catch (backendError) {
+            console.log('❌ Backend update error:', backendError);
+            return;
+          }
           }
         }} />
       </View>

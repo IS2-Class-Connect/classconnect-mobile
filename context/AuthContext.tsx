@@ -43,11 +43,11 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: (token: string) => Promise<{ user_id_token:string, success: boolean; error?: AuthError }>;
+  loginWithGoogle: (token: string) => Promise<{ uid:string, success: boolean; error?: AuthError }>;
   startRegistration: () => void;
   finishRegistration: () => void;
   emailExists: (email: string) => Promise<string[]>; 
-  linkAccountsWithPassword: (email: string, password: string, token: string) => Promise<void>;
+  linkAccountsWithPassword: (email: string, password: string, token: string) =>  Promise<{ uid:string, success: boolean; id_token: string; error?: AuthError }>;
 
 };
 
@@ -58,11 +58,11 @@ export const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   refreshUserData: async () => {},
   loginWithEmailAndPassword: async () => ({ success: false }),
-  loginWithGoogle: async () => ({user_id_token: "", success: false }),
+  loginWithGoogle: async () => ({uid: "", success: false }),
   startRegistration: () => {},
   finishRegistration: () => {},
   emailExists: async () => [],
-  linkAccountsWithPassword: async () => {},
+  linkAccountsWithPassword: async () => ({uid: "", success: false, id_token: "" }),
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -115,11 +115,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const googleCredential = GoogleAuthProvider.credential(token);     
       const result = await linkWithCredential(userCredential.user, googleCredential);
       console.log("✅ Linked accounts:", result.user.email);
+      console.log("✅ Linked accounts:", result.user.getIdToken());
+      console.log("✅ Linked accounts:", userCredential);
       Alert.alert("Success", "Your account was successfully linked.");
-
+      const idToken = await result.user.getIdToken();
+      return { uid: userCredential.user.uid,success: true , id_token: idToken};
     } catch (error) {
       console.log("❌ Error linking account:", error);
       Alert.alert("Error", "Account linking failed. Please check your password.");
+      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError }
     }
   }, []);
 
@@ -206,9 +210,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem('lastLogin', Date.now().toString());
 			const saved = await AsyncStorage.getItem('lastLogin');
 			console.log('🕒 [login] lastLogin set to:', saved);
-      return { user_id_token: userCredential.user.uid,success: true };
+			console.log('auth', auth);
+			console.log('userCredential', userCredential);
+      return { uid: userCredential.user.uid,success: true };
     } catch {
-      return { user_id_token:"",success: false, error: 'unknown-error' as AuthError };
+      return { uid:"",success: false, error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
