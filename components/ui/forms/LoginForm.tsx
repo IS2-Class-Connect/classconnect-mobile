@@ -146,7 +146,7 @@ export default function LoginForm({
     } else {
       const userCredential = await loginWithGoogle(token);
       const userCreated = await notifyRegisterToDB({
-        uuid: result?.id!, 
+        uuid: userCredential.user_id_token, 
         email:  result?.email!,
         name:  result?.name ?? "",
         urlProfilePhoto:  result?.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result?.name}`,

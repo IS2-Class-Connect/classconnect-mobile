@@ -14,6 +14,7 @@ import { addPushTokenListener } from 'expo-notifications';
 import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
 import { Alert } from 'react-native';
 import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider,signInWithCredential } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AuthError = 
   | 'invalid-credentials' 
@@ -42,7 +43,7 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: (token: string) => Promise<{ success: boolean; error?: AuthError }>;
+  loginWithGoogle: (token: string) => Promise<{ user_id_token:string, success: boolean; error?: AuthError }>;
   startRegistration: () => void;
   finishRegistration: () => void;
   emailExists: (email: string) => Promise<string[]>; 
@@ -70,7 +71,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const { promptAsync } = useGoogleSignIn();
 
   const startRegistration = useCallback(() => setIsRegistering(true), []);
   const finishRegistration = useCallback(() => setIsRegistering(false), []);
@@ -203,9 +203,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const auth = getAuth();
       const googleCredential = GoogleAuthProvider.credential(token);     
       const userCredential = await signInWithCredential(auth, googleCredential);
-      return { success: true };
+      await AsyncStorage.setItem('lastLogin', Date.now().toString());
+			const saved = await AsyncStorage.getItem('lastLogin');
+			console.log('🕒 [login] lastLogin set to:', saved);
+      return { user_id_token: userCredential.user.uid,success: true };
     } catch {
-      return { success: false, error: 'unknown-error' as AuthError };
+      return { user_id_token:"",success: false, error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
