@@ -8,10 +8,13 @@ import React, {
 } from 'react';
 import { onAuthStateChangedListener, logout as firebaseLogout, isEmailVerified } from '../firebase';
 import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatus } from '../services/userApi';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword,fetchSignInMethodsForEmail } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
 import { addPushTokenListener } from 'expo-notifications';
 import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
+import { Alert } from 'react-native';
+import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider,signInWithCredential } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AuthError = 
   | 'invalid-credentials' 
@@ -40,9 +43,13 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: () => Promise<{ success: boolean; error?: AuthError }>;
+  loginWithGoogle: (token: string) => Promise<{ uid:string, success: boolean; error?: AuthError; id_token: string;}>;
+  fetchUserData: (token: string) => Promise<User | null>;
   startRegistration: () => void;
   finishRegistration: () => void;
+  emailExists: (email: string) => Promise<string[]>; 
+  linkAccountsWithPassword: (email: string, password: string, token: string) =>  Promise<{ uid:string, success: boolean; id_token: string; error?: AuthError }>;
+
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -52,9 +59,12 @@ export const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   refreshUserData: async () => {},
   loginWithEmailAndPassword: async () => ({ success: false }),
-  loginWithGoogle: async () => ({ success: false }),
+  loginWithGoogle: async () => ({uid: "", success: false, id_token: "" }),
+  fetchUserData: async () => null, 
   startRegistration: () => {},
   finishRegistration: () => {},
+  emailExists: async () => [],
+  linkAccountsWithPassword: async () => ({uid: "", success: false, id_token: "" }),
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -63,7 +73,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const { promptAsync } = useGoogleSignIn();
 
   const startRegistration = useCallback(() => setIsRegistering(true), []);
   const finishRegistration = useCallback(() => setIsRegistering(false), []);
@@ -100,6 +109,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   }, [authToken, fetchUserData]);
+  
+  const linkAccountsWithPassword = useCallback(async (email: string, password: string, token: string) => {
+    try {
+      const auth = getAuth();
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const googleCredential = GoogleAuthProvider.credential(token);     
+      const result = await linkWithCredential(userCredential.user, googleCredential);
+      console.log("✅ Linked accounts:", result.user.email);
+      Alert.alert("Success", "Your account was successfully linked.");
+      const idToken = await result.user.getIdToken();
+      return { uid: userCredential.user.uid,success: true , id_token: idToken};
+    } catch (error) {
+      console.log("❌ Error linking account:", error);
+      Alert.alert("Error", "Account linking failed. Please check your password.");
+      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError }
+    }
+  }, []);
+
+  const emailExists = useCallback(async (email: string): Promise<string[]> => {
+    const auth = getAuth();
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      return methods;
+    } catch (error) {
+      console.error('Error checking email existence:', error);
+      return [];
+    }
+  }, []);
+
 
   const loginWithEmailAndPassword = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -163,45 +201,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: false, error: 'unknown-error' as AuthError };
   };
 
-  const loginWithGoogle = useCallback(async () => {
+  const loginWithGoogle = useCallback(async (token: string) => {
     setLoading(true);
     try {
-      const result = await promptAsync();
-      if (result?.type === 'success') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const auth = getAuth();
-        if (!auth.currentUser) throw new Error('No user after Google login');
-
-        const emailVerified = await isEmailVerified(auth.currentUser);
-        if (!emailVerified) {
-          await firebaseLogout();
-          return { success: false, error: 'email-not-verified' as AuthError };
-        }
-
-        const token = await auth.currentUser.getIdToken();
-        setAuthToken(token);
-
-        try {
-          await fetchUserData(token);
-          return { success: true };
-        } catch (error: any) {
-          await firebaseLogout();
-          setAuthToken(null);
-          setUser(null);
-          if (error.message === 'account-locked-by-admins') {
-            return { success: false, error: 'account-locked-by-admins' as AuthError };
-          }
-          return { success: false, error: 'server-error' as AuthError };
-        }
-      } else {
-        return { success: false, error: 'user-not-found' as AuthError };
-      }
+      const auth = getAuth();
+      const googleCredential = GoogleAuthProvider.credential(token);     
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      await AsyncStorage.setItem('lastLogin', Date.now().toString());
+			const saved = await AsyncStorage.getItem('lastLogin');
+			console.log('🕒 [login] lastLogin set to:', saved);
+      const idToken = await userCredential.user.getIdToken();
+      setAuthToken(idToken);
+      return { uid: userCredential.user.uid,success: true, id_token: idToken };
     } catch {
-      return { success: false, error: 'unknown-error' as AuthError };
+      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
-  }, [fetchUserData, promptAsync]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChangedListener(async (fbUser) => {
@@ -283,6 +300,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logout,
       refreshUserData,
       loginWithEmailAndPassword,
+      fetchUserData,
+      emailExists,
+      linkAccountsWithPassword,
       loginWithGoogle,
       startRegistration,
       finishRegistration

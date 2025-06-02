@@ -14,7 +14,6 @@ import {
 	getAuth,
   } from 'firebase/auth';
   
-  import * as Google from 'expo-auth-session/providers/google';
   import * as WebBrowser from 'expo-web-browser';
   import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
   import { Platform } from 'react-native';
@@ -92,45 +91,13 @@ import {
 	  throw error;
 	}
   }
-  
-  // 🔐 Google Sign-In
-  export function useGoogleSignIn() {
-	const redirectUri = 'https://auth.expo.io/@classconnect/classconnect-mobile';
-  
-	const [request, response, promptAsync] = useAuthRequest(
-	  {
-		clientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com',
-		redirectUri,
-		scopes: ['openid', 'profile', 'email'],
-	  },
-	  Google.discovery
-	);
-  
-	async function handleGoogleResponse() {
-	  try {
-		console.log('🔁 Google response:', JSON.stringify(response, null, 2));
-		if (response?.type === 'success') {
-		  const { idToken } = response.authentication!;
-		  if (idToken) {
-			const credential = GoogleAuthProvider.credential(idToken);
-			const result = await signInWithCredential(auth, credential);
-			console.log('🔥 Google login success:', result.user.email);
-  
-			await AsyncStorage.setItem('lastLogin', Date.now().toString());
-			const saved = await AsyncStorage.getItem('lastLogin');
-			console.log('🕒 [google] lastLogin set to:', saved);
-		  }
-		} else {
-		  console.log('⚠️ Google response not successful:', response?.type);
-		}
-	  } catch (e) {
-		console.log('❌ Error handling Google login:', e);
-	  }
-	}
-  
-	return { request, response, promptAsync, handleGoogleResponse };
+
+
+// 🔐 Google Sign-In
+  export async function useGoogleSignIn(email: string, token: string) {
   }
   
+
   // ✏️ Update email
   export async function updateFirebaseEmail(newEmail: string) {
 	const currentUser = getAuth().currentUser;
