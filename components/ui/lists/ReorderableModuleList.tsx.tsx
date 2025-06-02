@@ -10,8 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
-import { Module, patchModule } from '../../../services/modulesMockApi';
+import { Module, patchModule } from '../../../services/modulesApi';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../../context/AuthContext';
 
 interface Props {
   modules: Module[];
@@ -29,6 +30,7 @@ export default function ReorderableModuleList({
   onEdit,
 }: Props) {
   const theme = useTheme();
+  const { authToken, user } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<Module[]>([]);
 
@@ -46,7 +48,7 @@ export default function ReorderableModuleList({
   };
 
   const handleDragEnd = async ({ data: newData }: { data: Module[] }) => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || !authToken || !user) return;
 
     const reordered = [...newData];
 
@@ -66,7 +68,7 @@ export default function ReorderableModuleList({
         }));
 
     for (const mod of updatedModules) {
-      patchModule(mod.id, { order: mod.order });
+      await patchModule(mod.id, mod.id_course, { order: mod.order }, authToken, user.uuid);
     }
 
     setData(updatedModules);

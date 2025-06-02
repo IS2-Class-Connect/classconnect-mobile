@@ -8,7 +8,7 @@ import Button from '../buttons/Button';
 import IconButton from '../buttons/IconButton';
 import Dialog from '../alerts/Dialog';
 import ResetPasswordModal from '../modals/ResetPasswordModal'; 
-import { useAuth, AuthError, LockInfo, fetchUserData } from '../../../context/AuthContext';
+import { useAuth, AuthError, LockInfo } from '../../../context/AuthContext';
 import GoogleAuth from '../../../firebase/GoogleAuth';
 import { Modal } from 'react-native';
 import { verificateToken } from '../../../services/userApi';
@@ -31,7 +31,7 @@ export default function LoginForm({
   const router = useRouter();
   const theme = useTheme();
   const { loginWithEmailAndPassword, loginWithGoogle,emailExists,linkAccountsWithPassword,fetchUserData, isLoading: authIsLoading } = useAuth();
-  const { user, loading, error, signIn, signOut } = GoogleAuth();
+  //const { user, loading, error, signIn, signOut } = GoogleAuth();
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -124,80 +124,80 @@ export default function LoginForm({
     setShowLinkModal(true);
   }
 
-  /**
-   * Handle Google sign-in
-   */
-const handleGoogleLogin = async () => {
-  try {
-    setExternalIsLoading(true);
+//   /**
+//    * Handle Google sign-in
+//    */
+// const handleGoogleLogin = async () => {
+//   try {
+//     setExternalIsLoading(true);
 
-    const result = await signIn(); 
-    if (!result?.id_token) {
-      throw new Error("No ID token returned from Google");
-    }
+//     //const result = await signIn(); 
+//     if (!result?.id_token) {
+//       throw new Error("No ID token returned from Google");
+//     }
 
-    const emailString: string = result.email ?? "";
-    const token = result.id_token;
+//     const emailString: string = result.email ?? "";
+//     const token = result.id_token;
 
-    try {
-      await verificateToken({ idToken: token });
-    } catch (e) {
-      Alert.alert("Error", "Invalid or expired Google token. Please try logging in again.");
-      setExternalIsLoading(false);
-      return;
-    }
+//     try {
+//       await verificateToken({ idToken: token });
+//     } catch (e) {
+//       Alert.alert("Error", "Invalid or expired Google token. Please try logging in again.");
+//       setExternalIsLoading(false);
+//       return;
+//     }
 
-    await AsyncStorage.setItem("token", token);
-    const methods = await emailExists(emailString);
-    if (methods.length > 0) {
-      if (methods.includes("google.com")) {
-        try {
-          const userCredential = await loginWithGoogle(token);
-          console.log("✅ Started with Google (already linked)", userCredential);
-          await fetchUserData(userCredential.id_token);
-          router.replace('/(tabs)');
-        } catch (err: any) {
-          console.log("❌ Error logging in with Google:", err);
-          Alert.alert("Error", "Authentication failed. Please try again.");
-        }
-      } else if (methods.includes("password")) {
-        setName(result.name!);
-        setPhoto(result.photo!);
-        askToLinkAccount(emailString, token); 
-      }
-    } else {
-      try {
-        const userCredential = await loginWithGoogle(token);
-        const userCreated = await notifyRegisterToDB({
-          uuid: userCredential.uid,
-          email: result.email!,
-          name: result.name ?? "",
-          urlProfilePhoto: result.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result.name}`,
-          provider: "google.com",
-        });
-        console.log("✅ User registered in backend:", userCreated);
-        await fetchUserData(userCredential.id_token);
-        router.replace('/(tabs)');
-      } catch (err) {
-        console.log("❌ Error registering new user:", err);
-        Alert.alert("Error", "Failed to complete registration. Please try again.");
-      }
-    }
+//     await AsyncStorage.setItem("token", token);
+//     const methods = await emailExists(emailString);
+//     if (methods.length > 0) {
+//       if (methods.includes("google.com")) {
+//         try {
+//           const userCredential = await loginWithGoogle(token);
+//           console.log("✅ Started with Google (already linked)", userCredential);
+//           await fetchUserData(userCredential.id_token);
+//           router.replace('/(tabs)');
+//         } catch (err: any) {
+//           console.log("❌ Error logging in with Google:", err);
+//           Alert.alert("Error", "Authentication failed. Please try again.");
+//         }
+//       } else if (methods.includes("password")) {
+//         setName(result.name!);
+//         setPhoto(result.photo!);
+//         askToLinkAccount(emailString, token); 
+//       }
+//     } else {
+//       try {
+//         const userCredential = await loginWithGoogle(token);
+//         const userCreated = await notifyRegisterToDB({
+//           uuid: userCredential.uid,
+//           email: result.email!,
+//           name: result.name ?? "",
+//           urlProfilePhoto: result.photo ?? `https://api.dicebear.com/7.x/personas/png?seed=${result.name}`,
+//           provider: "google.com",
+//         });
+//         console.log("✅ User registered in backend:", userCreated);
+//         await fetchUserData(userCredential.id_token);
+//         router.replace('/(tabs)');
+//       } catch (err) {
+//         console.log("❌ Error registering new user:", err);
+//         Alert.alert("Error", "Failed to complete registration. Please try again.");
+//       }
+//     }
 
-  } catch (error: any) {
-    console.log("❌ Google login error:", error);
-    Alert.alert(
-      "Authentication Failed",
-      "There was an issue logging in with Google. You can try again or choose another method.",
-      [
-        { text: "Retry", onPress: handleGoogleLogin },
-        { text: "Cancel", style: "cancel" },
-      ]
-    );
-  } finally {
-    setExternalIsLoading(false);
-  }
-};
+//   } catch (error: any) {
+//     console.log("❌ Google login error:", error);
+//     Alert.alert(
+//       "Authentication Failed",
+//       "There was an issue logging in with Google. You can try again or choose another method.",
+//       [
+//         { text: "Retry", onPress: handleGoogleLogin },
+//         { text: "Cancel", style: "cancel" },
+//       ]
+//     );
+//   } finally {
+//     setExternalIsLoading(false);
+//   }
+// };
 
 
 /**
@@ -267,7 +267,8 @@ const getErrorMessage = (errorType: AuthError): string => {
       <IconButton
         title="Continue with Google"
         icon={require('../../../assets/icons/google-blue.png')}
-        onPress={handleGoogleLogin}
+        onPress={async () => {}}
+        //onPress={handleGoogleLogin}
         disabled={isLoading}
         loading={isLoading}
       />

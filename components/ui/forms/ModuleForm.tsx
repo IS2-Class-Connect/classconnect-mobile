@@ -1,4 +1,3 @@
-// components/ui/forms/ModuleForm.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -15,51 +14,73 @@ import Dialog from '../alerts/Dialog';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
-import { Module, createModule, patchModule } from '../../../services/modulesMockApi';
+import { useAuth } from '../../../context/AuthContext';
+import { Module, createModule, patchModule } from '../../../services/modulesApi';
 
 interface ModuleFormProps {
   initialValues?: Module;
   courseId: number;
-  defaultOrder?: number; // 👈 Nuevo prop
+  defaultOrder?: number;
   onClose: () => void;
 }
 
 export default function ModuleForm({ initialValues, courseId, defaultOrder = 0, onClose }: ModuleFormProps) {
   const theme = useTheme();
+  const { user, authToken } = useAuth();
 
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       setErrorMessage('Title is required.');
       setErrorVisible(true);
       return;
     }
 
-    if (initialValues) {
-      // Edición
-      patchModule(initialValues.id, {
-        title,
-        description,
-        order: initialValues.order,
-      });
-      Alert.alert('✅ Module updated');
-    } else {
-      // Creación
-      const orderToUse = defaultOrder + 10;
-      createModule({
-        title,
-        description,
-        order: orderToUse,
-        id_course: courseId,
-      });
-      Alert.alert('✅ Module created');
+    if (!user || !authToken) {
+      setErrorMessage('User not authenticated.');
+      setErrorVisible(true);
+      return;
     }
 
-    onClose();
+    try {
+      if (initialValues) {
+        await patchModule(
+          initialValues.id,
+          courseId,
+          {
+            title,
+            description,
+            order: initialValues.order,
+          },
+          authToken,
+          user.uuid
+        );
+        Alert.alert('✅ Module updated');
+      } else {
+        const orderToUse = defaultOrder + 10;
+        await createModule(
+          {
+            title,
+            description,
+            order: orderToUse,
+          },
+          courseId,
+          authToken,
+          user.uuid
+        );
+        Alert.alert('✅ Module created');
+      }
+
+      onClose();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Something went wrong. Please try again.');
+      setErrorVisible(true);
+    }
   };
 
   return (
