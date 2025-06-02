@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,27 +12,50 @@ import {
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAuth } from '../../../context/AuthContext';
 import { uploadMediaAsync } from '../../../firebase/upload';
 import * as ImagePicker from 'expo-image-picker';
-import { addResource, ModuleResource } from '../../../services/modulesMockApi';
+import { addResource, ModuleResource } from '../../../services/modulesApi';
 
 interface Props {
   visible: boolean;
   moduleId: string;
+  courseId: number;
   onClose: () => void;
   onAdded: (resource: ModuleResource) => void;
   existingResources: ModuleResource[];
 }
 
-export default function ResourceModal({ visible, onClose, moduleId, onAdded, existingResources }: Props) {
+export default function ResourceModal({
+  visible,
+  onClose,
+  moduleId,
+  courseId,
+  onAdded,
+  existingResources,
+}: Props) {
   const theme = useTheme();
+  const { user, authToken } = useAuth();
   const [link, setLink] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const maxOrder = existingResources.length > 0 ? Math.max(...existingResources.map(r => r.order)) : 0;
 
+  useEffect(() => {
+    if (!visible) {
+      setLink('');
+      setShowLinkInput(false);
+      setUploading(false);
+    }
+  }, [visible]);
+
   const handleUpload = async (type: 'image' | 'video') => {
+    if (!user || !authToken) {
+      Alert.alert('User not authenticated');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
       allowsEditing: true,
@@ -44,30 +67,61 @@ export default function ResourceModal({ visible, onClose, moduleId, onAdded, exi
       try {
         const uri = result.assets[0].uri;
         const url = await uploadMediaAsync(uri, `modules/${moduleId}/${Date.now()}`);
-        const resource = addResource(moduleId, {
-          link: url,
-          data_type: type,
-          order: maxOrder + 10,
-        });
-        if (resource) onAdded(resource);
+
+        const dataType = type === 'image' ? 'IMAGE' : 'VIDEO';
+
+        const resource = await addResource(
+          moduleId,
+          courseId,
+          {
+            link: url,
+            dataType,
+            order: maxOrder + 10,
+          },
+          authToken,
+          user.uuid
+        );
+
+        onAdded(resource);
         onClose();
       } catch (error) {
-        Alert.alert('Upload failed');
+        console.error(error);
+        Alert.alert('Error', 'Something went wrong while uploading the media.');
       } finally {
         setUploading(false);
       }
     }
   };
 
-  const handleAddLink = () => {
-    if (!link.trim()) return;
-    const resource = addResource(moduleId, {
-      link,
-      data_type: 'link',
-      order: maxOrder + 10,
-    });
-    if (resource) onAdded(resource);
-    onClose();
+  const handleAddLink = async () => {
+    if (!link.trim() || !user || !authToken) return;
+
+    if (!/^https?:\/\/\S+$/.test(link)) {
+      Alert.alert('Invalid link');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const resource = await addResource(
+        moduleId,
+        courseId,
+        {
+          link,
+          dataType: 'LINK',
+          order: maxOrder + 10,
+        },
+        authToken,
+        user.uuid
+      );
+      onAdded(resource);
+      onClose();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to add the link.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -109,7 +163,7 @@ export default function ResourceModal({ visible, onClose, moduleId, onAdded, exi
                 value={link}
                 onChangeText={setLink}
               />
-              <TouchableOpacity onPress={handleAddLink} disabled={uploading}>
+              <TouchableOpacity onPress={handleAddLink} disabled={uploading || !link.trim()}>
                 <Text style={[styles.confirmButton, { color: theme.success }]}>Add</Text>
               </TouchableOpacity>
             </>

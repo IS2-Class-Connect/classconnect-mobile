@@ -12,7 +12,7 @@ import {
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
-import { ModuleResource } from '../../../services/modulesMockApi';
+import { ModuleResource } from '../../../services/modulesApi';
 import { spacing } from '../../../constants/spacing';
 import { useTheme } from '../../../context/ThemeContext';
 
@@ -29,7 +29,7 @@ export default function ResourcePreviewModal({ visible, resource, onClose }: Pro
   if (!resource) return null;
 
   const videoPlayer = useVideoPlayer(
-    resource.data_type === 'video' ? resource.link : null,
+    resource.dataType === 'VIDEO' ? resource.link : null,
     (player) => {
       player.loop = false;
       player.play();
@@ -57,7 +57,7 @@ export default function ResourcePreviewModal({ visible, resource, onClose }: Pro
 
           {loading && <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />}
 
-          {resource.data_type === 'image' ? (
+          {resource.dataType === 'IMAGE' ? (
             !loading ? (
               <Image
                 source={{ uri: resource.link }}
@@ -72,7 +72,7 @@ export default function ResourcePreviewModal({ visible, resource, onClose }: Pro
                 onLoadEnd={() => setLoading(false)}
               />
             )
-          ) : resource.data_type === 'video' ? (
+          ) : resource.dataType === 'VIDEO' ? (
             !loading ? (
               <VideoView
                 player={videoPlayer}

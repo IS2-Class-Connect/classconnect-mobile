@@ -14,15 +14,21 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import ModuleForm from '../components/ui/forms/ModuleForm';
-import { Module, getModulesByCourse, deleteModule } from '../services/modulesMockApi';
+import {
+  Module,
+  getModulesByCourse,
+  deleteModule,
+} from '../services/modulesApi';
 import ReorderableModuleList from '../components/ui/lists/ReorderableModuleList.tsx';
 
 export default function ModulesScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { user, authToken } = useAuth();
   const { role, courseId } = useLocalSearchParams<{ role?: string; courseId?: string }>();
 
   const [modules, setModules] = useState<Module[]>([]);
@@ -31,11 +37,18 @@ export default function ModulesScreen() {
 
   const isAuthorized = role === 'Professor' || role === 'Assistant';
 
-  useEffect(() => {
-    if (courseId && !isNaN(Number(courseId))) {
-      const all = getModulesByCourse(Number(courseId));
+  const fetchModules = async () => {
+    if (!user || !authToken || !courseId || isNaN(Number(courseId))) return;
+    try {
+      const all = await getModulesByCourse(Number(courseId), authToken);
       setModules(all);
+    } catch (err) {
+      console.error('Failed to fetch modules:', err);
     }
+  };
+
+  useEffect(() => {
+    fetchModules();
   }, [courseId]);
 
   const handleDelete = (id: string) => {
@@ -44,10 +57,14 @@ export default function ModulesScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          deleteModule(id);
-          const updated = getModulesByCourse(Number(courseId));
-          setModules(updated);
+        onPress: async () => {
+          if (!courseId || !user || !authToken) return;
+          try {
+            await deleteModule(id, Number(courseId), user.uuid, authToken);
+            await fetchModules();
+          } catch (err) {
+            console.error('Failed to delete module:', err);
+          }
         },
       },
     ]);
@@ -79,14 +96,13 @@ export default function ModulesScreen() {
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
       </View>
 
-     <ReorderableModuleList
+      <ReorderableModuleList
         modules={modules}
         onUpdate={setModules}
         role={role as 'Professor' | 'Assistant' | 'Student'}
         onEdit={openEdit}
         onDelete={handleDelete}
       />
-
 
       {isAuthorized && (
         <TouchableOpacity
@@ -125,10 +141,9 @@ export default function ModulesScreen() {
                 initialValues={editingModule ?? undefined}
                 courseId={Number(courseId)}
                 defaultOrder={getMaxOrder()}
-                onClose={() => {
+                onClose={async () => {
                   setModalVisible(false);
-                  const updated = getModulesByCourse(Number(courseId));
-                  setModules(updated);
+                  await fetchModules();
                 }}
               />
             </View>
