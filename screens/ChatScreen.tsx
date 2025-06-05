@@ -43,7 +43,7 @@ export default function ChatScreen() {
     setLoading(true);
 
     try {
-      const response = await sendToAI(userMsg.text, authToken);
+      const response = await sendToAI(userMsg.text, user.uuid, authToken);
       const botMsg = {
         id: (Date.now() + 1).toString(),
         text: response,

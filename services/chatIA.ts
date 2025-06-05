@@ -4,12 +4,13 @@ import {
 
 export async function sendToAI(
     question: string,
+    userId: string,
     token: string
 ) {
      try {
         const response = await postToGateway(
             '/users/chat',
-            {question},
+            {question, userId},
             token
         );
         return response.answer; 
