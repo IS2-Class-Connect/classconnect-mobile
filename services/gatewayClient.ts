@@ -1,5 +1,5 @@
 // Base URL for the Gateway
-const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://localhost:3000';
+const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL || 'http://192.168.0.42:3000';
 
 async function handleError(res: Response, method: string, endpoint: string) {
   let errorBody: any;
