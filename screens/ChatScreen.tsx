@@ -1,9 +1,7 @@
-// screens/ChatScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
-  Text,
   TextInput,
   FlatList,
   TouchableOpacity,
@@ -11,13 +9,14 @@ import {
   Platform,
   StyleSheet,
   Image,
-  ActivityIndicator,
+  Text,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { sendToAI, addFeedback } from '../services/chatIA';
+import { sendToAI } from '../services/chatIA';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
+import Markdown from 'react-native-markdown-display';
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -66,7 +65,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>      
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -75,20 +74,15 @@ export default function ChatScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <Image
-               source={require('../assets/icons/classy-logo.png')}
-              style={{ width: 40, height: 40, marginRight: 8 }}
-            />
+            <Image source={require('../assets/icons/classy-logo.png')} style={{ width: 40, height: 40, marginRight: 8 }} />
             <Text style={[styles.headerText, { color: theme.text }]}>Classy</Text>
           </View>
-          <Text style={[styles.description, { color: theme.text }]}>Your AI assistant to answer questions about using the ClassConnect app.</Text>
+          <Text style={[styles.description, { color: theme.text }]}>
+            Your AI assistant to answer questions about using the ClassConnect app.
+          </Text>
           <View style={styles.poweredRow}>
             <Text style={{ color: theme.text, marginRight: 4 }}>powered by</Text>
-            <Image
-               source={require('../assets/icons/gemini-logo.png')}
-              style={{ width: 32, height: 32 }}
-              resizeMode="contain"
-            />
+            <Image source={require('../assets/icons/gemini-logo.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
           </View>
         </View>
 
@@ -111,16 +105,10 @@ export default function ChatScreen() {
             >
               {/* Avatar IA o Usuario */}
               {!item.fromUser ? (
-                <Image
-                  source={require('../assets/icons/classy-logo.png')}
-                  style={{ width: 24, height: 24, marginHorizontal: 8 }}
-                />
+                <Image source={require('../assets/icons/classy-logo.png')} style={styles.avatar} />
               ) : (
                 user?.urlProfilePhoto && (
-                  <Image
-                    source={{ uri: user.urlProfilePhoto }}
-                    style={{ width: 24, height: 24, marginHorizontal: 8, borderRadius: 12 }}
-                  />
+                  <Image source={{ uri: user.urlProfilePhoto }} style={[styles.avatar, { borderRadius: 12 }]} />
                 )
               )}
 
@@ -128,27 +116,26 @@ export default function ChatScreen() {
               <View
                 style={{
                   backgroundColor: item.fromUser ? theme.primary : theme.surface,
-                  padding: spacing.sm,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
                   borderRadius: 16,
-                  maxWidth: '75%',
+                  maxWidth: '85%',
                 }}
               >
-                <Text style={{ color: item.fromUser ? '#fff' : theme.text }}>{item.text}</Text>
+                <Markdown style={markdownStyles}>{item.text}</Markdown>
               </View>
             </View>
           )}
-
-          ListHeaderComponent={isTyping ? (
-            <View style={styles.messageRow}>
-              <Image
-                source={require('../assets/icons/classy-logo.png')}
-                style={{ width: 24, height: 24, marginRight: 8 }}
-              />
-              <View style={{ backgroundColor: theme.surface, padding: spacing.sm, borderRadius: 16 }}>
-                <Text style={{ color: theme.text }}>Classy is typing...</Text>
+          ListHeaderComponent={
+            isTyping ? (
+              <View style={styles.messageRow}>
+                <Image source={require('../assets/icons/classy-logo.png')} style={styles.avatar} />
+                <View style={{ backgroundColor: theme.surface, padding: spacing.sm, borderRadius: 16 }}>
+                  <Text style={{ color: theme.text }}>Classy is typing...</Text>
+                </View>
               </View>
-            </View>
-          ) : null}
+            ) : null
+          }
         />
 
         {/* Input */}
@@ -207,6 +194,11 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
     marginHorizontal: spacing.md,
   },
+  avatar: {
+    width: 24,
+    height: 24,
+    marginHorizontal: 8,
+  },
   inputContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
@@ -228,3 +220,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
 });
+
+const markdownStyles = {
+  body: {
+    color: 'white',
+    fontSize: 15,
+    flexWrap: 'wrap' as const,
+    margin: 0,
+    padding: 0,
+    lineHeight: 20,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+};
