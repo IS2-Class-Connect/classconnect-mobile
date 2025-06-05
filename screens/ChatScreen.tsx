@@ -52,7 +52,7 @@ export default function ChatScreen() {
       setMessages((prev) => [botMsg, ...prev]);
     } catch (e) {
       setMessages((prev) => [
-        { id: (Date.now() + 2).toString(), text: 'Error getting response', fromUser: false },
+        { id: (Date.now() + 2).toString(), text: 'Classy is not available', fromUser: false },
         ...prev,
       ]);
     } finally {
