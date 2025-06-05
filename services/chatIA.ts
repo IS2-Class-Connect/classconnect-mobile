@@ -10,7 +10,7 @@ export async function sendToAI(
      try {
         const response = await postToGateway(
             '/users/chat',
-            {question, userId},
+            {question, userId, token},
             token
         );
         return response.answer; 
