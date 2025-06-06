@@ -260,7 +260,7 @@ export default function CourseDetailScreen() {
 
   // --- UI Rendering ---
 
-  return (
+    return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Back button */}
@@ -271,7 +271,6 @@ export default function CourseDetailScreen() {
         {/* Main card */}
         <View style={[styles.cardExpanded, { borderColor, backgroundColor: theme.card }]}>
           {editing ? (
-            // Show course editing form
             <CourseForm
               initialValues={parsedCourse}
               onSubmit={() => setEditing(false)}
@@ -280,7 +279,6 @@ export default function CourseDetailScreen() {
             />
           ) : (
             <>
-              {/* Title and favorite star */}
               <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
                 {(isEnrolled || isAssistant) && (
@@ -294,7 +292,6 @@ export default function CourseDetailScreen() {
                 )}
               </View>
 
-              {/* Role badge */}
               {role && (
                 <View style={[styles.roleBadge, { backgroundColor: borderColor + '20' }]}>
                   <Ionicons name="person-circle-outline" size={16} color={borderColor} />
@@ -302,20 +299,21 @@ export default function CourseDetailScreen() {
                 </View>
               )}
 
-              {/* Description box */}
               <View style={[styles.descriptionBox, { backgroundColor: theme.primary + '20' }]}>
-                <Text style={[styles.description, { color: theme.text }]}>{parsedCourse.description}</Text>
+                <Text style={[styles.description, { color: theme.text }]}>
+                  {parsedCourse.description}
+                </Text>
               </View>
 
-              {/* Teacher info */}
               {teacherInfo && (
                 <View style={styles.teacherRow}>
                   <Image source={{ uri: teacherInfo.urlProfilePhoto }} style={styles.avatar} />
-                  <Text style={[styles.teacherName, { color: theme.text }]}>Teacher: {teacherInfo.name}</Text>
+                  <Text style={[styles.teacherName, { color: theme.text }]}>
+                    Teacher: {teacherInfo.name}
+                  </Text>
                 </View>
               )}
 
-              {/* Course meta information */}
               <View style={styles.contentArea}>
                 <Text style={[styles.status, { color: theme.text }]}>
                   Places: {studentEnrollments.length}/{parsedCourse.totalPlaces}
@@ -333,7 +331,6 @@ export default function CourseDetailScreen() {
                   End: {new Date(parsedCourse.endDate).toDateString()}
                 </Text>
 
-                {/* Action buttons - adapt alignment based on number of buttons */}
                 <View
                   style={[
                     styles.iconActionsContainer,
@@ -341,20 +338,44 @@ export default function CourseDetailScreen() {
                   ]}
                 >
                   {(isTeacher || isAssistant || isEnrolled) && (
-                    <TouchableOpacity
-                      style={styles.iconAction}
-                      onPress={() => router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
-                    >
-                      <MaterialIcons name="view-module" size={36} color={theme.primary} />
-                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Modules</Text>
-                    </TouchableOpacity>
+                    <>
+                      <TouchableOpacity
+                        style={styles.iconAction}
+                        onPress={() =>
+                          router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)
+                        }
+                      >
+                        <MaterialIcons name="view-module" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
+                          Modules
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.iconAction}
+                        onPress={() =>
+                          router.push(`/assessments?courseId=${parsedCourse.id}&role=${role}`)
+                        }
+                      >
+                        <Ionicons name="document-text-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
+                          Assessments
+                        </Text>
+                      </TouchableOpacity>
+                    </>
                   )}
 
                   {(isTeacher || isAssistant) && (
                     <>
                       <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
+                        <Ionicons
+                          name="chatbubble-ellipses-outline"
+                          size={36}
+                          color={theme.primary}
+                        />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
+                          Feedback
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
@@ -399,8 +420,14 @@ export default function CourseDetailScreen() {
                   {!isTeacher && !isAssistant && isEnrolled && (
                     <>
                       <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
+                        <Ionicons
+                          name="chatbubble-ellipses-outline"
+                          size={36}
+                          color={theme.primary}
+                        />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
+                          Feedback
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.iconAction} onPress={handleUnenroll}>
@@ -415,7 +442,6 @@ export default function CourseDetailScreen() {
           )}
         </View>
 
-        {/* Assistant selector modal */}
         <AssistantSelector
           visible={showAssistantSelector}
           onClose={() => setShowAssistantSelector(false)}
@@ -424,20 +450,20 @@ export default function CourseDetailScreen() {
           courseName={parsedCourse.title}
         />
 
-        {/* Feedback modal */}
         <FeedbackModal
           visible={feedbackModalVisible}
           onClose={handleCloseFeedbackModal}
           onSubmit={handleSendFeedback}
           mode={isTeacher || isAssistant ? 'professor' : 'self'}
           students={isTeacher || isAssistant ? enrollments : undefined}
-          users={users} // pass user list for displaying names/photos in modal
+          users={users}
           courseId={parsedCourse.id}
           courseName={parsedCourse.title}
         />
       </ScrollView>
     </SafeAreaView>
   );
+
 }
 
 // --- Styles ---
