@@ -15,12 +15,13 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import {
   Enrollment,
-   createCourseFeedback,
-   createStudentFeedback,
-   getAllCourseFeedbacks
+  createCourseFeedback,
+  createStudentFeedback,
+  getAllCourseFeedbacks,
 } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
+import Markdown from 'react-native-markdown-display';
 
 interface User {
   uuid: string;
@@ -39,7 +40,6 @@ interface FeedbackModalProps {
   courseName?: string;
 }
 
-// Reusable feedback form component used both by students and professors
 const FeedbackForm = ({
   rating,
   setRating,
@@ -112,25 +112,17 @@ export default function FeedbackModal({
   courseName,
 }: FeedbackModalProps) {
   const theme = useTheme();
-  const { authToken } = useAuth();
+  const { authToken, user } = useAuth();
 
-  // State for feedback form inputs
   const [rating, setRating] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
-  // State for professor: selected student and whether to show feedback form
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
-  // View mode for professor tabs: view feedbacks, give feedback, or classy summary
   const [viewMode, setViewMode] = useState<'showFeedbacks' | 'giveFeedback' | 'classy'>('showFeedbacks');
-  // Search input for filtering students/feedbacks
   const [search, setSearch] = useState('');
-  // Toggle to show classy summary
   const [showClassyText, setShowClassyText] = useState(false);
-
   const [classySummary, setClassySummary] = useState<string | null>(null);
 
-
-  // Reset all state when modal closes
   useEffect(() => {
     if (!visible) {
       setRating(0);
@@ -143,54 +135,46 @@ export default function FeedbackModal({
     }
   }, [visible]);
 
-  // Submit handler for feedback form
   const handleSubmit = async () => {
-  if (rating === 0) {
-    Alert.alert('Validation', 'Please select a rating (1-5 stars).');
-    return;
-  }
-  try {
-    if (mode === 'self') {
-      // 🧑‍🎓 Estudiante da feedback al curso
-      if (!courseId || !authToken) return;
-      await createCourseFeedback(courseId, users[0]?.uuid || '', {
-        courseNote: rating,
-        courseFeedback: feedbackText,
-      }, authToken);
-      Alert.alert('Success', 'Thank you for your feedback!');
-      onClose();
-    } else if (
-      mode === 'professor' &&
-      selectedStudentId &&
-      courseId &&
-      authToken
-    ) {
-      // 🧑‍🏫 Docente da feedback al estudiante
-      await createStudentFeedback(courseId, selectedStudentId, {
-        studentNote: rating,
-        studentFeedback: feedbackText,
-        teacherId: users[0]?.uuid || '', // puedes cambiar esto por `authContext.user.uuid` si lo tenés disponible acá
-      }, authToken);
-      Alert.alert('Success', 'Feedback sent to student.');
-      setShowFeedbackForm(false);
-      setSelectedStudentId(null);
-      setRating(0);
-      setFeedbackText('');
+    if (rating === 0) {
+      Alert.alert('Validation', 'Please select a rating (1-5 stars).');
+      return;
     }
-  } catch (e) {
-    Alert.alert('Error', 'Failed to send feedback.');
-    console.error(e);
-  }
-};
+    try {
+      if (mode === 'self') {
+        if (!user?.uuid || !authToken || !courseId) return;
+        await createCourseFeedback(courseId, user.uuid, {
+          courseNote: rating,
+          courseFeedback: feedbackText,
+        }, authToken);
+        Alert.alert('Success', 'Thank you for your feedback!');
+        onClose();
+      } else if (
+        mode === 'professor' &&
+        selectedStudentId &&
+        courseId &&
+        authToken
+      ) {
+        if (!user?.uuid || !authToken || !courseId) return;
+        await createStudentFeedback(courseId, selectedStudentId, {
+          studentNote: rating,
+          studentFeedback: feedbackText,
+          teacherId: user.uuid,
+        }, authToken);
+        Alert.alert('Success', 'Feedback sent to student.');
+        setShowFeedbackForm(false);
+        setSelectedStudentId(null);
+        setRating(0);
+        setFeedbackText('');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to send feedback.');
+      console.error(e);
+    }
+  };
 
-
-  // Helper to get user info from ID
   const getUserById = (userId: string): User | undefined => users.find((u) => u.uuid === userId);
-
-  // Filter to only students (exclude assistants etc)
   const studentsOnly = students.filter((s) => s.role === 'STUDENT');
-
-  // Filter students by search text matching name or feedback
   const filteredStudents = studentsOnly.filter((s) => {
     const user = getUserById(s.userId);
     const feedback = s.student_feedback?.toLowerCase() || '';
@@ -201,22 +185,31 @@ export default function FeedbackModal({
   });
 
   useEffect(() => {
-  const fetchClassySummary = async () => {
-    if (!authToken || !courseId || viewMode !== 'classy') return;
-    try {
-      const res = await getAllCourseFeedbacks(courseId, authToken);
-      setClassySummary(res?.summary ?? 'No summary available yet.');
-    } catch (err) {
-      console.error('Error loading summary:', err);
-      setClassySummary('Failed to load summary.');
-    }
-  };
+    const fetchClassySummary = async () => {
+      if (!authToken || !courseId || viewMode !== 'classy') return;
+      try {
+        const res = await getAllCourseFeedbacks(courseId, authToken);
+        setClassySummary(res?.summary ?? 'No summary available yet.');
+      } catch (err) {
+        console.error('Error loading summary:', err);
+        setClassySummary('Failed to load summary.');
+      }
+    };
+    fetchClassySummary();
+  }, [viewMode, courseId, authToken]);
 
-  fetchClassySummary();
-}, [viewMode, courseId, authToken]);
+  useEffect(() => {
+    const fetchAllFeedbacks = async () => {
+      if (!authToken || !courseId || viewMode !== 'showFeedbacks') return;
+      try {
+        await getAllCourseFeedbacks(courseId, authToken);
+      } catch (err) {
+        console.error('Error loading feedbacks:', err);
+      }
+    };
+    fetchAllFeedbacks();
+  }, [viewMode, courseId, authToken]);
 
-
-  // The student currently selected for feedback (professor mode)
   const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;
 
   if (!visible) return null;
@@ -452,15 +445,38 @@ export default function FeedbackModal({
               <Text style={[styles.summaryText, { color: theme.text, textAlign: 'center' }]}>
                 <Text style={{ fontWeight: '700' }}>Curso: {courseName}</Text>
               </Text>
-              <Text style={[styles.summaryText, { color: theme.text, textAlign: 'center' }]}>
+              <Markdown
+                style={{
+                  body: {
+                    color: theme.text,
+                    fontSize: fonts.size.md,
+                    textAlign: 'center',
+                  },
+                  paragraph: {
+                    marginTop: 0,
+                    marginBottom: spacing.xs,
+                  },
+                  strong: {
+                    fontWeight: 'bold',
+                  },
+                  em: {
+                    fontStyle: 'italic',
+                  },
+                  link: {
+                    color: theme.primary,
+                    textDecorationLine: 'underline',
+                  },
+                }}
+              >
                 {classySummary}
-              </Text>
+              </Markdown>
               <View style={styles.poweredByRow}>
                 <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
                 <Image source={require('../../../assets/icons/gemini-logo.png')} style={styles.geminiLogo} />
               </View>
             </View>
           )}
+
 
           {/* Close button */}
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
