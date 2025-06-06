@@ -12,20 +12,24 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import {
   getAllCourses,
-  getEnrollmentsByUser,
-  Enrollment,
+  getAllStudentFeedbacks,
   Course,
-  getMockStudentFeedbackSummary,
 } from '../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import { useRouter } from 'expo-router';
 
+interface StudentFeedback {
+  courseId: number;
+  studentNote: number;
+  studentFeedback: string;
+}
+
 export default function StudentFeedbackScreen() {
   const theme = useTheme();
   const { user, authToken } = useAuth();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [feedbacks, setFeedbacks] = useState<StudentFeedback[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState<number>(0);
@@ -33,52 +37,43 @@ export default function StudentFeedbackScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!authToken || !user?.uuid) {
-        console.warn('⛔ No auth token or user UUID');
-        return;
-      }
+  const fetchData = async () => {
+    if (!authToken || !user?.uuid) {
+      console.warn('⛔ No auth token or user UUID');
+      return;
+    }
 
-      try {
-        console.log('🚀 Fetching courses and enrollments...');
-        const [allCourses, userEnrollments] = await Promise.all([
-          getAllCourses(authToken),
-          getEnrollmentsByUser(user.uuid, authToken),
-        ]);
+    try {
+      console.log('🚀 Fetching courses and feedbacks...');
+      const [allCourses, feedbackResponse] = await Promise.all([
+        getAllCourses(authToken),
+        getAllStudentFeedbacks(user.uuid, authToken),
+      ]);
 
-        console.log('📚 Courses fetched:', allCourses.length);
-        console.log('👨‍🎓 Enrollments fetched:', userEnrollments);
+      setCourses(allCourses);
+      setFeedbacks(feedbackResponse.feedbacks);
+      setAiSummary(feedbackResponse.summary);    
 
-        setCourses(allCourses);
+      const totalRating = feedbackResponse.feedbacks.reduce(
+        (sum, item) => sum + (item.studentNote || 0),
+        0
+      );
+      const avgRating =
+        feedbackResponse.feedbacks.length > 0
+          ? totalRating / feedbackResponse.feedbacks.length
+          : 0;
+      setAverageRating(avgRating);
+    } catch (error) {
+      console.error('❌ Error fetching data:', error);
+    } finally {
+      setLoading(false);
+      console.log('✅ Fetch complete');
+    }
+  };
 
-        const filtered = userEnrollments.filter(
-          (e) => e.role === 'STUDENT'
-        );
-        console.log('🎯 Filtered student enrollments:', filtered.length);
+  fetchData();
+}, [user?.uuid, authToken]);
 
-        setEnrollments(filtered);
-
-        const totalRating = filtered.reduce(
-          (sum, enrollment) => sum + (enrollment.student_note || 0),
-          0
-        );
-        const avgRating = filtered.length > 0 ? totalRating / filtered.length : 0;
-        setAverageRating(avgRating);
-        console.log('⭐ Calculated average rating:', avgRating.toFixed(1));
-
-        const summary = getMockStudentFeedbackSummary();
-        console.log('🧠 AI Summary:', summary);
-        setAiSummary(summary);
-      } catch (error) {
-        console.error('❌ Error fetching enrollments:', error);
-      } finally {
-        setLoading(false);
-        console.log('✅ Fetch complete');
-      }
-    };
-
-    fetchData();
-  }, [user?.uuid, authToken]);
 
   const renderStars = (rating: number) => (
     <View style={{ flexDirection: 'row' }}>
@@ -94,7 +89,7 @@ export default function StudentFeedbackScreen() {
     </View>
   );
 
-  const renderFeedback = ({ item }: { item: Enrollment }) => {
+  const renderFeedback = ({ item }: { item: StudentFeedback }) => {
     const course = courses.find((c) => c.id === item.courseId);
     return (
       <View style={[styles.feedbackRow, { backgroundColor: theme.surface }]}>
@@ -102,10 +97,10 @@ export default function StudentFeedbackScreen() {
           Course: {course ? course.title : 'Course not found'}
         </Text>
         <View style={styles.starsContainer}>
-          {renderStars(item.student_note || 0)}
+          {renderStars(item.studentNote || 0)}
         </View>
         <Text style={[styles.feedbackText, { color: theme.text }]}>
-          {item.student_feedback || 'No feedback provided'}
+          {item.studentFeedback || 'No feedback provided'}
         </Text>
       </View>
     );
@@ -127,7 +122,7 @@ export default function StudentFeedbackScreen() {
 
       <Text style={[styles.title, { color: theme.text }]}>My Feedbacks</Text>
 
-      {enrollments.length > 0 && (
+      {feedbacks.length > 0 && (
         <Text style={[styles.averageRating, { color: theme.text }]}>
           Average Rating: {averageRating.toFixed(1)} / 5
         </Text>
@@ -157,10 +152,8 @@ export default function StudentFeedbackScreen() {
       )}
 
       <FlatList
-        data={enrollments}
-        keyExtractor={(item, index) =>
-          `${item.courseId ?? 'unknown'}-${item.userId ?? 'nouser'}-${index}`
-        }
+        data={feedbacks}
+        keyExtractor={(item, index) => `${item.courseId}-${index}`}
         renderItem={renderFeedback}
         contentContainerStyle={styles.list}
         ListEmptyComponent={

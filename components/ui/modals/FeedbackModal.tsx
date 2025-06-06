@@ -15,8 +15,9 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import {
   Enrollment,
-  updateEnrollment,
-  getMockCourseFeedbackSummary,
+   createCourseFeedback,
+   createStudentFeedback,
+   getAllCourseFeedbacks
 } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -126,6 +127,9 @@ export default function FeedbackModal({
   // Toggle to show classy summary
   const [showClassyText, setShowClassyText] = useState(false);
 
+  const [classySummary, setClassySummary] = useState<string | null>(null);
+
+
   // Reset all state when modal closes
   useEffect(() => {
     if (!visible) {
@@ -141,43 +145,44 @@ export default function FeedbackModal({
 
   // Submit handler for feedback form
   const handleSubmit = async () => {
-    if (rating === 0) {
-      Alert.alert('Validation', 'Please select a rating (1-5 stars).');
-      return;
+  if (rating === 0) {
+    Alert.alert('Validation', 'Please select a rating (1-5 stars).');
+    return;
+  }
+  try {
+    if (mode === 'self') {
+      // 🧑‍🎓 Estudiante da feedback al curso
+      if (!courseId || !authToken) return;
+      await createCourseFeedback(courseId, users[0]?.uuid || '', {
+        courseNote: rating,
+        courseFeedback: feedbackText,
+      }, authToken);
+      Alert.alert('Success', 'Thank you for your feedback!');
+      onClose();
+    } else if (
+      mode === 'professor' &&
+      selectedStudentId &&
+      courseId &&
+      authToken
+    ) {
+      // 🧑‍🏫 Docente da feedback al estudiante
+      await createStudentFeedback(courseId, selectedStudentId, {
+        studentNote: rating,
+        studentFeedback: feedbackText,
+        teacherId: users[0]?.uuid || '', // puedes cambiar esto por `authContext.user.uuid` si lo tenés disponible acá
+      }, authToken);
+      Alert.alert('Success', 'Feedback sent to student.');
+      setShowFeedbackForm(false);
+      setSelectedStudentId(null);
+      setRating(0);
+      setFeedbackText('');
     }
-    try {
-      if (mode === 'self') {
-        // Student submitting feedback for course
-        await onSubmit(rating, feedbackText);
-        onClose();
-      } else if (
-        mode === 'professor' &&
-        selectedStudentId &&
-        courseId &&
-        authToken
-      ) {
-        // Professor submitting feedback for selected student
-        await updateEnrollment(
-          courseId,
-          selectedStudentId,
-          {
-            teacher_note: rating,
-            teacher_feedback: feedbackText || '',
-          },
-          authToken
-        );
-        Alert.alert('Success', 'Feedback sent to student.');
-        // Reset feedback form and stay in "Give Feedback" tab
-        setShowFeedbackForm(false);
-        setSelectedStudentId(null);
-        setRating(0);
-        setFeedbackText('');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to send feedback.');
-      console.error(e);
-    }
-  };
+  } catch (e) {
+    Alert.alert('Error', 'Failed to send feedback.');
+    console.error(e);
+  }
+};
+
 
   // Helper to get user info from ID
   const getUserById = (userId: string): User | undefined => users.find((u) => u.uuid === userId);
@@ -195,8 +200,21 @@ export default function FeedbackModal({
     );
   });
 
-  // Generate classy summary if courseId is available
-  const classySummary = courseId !== undefined ? getMockCourseFeedbackSummary(courseId) : null;
+  useEffect(() => {
+  const fetchClassySummary = async () => {
+    if (!authToken || !courseId || viewMode !== 'classy') return;
+    try {
+      const res = await getAllCourseFeedbacks(courseId, authToken);
+      setClassySummary(res?.summary ?? 'No summary available yet.');
+    } catch (err) {
+      console.error('Error loading summary:', err);
+      setClassySummary('Failed to load summary.');
+    }
+  };
+
+  fetchClassySummary();
+}, [viewMode, courseId, authToken]);
+
 
   // The student currently selected for feedback (professor mode)
   const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;

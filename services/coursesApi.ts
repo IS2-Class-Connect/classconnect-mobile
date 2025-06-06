@@ -24,10 +24,10 @@ export interface Enrollment {
   role: 'STUDENT' | 'ASSISTANT';
   favorite: boolean;
 
-  teacher_note?: number;          // Número 1-5
-  teacher_feedback?: string;      // Texto
-  student_note?: number;          // Número 1-5
-  student_feedback?: string;      // Texto
+  teacher_note?: number;
+  teacher_feedback?: string;
+  student_note?: number;
+  student_feedback?: string;
 }
 
 export interface CourseActivity {
@@ -47,25 +47,6 @@ export interface CourseActivity {
     | 'DELETE_TASK'
     | 'GRADE_TASK';
   createdAt: string;
-}
-
-const mockEnrollmentsLocal: Enrollment[] = [];
-
-function getRandomRating(): number {
-  return Math.floor(Math.random() * 5) + 1;
-}
-
-function getRandomFeedback(): string {
-  const samples = [
-    'Excellent work',
-    'Needs improvement',
-    'Good effort',
-    'Very attentive',
-    'Could participate more',
-    'Great progress',
-    'Satisfactory',
-  ];
-  return samples[Math.floor(Math.random() * samples.length)];
 }
 
 export async function getAllCourses(token: string): Promise<Course[]> {
@@ -125,57 +106,17 @@ export async function updateEnrollment(
   data: Partial<Enrollment>,
   token: string
 ): Promise<Enrollment> {
-  const forbiddenFields = ['teacher_note', 'teacher_feedback', 'student_note', 'student_feedback'];
-  const hasForbiddenField = forbiddenFields.some((field) => field in data);
-
-  if (hasForbiddenField) {
-    // Simular patch local sin mandar esos campos al backend
-    let enrollment = mockEnrollmentsLocal.find(e => e.courseId === courseId && e.userId === userId);
-    if (!enrollment) {
-      enrollment = {
-        courseId,
-        userId,
-        createdAt: new Date().toISOString(),
-        role: 'STUDENT',
-        favorite: false,
-      };
-      mockEnrollmentsLocal.push(enrollment);
-    }
-
-    const allowedData = { ...data };
-    forbiddenFields.forEach(f => delete allowedData[f as keyof typeof allowedData]);
-
-    enrollment = {
-      ...enrollment,
-      ...allowedData,
-    };
-
-    const index = mockEnrollmentsLocal.findIndex(e => e.courseId === courseId && e.userId === userId);
-    if (index >= 0) mockEnrollmentsLocal[index] = enrollment;
-
-    return Promise.resolve(enrollment);
-  } else {
-    const response = await patchToGateway(
-      `/courses/${courseId}/enrollments/${userId}`,
-      data,
-      token
-    );
-    return response.data as Enrollment;
-  }
+  const response = await patchToGateway(
+    `/courses/${courseId}/enrollments/${userId}`,
+    data,
+    token
+  );
+  return response.data as Enrollment;
 }
 
 export async function getCourseEnrollments(courseId: number, token: string): Promise<Enrollment[]> {
   const response = await getFromGateway(`/courses/${courseId}/enrollments`, token);
-
-  const enrollmentsWithExtras = (response.data as Enrollment[]).map(enrollment => ({
-    ...enrollment,
-    teacher_note: getRandomRating(),
-    teacher_feedback: getRandomFeedback(),
-    student_note: getRandomRating(),
-    student_feedback: getRandomFeedback(),
-  }));
-
-  return enrollmentsWithExtras;
+  return response.data as Enrollment[];
 }
 
 export async function getEnrollmentsByUser(
@@ -183,19 +124,8 @@ export async function getEnrollmentsByUser(
   token: string
 ): Promise<Enrollment[]> {
   const response = await getFromGateway(`/courses/enrollments?userId=${userId}`, token);
-
-  const enrollmentsWithExtras = (response.data as Enrollment[]).map(enrollment => ({
-    ...enrollment,
-    teacher_note: getRandomRating(),
-    teacher_feedback: getRandomFeedback(),
-    student_note: getRandomRating(),
-    student_feedback: getRandomFeedback(),
-  }));
-
-  return enrollmentsWithExtras;
+  return response.data as Enrollment[];
 }
-
-
 
 export async function deleteEnrollment(courseId: number, userId: string, token: string): Promise<void> {
   await deleteFromGateway(`/courses/${courseId}/enrollments/${userId}`, token);
@@ -214,27 +144,85 @@ export async function getCourseActivities(
   return response.data as CourseActivity[];
 }
 
-// MOCK: Generar resumen random de feedbacks del alumno
-export function getMockStudentFeedbackSummary(): string {
-  const summaries = [
-    "Most feedback highlights strong commitment and participation, with some suggestions for better time management.",
-    "Overall, the student is praised for consistency, but a few comments mention the need to improve engagement in discussions.",
-    "Feedback suggests solid academic performance and curiosity, with minor notes on collaborative work.",
-    "The student has received very positive feedback, especially regarding analytical skills and responsibility.",
-    "Some mixed feedback: good understanding of topics, but occasional lack of punctuality.",
-  ];
-  return summaries[Math.floor(Math.random() * summaries.length)];
+// FEEDBACK FUNCTIONS
+
+export async function createCourseFeedback(
+  courseId: number,
+  userId: string,
+  data: {
+    courseNote: number;
+    courseFeedback: string;
+  },
+  token: string
+): Promise<void> {
+  await postToGateway(`/courses/${courseId}/enrollments/${userId}/courseFeedback`, data, token);
 }
 
-// MOCK: Generar resumen random de feedbacks de un curso específico
-export function getMockCourseFeedbackSummary(courseId: number): string {
-  const summaries = [
-    "Students appreciated the course structure and the clarity of explanations. Some requested more practical examples.",
-    "Overall feedback is positive, with high ratings for the teacher's clarity. Areas to improve include assignment difficulty.",
-    "The course is described as comprehensive and well-paced. Suggestions include more interactive activities.",
-    "Feedback indicates students enjoyed the content, though a few noted the fast pace of some modules.",
-    "Students highlighted the usefulness of the materials. Several asked for more real-world case studies.",
-  ];
-  const summary = summaries[Math.floor(Math.random() * summaries.length)];
-  return `${summary}`;
+export async function createStudentFeedback(
+  courseId: number,
+  userId: string,
+  data: {
+    studentNote: number;
+    studentFeedback: string;
+    teacherId: string;
+  },
+  token: string
+): Promise<void> {
+  await postToGateway(`/courses/${courseId}/enrollments/${userId}/studentFeedback`, data, token);
+}
+
+export async function getCourseFeedback(
+  courseId: number,
+  userId: string,
+  token: string
+): Promise<{
+  courseNote: number;
+  courseFeedback: string;
+  studentId: string;
+}> {
+  const response = await getFromGateway(`/courses/${courseId}/enrollments/${userId}/courseFeedback`, token);
+  return response.data;
+}
+
+export async function getStudentFeedback(
+  courseId: number,
+  userId: string,
+  token: string
+): Promise<{
+  studentNote: number;
+  studentFeedback: string;
+  courseId: number;
+}> {
+  const response = await getFromGateway(`/courses/${courseId}/enrollments/${userId}/studentFeedback`, token);
+  return response.data;
+}
+
+export async function getAllCourseFeedbacks(
+  courseId: number,
+  token: string
+): Promise<{
+  summary: string;
+  feedbacks: {
+    studentId: string;
+    courseNote: number;
+    courseFeedback: string;
+  }[];
+}> {
+  const response = await getFromGateway(`/courses/${courseId}/feedbacks`, token);
+  return response.data;
+}
+
+export async function getAllStudentFeedbacks(
+  studentId: string,
+  token: string
+): Promise<{
+    summary: string;
+    feedbacks: {
+      courseId: number;
+      studentNote: number;
+      studentFeedback: string;
+    }[];
+}> {
+  const response = await getFromGateway(`/courses/studentFeedbacks/${studentId}`, token);
+  return response.data;
 }

@@ -25,6 +25,8 @@ import {
   getCourseEnrollments,
   updateEnrollment,
   Enrollment,
+  createCourseFeedback,
+  createStudentFeedback,
 } from '../services/coursesApi';
 import { getAllUsers, User } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
@@ -224,39 +226,39 @@ export default function CourseDetailScreen() {
 
   // Handle sending feedback, either professor to student or student to course
   const handleSendFeedback = async (rating: number, feedback: string, studentId?: string) => {
-    if (!authToken || !user) return;
-    try {
-      if (studentId) {
-        // Feedback from professor/assistant to a student
-        await updateEnrollment(
-          parsedCourse.id,
-          studentId,
-          {
-            teacher_note: rating,
-            teacher_feedback: feedback || '',
-          },
-          authToken
-        );
-        Alert.alert('Success', 'Feedback sent to student!');
-      } else {
-        // Feedback from student to the course (self feedback)
-        await updateEnrollment(
-          parsedCourse.id,
-          user.uuid,
-          {
-            student_note: rating,
-            student_feedback: feedback || '',
-          },
-          authToken
-        );
-        Alert.alert('Success', 'Thank you for your feedback!');
-      }
-      setFeedbackModalVisible(false);
-    } catch (error) {
-      console.error('❌ Error sending feedback:', error);
-      Alert.alert('Error', 'Failed to send feedback.');
+  if (!authToken || !user) return;
+  try {
+    if (studentId) {
+      await createStudentFeedback(
+        parsedCourse.id,
+        studentId,
+        {
+          studentNote: rating,
+          studentFeedback: feedback,
+          teacherId: user.uuid,
+        },
+        authToken
+      );
+      Alert.alert('Success', 'Feedback sent to student!');
+    } else {
+      await createCourseFeedback(
+        parsedCourse.id,
+        user.uuid,
+        {
+          courseNote: rating,
+          courseFeedback: feedback,
+        },
+        authToken
+      );
+      Alert.alert('Success', 'Thank you for your feedback!');
     }
-  };
+    setFeedbackModalVisible(false);
+  } catch (error) {
+    console.error('❌ Error sending feedback:', error);
+    Alert.alert('Error', 'Failed to send feedback.');
+  }
+};
+
 
   // --- UI Rendering ---
 
