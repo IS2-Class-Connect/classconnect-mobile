@@ -19,7 +19,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  let { authToken, user, logout, setUser } = useAuth();
+  const { authToken, logout, user, setUser } = useAuth();
 
   const [settings, setSettings] = useState({
     pushTaskAssignment: true,
