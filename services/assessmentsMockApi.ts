@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
 export type AssessmentType = 'exam' | 'assignment';
-
 export type ExerciseType = 'multiple_choice' | 'open';
 
 export interface AssessmentExercise {
@@ -9,7 +8,7 @@ export interface AssessmentExercise {
   enunciate: string;
   link?: string;
   choices?: string[];
-  answer?: string; // sólo para multiple_choice
+  answer?: string; // Solo para multiple_choice
 }
 
 export interface AssessmentSubmission {
@@ -22,7 +21,6 @@ export interface AssessmentSubmission {
 export interface Assessment {
   id: string;
   courseId: number;
-  moduleId: number;
   title: string;
   description: string;
   type: AssessmentType;
@@ -35,15 +33,16 @@ export interface Assessment {
   submissions: Record<string, AssessmentSubmission>;
 }
 
-const mockAssessments: Record<string, Assessment> = {}; // clave: courseId-moduleId-id
+const mockAssessments: Record<string, Assessment> = {}; // clave: courseId-id
 
-function generateKey(courseId: number, moduleId: number, id: string): string {
-  return `${courseId}-${moduleId}-${id}`;
+function generateKey(courseId: number, id: string): string {
+  return `${courseId}-${id}`;
 }
 
-// Crear una evaluación
+// Crear una evaluación (registrando userId)
 export async function createAssessment(
-  data: Omit<Assessment, 'id' | 'created_time' | 'submissions'>
+  data: Omit<Assessment, 'id' | 'created_time' | 'submissions' | 'teacher_id'>,
+  userId: string
 ): Promise<Assessment> {
   const id = uuidv4();
   const created_time = new Date().toISOString();
@@ -51,54 +50,57 @@ export async function createAssessment(
     ...data,
     id,
     created_time,
+    teacher_id: userId,
     submissions: {},
   };
-  mockAssessments[generateKey(data.courseId, data.moduleId, id)] = full;
+  mockAssessments[generateKey(data.courseId, id)] = full;
   return full;
 }
 
-// Editar evaluación
+// Editar evaluación (también registra userId como último editor)
 export async function updateAssessment(
   courseId: number,
-  moduleId: number,
   id: string,
-  data: Partial<Omit<Assessment, 'id' | 'created_time' | 'submissions'>>
+  data: Partial<Omit<Assessment, 'id' | 'created_time' | 'submissions'>>,
+  userId: string
 ): Promise<Assessment> {
-  const key = generateKey(courseId, moduleId, id);
+  const key = generateKey(courseId, id);
   if (!mockAssessments[key]) throw new Error('Assessment not found');
-  mockAssessments[key] = { ...mockAssessments[key], ...data };
+
+  mockAssessments[key] = {
+    ...mockAssessments[key],
+    ...data,
+    teacher_id: userId,
+  };
   return mockAssessments[key];
 }
 
 // Eliminar evaluación
 export async function deleteAssessment(
   courseId: number,
-  moduleId: number,
   id: string
 ): Promise<void> {
-  const key = generateKey(courseId, moduleId, id);
+  const key = generateKey(courseId, id);
   delete mockAssessments[key];
 }
 
-// Obtener todas las evaluaciones de un curso + módulo
-export async function getAssessmentsByCourseModule(
-  courseId: number,
-  moduleId: number
+// Obtener todas las evaluaciones de un curso
+export async function getAssessmentsByCourse(
+  courseId: number
 ): Promise<Assessment[]> {
   return Object.values(mockAssessments).filter(
-    (a) => a.courseId === courseId && a.moduleId === moduleId
+    (a) => a.courseId === courseId
   );
 }
 
 // Enviar respuesta como alumno
 export async function submitAssessment(
   courseId: number,
-  moduleId: number,
   id: string,
   userId: string,
   responses: Record<string, any>
 ): Promise<AssessmentSubmission> {
-  const key = generateKey(courseId, moduleId, id);
+  const key = generateKey(courseId, id);
   const assessment = mockAssessments[key];
   if (!assessment) throw new Error('Assessment not found');
 
@@ -113,12 +115,11 @@ export async function submitAssessment(
 // Corrección manual por docente
 export async function correctAssessmentManually(
   courseId: number,
-  moduleId: number,
   id: string,
   userId: string,
   correction: Partial<AssessmentSubmission>
 ): Promise<AssessmentSubmission> {
-  const key = generateKey(courseId, moduleId, id);
+  const key = generateKey(courseId, id);
   const assessment = mockAssessments[key];
   if (!assessment || !assessment.submissions[userId]) throw new Error('Submission not found');
 
@@ -133,12 +134,11 @@ export async function correctAssessmentManually(
 // Corrección automática por IA de un ejercicio
 export async function getAIAssessmentCorrection(
   courseId: number,
-  moduleId: number,
   id: string,
   userId: string,
   exerciseId: string
 ): Promise<string> {
-  const key = generateKey(courseId, moduleId, id);
+  const key = generateKey(courseId, id);
   const answer = mockAssessments[key]?.submissions[userId]?.[exerciseId]?.answer;
 
   if (!answer) return 'No answer provided.';

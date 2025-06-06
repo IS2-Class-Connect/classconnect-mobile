@@ -111,7 +111,7 @@ export default function ReorderableModuleList({
     return (
       <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
         <Text style={[styles.emptyText, { color: theme.text }]}>
-          No modules yet. Press the + button to create one.
+          No modules yet.
         </Text>
       </View>
     );
