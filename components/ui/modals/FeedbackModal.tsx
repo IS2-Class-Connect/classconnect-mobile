@@ -122,6 +122,24 @@ export default function FeedbackModal({
   const [search, setSearch] = useState('');
   const [showClassyText, setShowClassyText] = useState(false);
   const [classySummary, setClassySummary] = useState<string | null>(null);
+  const [courseFeedbacks, setCourseFeedbacks] = useState<
+  { studentId: string; courseNote: number; courseFeedback: string }[]
+>([]);
+
+  useEffect(() => {
+  const fetchAllFeedbacks = async () => {
+    if (!authToken || !courseId || viewMode !== 'showFeedbacks') return;
+    try {
+      const res = await getAllCourseFeedbacks(courseId, authToken);
+      setCourseFeedbacks(res.feedbacks);
+    } catch (err) {
+      console.error('Error loading feedbacks:', err);
+    }
+  };
+  fetchAllFeedbacks();
+}, [viewMode, courseId, authToken]);
+
+
 
   useEffect(() => {
     if (!visible) {
@@ -177,12 +195,17 @@ export default function FeedbackModal({
   const studentsOnly = students.filter((s) => s.role === 'STUDENT');
   const filteredStudents = studentsOnly.filter((s) => {
     const user = getUserById(s.userId);
-    const feedback = s.student_feedback?.toLowerCase() || '';
-    return (
-      (user?.name.toLowerCase().includes(search.toLowerCase()) ?? false) ||
-      feedback.includes(search.toLowerCase())
-    );
+    return user?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
   });
+
+  
+  const feedbackListWithUsers = courseFeedbacks
+  .map((fb) => {
+    const user = getUserById(fb.studentId);
+    return user ? { ...fb, user } : null;
+  })
+  .filter((entry): entry is { studentId: string; courseNote: number; courseFeedback: string; user: User } => !!entry);
+
 
   useEffect(() => {
     const fetchClassySummary = async () => {
@@ -340,14 +363,10 @@ export default function FeedbackModal({
           {/* View Feedbacks: list feedbacks with stars, comments, avatars */}
           {viewMode === 'showFeedbacks' && (
             <FlatList
-              data={filteredStudents.filter(
-                (s) => s.student_note !== undefined || s.student_feedback !== undefined
-              )}
-              keyExtractor={(item) => item.userId}
+              data={feedbackListWithUsers}
+              keyExtractor={(item) => item.studentId}
               renderItem={({ item }) => {
-                const user = getUserById(item.userId);
-                if (!user) return null;
-
+                const user = item.user;
                 return (
                   <View style={styles.feedbackRow}>
                     {user.urlProfilePhoto ? (
@@ -365,7 +384,7 @@ export default function FeedbackModal({
                         {[1, 2, 3, 4, 5].map((i) => (
                           <Ionicons
                             key={i}
-                            name={i <= (item.student_note ?? 0) ? 'star' : 'star-outline'}
+                            name={i <= item.courseNote ? 'star' : 'star-outline'}
                             size={24}
                             color={theme.warning}
                             style={{ marginHorizontal: 2 }}
@@ -373,52 +392,59 @@ export default function FeedbackModal({
                         ))}
                       </View>
                       <Text style={{ color: theme.text, fontStyle: 'italic' }}>
-                        "{item.student_feedback || 'No comment'}"
+                        "{item.courseFeedback || 'No comment'}"
                       </Text>
                     </View>
                   </View>
                 );
               }}
             />
+
           )}
 
           {/* Give Feedback: list students to pick from, then show feedback form */}
           {viewMode === 'giveFeedback' && (
             <>
               {!showFeedbackForm && (
-                <FlatList
-                  data={filteredStudents}
-                  keyExtractor={(item) => item.userId}
-                  renderItem={({ item }) => {
-                    const user = getUserById(item.userId);
-                    if (!user) return null;
-                    return (
-                      <View style={styles.feedbackRow}>
-                        {user.urlProfilePhoto ? (
-                          <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
-                        ) : (
-                          <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
-                            <Text style={[styles.studentAvatarText, { color: theme.text }]}>
-                              {user.name[0]}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
-                        <TouchableOpacity
-                          style={[styles.giveFeedbackBtn, { backgroundColor: theme.primary }]}
-                          onPress={() => {
-                            setSelectedStudentId(item.userId);
-                            setShowFeedbackForm(true);
-                            setRating(0);
-                            setFeedbackText('');
-                          }}
-                        >
-                          <Text style={[styles.giveFeedbackBtnText, { color: theme.background }]}>Give Feedback</Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
+               
+            <FlatList
+            data={studentsOnly.filter((s) => {
+              const u = getUserById(s.userId);
+              return u?.name.toLowerCase().includes(search.toLowerCase());
+            })}
+            keyExtractor={(item) => item.userId}
+            renderItem={({ item }) => {
+              const user = getUserById(item.userId);
+              if (!user) return null;
+
+              return (
+                <TouchableOpacity
+                  style={styles.feedbackRow}
+                  onPress={() => {
+                    setSelectedStudentId(item.userId);
+                    setShowFeedbackForm(true);
                   }}
-                />
+                >
+                  {user.urlProfilePhoto ? (
+                    <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
+                  ) : (
+                    <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
+                      <Text style={[styles.studentAvatarText, { color: theme.text }]}>
+                        {user.name[0]}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
+                  </View>
+                  <Text style={{ color: theme.primary, fontWeight: '700' }}>Give Feedback</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+
+
               )}
               {showFeedbackForm && userForFeedback && (
                 <FeedbackForm

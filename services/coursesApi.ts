@@ -23,11 +23,6 @@ export interface Enrollment {
   createdAt: string;
   role: 'STUDENT' | 'ASSISTANT';
   favorite: boolean;
-
-  teacher_note?: number;
-  teacher_feedback?: string;
-  student_note?: number;
-  student_feedback?: string;
 }
 
 export interface CourseActivity {
@@ -146,6 +141,18 @@ export async function getCourseActivities(
 
 // FEEDBACK FUNCTIONS
 
+export interface CourseFeedback {
+  courseNote: number;
+  courseFeedback: string;
+  studentId: string;
+}
+
+export interface StudentFeedback {
+  studentNote: number;
+  studentFeedback: string;
+  courseId: number;
+}
+
 export async function createCourseFeedback(
   courseId: number,
   userId: string,
@@ -175,11 +182,7 @@ export async function getCourseFeedback(
   courseId: number,
   userId: string,
   token: string
-): Promise<{
-  courseNote: number;
-  courseFeedback: string;
-  studentId: string;
-}> {
+): Promise<CourseFeedback> {
   const response = await getFromGateway(`/courses/${courseId}/enrollments/${userId}/courseFeedback`, token);
   return response.data;
 }
@@ -188,11 +191,7 @@ export async function getStudentFeedback(
   courseId: number,
   userId: string,
   token: string
-): Promise<{
-  studentNote: number;
-  studentFeedback: string;
-  courseId: number;
-}> {
+): Promise<StudentFeedback> {
   const response = await getFromGateway(`/courses/${courseId}/enrollments/${userId}/studentFeedback`, token);
   return response.data;
 }
@@ -202,11 +201,7 @@ export async function getAllCourseFeedbacks(
   token: string
 ): Promise<{
   summary: string;
-  feedbacks: {
-    studentId: string;
-    courseNote: number;
-    courseFeedback: string;
-  }[];
+  feedbacks: CourseFeedback[];
 }> {
   const response = await getFromGateway(`/courses/${courseId}/feedbacks`, token);
   return response.data;
@@ -216,12 +211,8 @@ export async function getAllStudentFeedbacks(
   studentId: string,
   token: string
 ): Promise<{
-    summary: string;
-    feedbacks: {
-      courseId: number;
-      studentNote: number;
-      studentFeedback: string;
-    }[];
+  summary: string;
+  feedbacks: StudentFeedback[];
 }> {
   const response = await getFromGateway(`/courses/studentFeedbacks/${studentId}`, token);
   return response.data;
