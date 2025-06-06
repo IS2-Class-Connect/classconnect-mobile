@@ -17,8 +17,9 @@ import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { authToken, user, logout } = useAuth();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  let { authToken, user, logout, setUser } = useAuth();
 
   const [settings, setSettings] = useState({
     pushTaskAssignment: true,
@@ -41,13 +42,19 @@ export default function SettingsScreen() {
   }, [user]);
 
   const toggleSetting = async (key: keyof typeof settings) => {
-    if (!user || !authToken) return;
+    if (!user || !authToken || isLoading) return;
+
+    setIsLoading(true);
     const updated = { ...settings, [key]: !settings[key] };
-    setSettings(updated);
+
     try {
       await updateUserNotificationConfiguration(user.uuid, updated, authToken);
+      setUser({ ...user, ...updated });
     } catch (e) {
       console.error('❌ Error setting notification settings:', e);
+      setUser({ ...user, ...settings });
+    } finally {
+      setIsLoading(false);
     }
   };
 
