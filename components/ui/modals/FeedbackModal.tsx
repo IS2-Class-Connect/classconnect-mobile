@@ -18,6 +18,7 @@ import {
   createCourseFeedback,
   createStudentFeedback,
   getAllCourseFeedbacks,
+  getStudentFeedback
 } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -129,6 +130,9 @@ export default function FeedbackModal({
 >([]);
 const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
 const [loadingClassy, setLoadingClassy] = useState(false);
+const [studentsWithFeedback, setStudentsWithFeedback] = useState<string[]>([]);
+const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
+
 
 
   useEffect(() => {
@@ -222,6 +226,37 @@ const [loadingClassy, setLoadingClassy] = useState(false);
   })
   .filter((entry): entry is { studentId: string; courseNote: number; courseFeedback: string; user: User } => !!entry);
 
+
+
+  useEffect(() => {
+  const fetchGivenFeedbacks = async () => {
+    if (!authToken || !courseId || viewMode !== 'giveFeedback') return;
+
+    setCheckingStudentFeedbacks(true);
+
+    try {
+      const promises = studentsOnly.map(async (enrollment) => {
+        try {
+          const feedback = await getStudentFeedback(courseId, enrollment.userId, authToken);
+          if (feedback?.studentNote) {
+            return enrollment.userId;
+          }
+        } catch {
+          return null; // No feedback yet or error
+        }
+      });
+
+      const result = await Promise.all(promises);
+      setStudentsWithFeedback(result.filter(Boolean) as string[]);
+    } catch (e) {
+      console.error('Error checking student feedbacks', e);
+    } finally {
+      setCheckingStudentFeedbacks(false);
+    }
+  };
+
+  fetchGivenFeedbacks();
+}, [viewMode, courseId, authToken, studentsOnly]);
 
   useEffect(() => {
   const fetchClassySummary = async () => {
@@ -432,8 +467,10 @@ const [loadingClassy, setLoadingClassy] = useState(false);
           <FlatList
             data={studentsOnly.filter((s) => {
               const u = getUserById(s.userId);
-              return u?.name.toLowerCase().includes(search.toLowerCase());
+              return u?.name.toLowerCase().includes(search.toLowerCase()) &&
+                    !studentsWithFeedback.includes(s.userId);
             })}
+
             keyExtractor={(item) => item.userId}
             renderItem={({ item }) => {
               const user = getUserById(item.userId);
