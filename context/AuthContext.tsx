@@ -8,18 +8,18 @@ import React, {
 } from 'react';
 import { onAuthStateChangedListener, logout as firebaseLogout, isEmailVerified } from '../firebase';
 import { User, getCurrentUserFromBackend, increaseFailedAttempts, checkLockStatus } from '../services/userApi';
-import { getAuth, signInWithEmailAndPassword,fetchSignInMethodsForEmail } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth';
 import { useGoogleSignIn } from '../firebase';
 import { addPushTokenListener } from 'expo-notifications';
 import { registerForPushNotificationsAsync, updateUserPushToken } from '@/services/notifications';
 import { Alert } from 'react-native';
-import { EmailAuthProvider, linkWithCredential ,GoogleAuthProvider,signInWithCredential } from 'firebase/auth';
+import { EmailAuthProvider, linkWithCredential, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type AuthError = 
-  | 'invalid-credentials' 
-  | 'user-not-found' 
-  | 'too-many-requests' 
+export type AuthError =
+  | 'invalid-credentials'
+  | 'user-not-found'
+  | 'too-many-requests'
   | 'account-locked'
   | 'account-locked-by-admins'
   | 'user-disabled'
@@ -38,33 +38,35 @@ export type LockInfo = {
 
 export type AuthContextType = {
   user: User | null;
+  setUser: React.Dispatch<User | null>;
   isLoading: boolean;
   authToken: string | null;
   logout: () => Promise<void>;
   refreshUserData: (tokenOverride?: string) => Promise<void>;
   loginWithEmailAndPassword: (email: string, password: string) => Promise<{ success: boolean; error?: AuthError; lockInfo?: LockInfo }>;
-  loginWithGoogle: (token: string) => Promise<{ uid:string, success: boolean; error?: AuthError; id_token: string;}>;
+  loginWithGoogle: (token: string) => Promise<{ uid: string, success: boolean; error?: AuthError; id_token: string; }>;
   fetchUserData: (token: string) => Promise<User | null>;
   startRegistration: () => void;
   finishRegistration: () => void;
-  emailExists: (email: string) => Promise<string[]>; 
-  linkAccountsWithPassword: (email: string, password: string, token: string) =>  Promise<{ uid:string, success: boolean; id_token: string; error?: AuthError }>;
+  emailExists: (email: string) => Promise<string[]>;
+  linkAccountsWithPassword: (email: string, password: string, token: string) => Promise<{ uid: string, success: boolean; id_token: string; error?: AuthError }>;
 
 };
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
+  setUser: () => { },
   isLoading: true,
   authToken: null,
-  logout: async () => {},
-  refreshUserData: async () => {},
+  logout: async () => { },
+  refreshUserData: async () => { },
   loginWithEmailAndPassword: async () => ({ success: false }),
-  loginWithGoogle: async () => ({uid: "", success: false, id_token: "" }),
-  fetchUserData: async () => null, 
-  startRegistration: () => {},
-  finishRegistration: () => {},
+  loginWithGoogle: async () => ({ uid: "", success: false, id_token: "" }),
+  fetchUserData: async () => null,
+  startRegistration: () => { },
+  finishRegistration: () => { },
   emailExists: async () => [],
-  linkAccountsWithPassword: async () => ({uid: "", success: false, id_token: "" }),
+  linkAccountsWithPassword: async () => ({ uid: "", success: false, id_token: "" }),
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -109,21 +111,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
   }, [authToken, fetchUserData]);
-  
+
   const linkAccountsWithPassword = useCallback(async (email: string, password: string, token: string) => {
     try {
       const auth = getAuth();
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const googleCredential = GoogleAuthProvider.credential(token);     
+      const googleCredential = GoogleAuthProvider.credential(token);
       const result = await linkWithCredential(userCredential.user, googleCredential);
       console.log("✅ Linked accounts:", result.user.email);
       Alert.alert("Success", "Your account was successfully linked.");
       const idToken = await result.user.getIdToken();
-      return { uid: userCredential.user.uid,success: true , id_token: idToken};
+      return { uid: userCredential.user.uid, success: true, id_token: idToken };
     } catch (error) {
       console.log("❌ Error linking account:", error);
       Alert.alert("Error", "Account linking failed. Please check your password.");
-      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError }
+      return { uid: "", success: false, id_token: "", error: 'unknown-error' as AuthError }
     }
   }, []);
 
@@ -155,7 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           return { success: false, error: 'account-locked' as AuthError, lockInfo: lockStatus };
         }
-      } catch {}
+      } catch { }
 
       try {
         await fetchUserData(token);
@@ -205,16 +207,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const auth = getAuth();
-      const googleCredential = GoogleAuthProvider.credential(token);     
+      const googleCredential = GoogleAuthProvider.credential(token);
       const userCredential = await signInWithCredential(auth, googleCredential);
       await AsyncStorage.setItem('lastLogin', Date.now().toString());
-			const saved = await AsyncStorage.getItem('lastLogin');
-			console.log('🕒 [login] lastLogin set to:', saved);
+      const saved = await AsyncStorage.getItem('lastLogin');
+      console.log('🕒 [login] lastLogin set to:', saved);
       const idToken = await userCredential.user.getIdToken();
       setAuthToken(idToken);
-      return { uid: userCredential.user.uid,success: true, id_token: idToken };
+      return { uid: userCredential.user.uid, success: true, id_token: idToken };
     } catch {
-      return { uid:"",success: false, id_token: "", error: 'unknown-error' as AuthError };
+      return { uid: "", success: false, id_token: "", error: 'unknown-error' as AuthError };
     } finally {
       setLoading(false);
     }
@@ -293,9 +295,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user, authToken]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoading, 
+    <AuthContext.Provider value={{
+      user,
+      setUser,
+      isLoading,
       authToken,
       logout,
       refreshUserData,

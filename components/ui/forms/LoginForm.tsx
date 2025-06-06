@@ -31,7 +31,7 @@ export default function LoginForm({
   const router = useRouter();
   const theme = useTheme();
   const { loginWithEmailAndPassword, loginWithGoogle,emailExists,linkAccountsWithPassword,fetchUserData, isLoading: authIsLoading } = useAuth();
-  //const { user, loading, error, signIn, signOut } = GoogleAuth();
+  // const { user, loading, error, signIn, signOut } = GoogleAuth();
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -131,7 +131,7 @@ export default function LoginForm({
 //   try {
 //     setExternalIsLoading(true);
 
-//     //const result = await signIn(); 
+//     const result = await signIn();
 //     if (!result?.id_token) {
 //       throw new Error("No ID token returned from Google");
 //     }
