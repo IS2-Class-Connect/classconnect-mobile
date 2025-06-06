@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  TextInput,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -34,46 +35,44 @@ export default function StudentFeedbackScreen() {
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const router = useRouter();
 
   useEffect(() => {
-  const fetchData = async () => {
-    if (!authToken || !user?.uuid) {
-      console.warn('⛔ No auth token or user UUID');
-      return;
-    }
+    const fetchData = async () => {
+      if (!authToken || !user?.uuid) {
+        console.warn('⛔ No auth token or user UUID');
+        return;
+      }
 
-    try {
-      console.log('🚀 Fetching courses and feedbacks...');
-      const [allCourses, feedbackResponse] = await Promise.all([
-        getAllCourses(authToken),
-        getAllStudentFeedbacks(user.uuid, authToken),
-      ]);
+      try {
+        const [allCourses, feedbackResponse] = await Promise.all([
+          getAllCourses(authToken),
+          getAllStudentFeedbacks(user.uuid, authToken),
+        ]);
 
-      setCourses(allCourses);
-      setFeedbacks(feedbackResponse.feedbacks);
-      setAiSummary(feedbackResponse.summary);    
+        setCourses(allCourses);
+        setFeedbacks(feedbackResponse.feedbacks);
+        setAiSummary(feedbackResponse.summary);
 
-      const totalRating = feedbackResponse.feedbacks.reduce(
-        (sum, item) => sum + (item.studentNote || 0),
-        0
-      );
-      const avgRating =
-        feedbackResponse.feedbacks.length > 0
-          ? totalRating / feedbackResponse.feedbacks.length
-          : 0;
-      setAverageRating(avgRating);
-    } catch (error) {
-      console.error('❌ Error fetching data:', error);
-    } finally {
-      setLoading(false);
-      console.log('✅ Fetch complete');
-    }
-  };
+        const totalRating = feedbackResponse.feedbacks.reduce(
+          (sum, item) => sum + (item.studentNote || 0),
+          0
+        );
+        const avgRating =
+          feedbackResponse.feedbacks.length > 0
+            ? totalRating / feedbackResponse.feedbacks.length
+            : 0;
+        setAverageRating(avgRating);
+      } catch (error) {
+        console.error('❌ Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchData();
-}, [user?.uuid, authToken]);
-
+    fetchData();
+  }, [user?.uuid, authToken]);
 
   const renderStars = (rating: number) => (
     <View style={{ flexDirection: 'row' }}>
@@ -89,6 +88,16 @@ export default function StudentFeedbackScreen() {
     </View>
   );
 
+  const filteredFeedbacks = feedbacks.filter((item) => {
+    const course = courses.find((c) => c.id === item.courseId);
+    const courseTitle = course?.title.toLowerCase() || '';
+    const feedbackText = item.studentFeedback.toLowerCase();
+    return (
+      courseTitle.includes(search.toLowerCase()) ||
+      feedbackText.includes(search.toLowerCase())
+    );
+  });
+
   const renderFeedback = ({ item }: { item: StudentFeedback }) => {
     const course = courses.find((c) => c.id === item.courseId);
     return (
@@ -96,10 +105,8 @@ export default function StudentFeedbackScreen() {
         <Text style={[styles.courseName, { color: theme.text }]}>
           Course: {course ? course.title : 'Course not found'}
         </Text>
-        <View style={styles.starsContainer}>
-          {renderStars(item.studentNote || 0)}
-        </View>
-        <Text style={[styles.feedbackText, { color: theme.text }]}>
+        <View style={styles.starsContainer}>{renderStars(item.studentNote || 0)}</View>
+        <Text style={[styles.feedbackText, { color: theme.text }]}>  
           {item.studentFeedback || 'No feedback provided'}
         </Text>
       </View>
@@ -123,44 +130,37 @@ export default function StudentFeedbackScreen() {
       <Text style={[styles.title, { color: theme.text }]}>My Feedbacks</Text>
 
       {feedbacks.length > 0 && (
-        <Text style={[styles.averageRating, { color: theme.text }]}>
-          Average Rating: {averageRating.toFixed(1)} / 5
-        </Text>
+        <Text style={[styles.averageRating, { color: theme.text }]}>Average Rating: {averageRating.toFixed(1)} / 5</Text>
       )}
 
       {aiSummary && (
         <View style={[styles.classyOpinionContainer, { backgroundColor: theme.surface }]}>
           <View style={styles.classyHeaderRow}>
-            <Image
-              source={require('../assets/icons/classy-logo.png')}
-              style={styles.classyImage}
-            />
-            <Text style={[styles.classyOpinionTitle, { color: theme.text }]}>
-              Classy's Opinion
-            </Text>
+            <Image source={require('../assets/icons/classy-logo.png')} style={styles.classyImage} />
+            <Text style={[styles.classyOpinionTitle, { color: theme.text }]}>Classy's Opinion</Text>
             <View style={styles.poweredByRow}>
               <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
-              <Image
-                source={require('../assets/icons/gemini-logo.png')}
-                style={styles.geminiImage}
-                resizeMode="contain"
-              />
+              <Image source={require('../assets/icons/gemini-logo.png')} style={styles.geminiImage} resizeMode="contain" />
             </View>
           </View>
           <Text style={[styles.classyOpinionText, { color: theme.text }]}>{aiSummary}</Text>
         </View>
       )}
 
+      <TextInput
+        style={[styles.searchInput, { color: theme.text, borderColor: theme.primary }]}
+        placeholder="Search in course or feedback..."
+        placeholderTextColor={"#888"}
+        value={search}
+        onChangeText={setSearch}
+      />
+
       <FlatList
-        data={feedbacks}
+        data={filteredFeedbacks}
         keyExtractor={(item, index) => `${item.courseId}-${index}`}
         renderItem={renderFeedback}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
-            No feedbacks yet.
-          </Text>
-        }
+        ListEmptyComponent={<Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>No feedbacks match your search.</Text>}
       />
     </View>
   );
@@ -261,5 +261,12 @@ const styles = StyleSheet.create({
   geminiImage: {
     width: 24,
     height: 24,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
 });
