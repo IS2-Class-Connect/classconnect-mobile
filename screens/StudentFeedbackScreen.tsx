@@ -7,29 +7,35 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  TextInput,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import {
   getAllCourses,
-  getEnrollmentsByUser,
-  Enrollment,
+  getAllStudentFeedbacks,
   Course,
-  getMockStudentFeedbackSummary,
 } from '../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import { useRouter } from 'expo-router';
 
+interface StudentFeedback {
+  courseId: number;
+  studentNote: number;
+  studentFeedback: string;
+}
+
 export default function StudentFeedbackScreen() {
   const theme = useTheme();
   const { user, authToken } = useAuth();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [feedbacks, setFeedbacks] = useState<StudentFeedback[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -40,40 +46,28 @@ export default function StudentFeedbackScreen() {
       }
 
       try {
-        console.log('🚀 Fetching courses and enrollments...');
-        const [allCourses, userEnrollments] = await Promise.all([
+        const [allCourses, feedbackResponse] = await Promise.all([
           getAllCourses(authToken),
-          getEnrollmentsByUser(user.uuid, authToken),
+          getAllStudentFeedbacks(user.uuid, authToken),
         ]);
 
-        console.log('📚 Courses fetched:', allCourses.length);
-        console.log('👨‍🎓 Enrollments fetched:', userEnrollments);
-
         setCourses(allCourses);
+        setFeedbacks(feedbackResponse.feedbacks);
+        setAiSummary(feedbackResponse.summary);
 
-        const filtered = userEnrollments.filter(
-          (e) => e.role === 'STUDENT'
-        );
-        console.log('🎯 Filtered student enrollments:', filtered.length);
-
-        setEnrollments(filtered);
-
-        const totalRating = filtered.reduce(
-          (sum, enrollment) => sum + (enrollment.student_note || 0),
+        const totalRating = feedbackResponse.feedbacks.reduce(
+          (sum, item) => sum + (item.studentNote || 0),
           0
         );
-        const avgRating = filtered.length > 0 ? totalRating / filtered.length : 0;
+        const avgRating =
+          feedbackResponse.feedbacks.length > 0
+            ? totalRating / feedbackResponse.feedbacks.length
+            : 0;
         setAverageRating(avgRating);
-        console.log('⭐ Calculated average rating:', avgRating.toFixed(1));
-
-        const summary = getMockStudentFeedbackSummary();
-        console.log('🧠 AI Summary:', summary);
-        setAiSummary(summary);
       } catch (error) {
-        console.error('❌ Error fetching enrollments:', error);
+        console.error('❌ Error fetching data:', error);
       } finally {
         setLoading(false);
-        console.log('✅ Fetch complete');
       }
     };
 
@@ -94,18 +88,26 @@ export default function StudentFeedbackScreen() {
     </View>
   );
 
-  const renderFeedback = ({ item }: { item: Enrollment }) => {
+  const filteredFeedbacks = feedbacks.filter((item) => {
+    const course = courses.find((c) => c.id === item.courseId);
+    const courseTitle = course?.title.toLowerCase() || '';
+    const feedbackText = item.studentFeedback.toLowerCase();
+    return (
+      courseTitle.includes(search.toLowerCase()) ||
+      feedbackText.includes(search.toLowerCase())
+    );
+  });
+
+  const renderFeedback = ({ item }: { item: StudentFeedback }) => {
     const course = courses.find((c) => c.id === item.courseId);
     return (
       <View style={[styles.feedbackRow, { backgroundColor: theme.surface }]}>
         <Text style={[styles.courseName, { color: theme.text }]}>
           Course: {course ? course.title : 'Course not found'}
         </Text>
-        <View style={styles.starsContainer}>
-          {renderStars(item.student_note || 0)}
-        </View>
-        <Text style={[styles.feedbackText, { color: theme.text }]}>
-          {item.student_feedback || 'No feedback provided'}
+        <View style={styles.starsContainer}>{renderStars(item.studentNote || 0)}</View>
+        <Text style={[styles.feedbackText, { color: theme.text }]}>  
+          {item.studentFeedback || 'No feedback provided'}
         </Text>
       </View>
     );
@@ -127,47 +129,38 @@ export default function StudentFeedbackScreen() {
 
       <Text style={[styles.title, { color: theme.text }]}>My Feedbacks</Text>
 
-      {enrollments.length > 0 && (
-        <Text style={[styles.averageRating, { color: theme.text }]}>
-          Average Rating: {averageRating.toFixed(1)} / 5
-        </Text>
+      {feedbacks.length > 0 && (
+        <Text style={[styles.averageRating, { color: theme.text }]}>Average Rating: {averageRating.toFixed(1)} / 5</Text>
       )}
 
       {aiSummary && (
         <View style={[styles.classyOpinionContainer, { backgroundColor: theme.surface }]}>
           <View style={styles.classyHeaderRow}>
-            <Image
-              source={require('../assets/icons/classy-logo.png')}
-              style={styles.classyImage}
-            />
-            <Text style={[styles.classyOpinionTitle, { color: theme.text }]}>
-              Classy's Opinion
-            </Text>
+            <Image source={require('../assets/icons/classy-logo.png')} style={styles.classyImage} />
+            <Text style={[styles.classyOpinionTitle, { color: theme.text }]}>Classy's Opinion</Text>
             <View style={styles.poweredByRow}>
               <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
-              <Image
-                source={require('../assets/icons/gemini-logo.png')}
-                style={styles.geminiImage}
-                resizeMode="contain"
-              />
+              <Image source={require('../assets/icons/gemini-logo.png')} style={styles.geminiImage} resizeMode="contain" />
             </View>
           </View>
           <Text style={[styles.classyOpinionText, { color: theme.text }]}>{aiSummary}</Text>
         </View>
       )}
 
+      <TextInput
+        style={[styles.searchInput, { color: theme.text, borderColor: theme.primary }]}
+        placeholder="Search in course or feedback..."
+        placeholderTextColor={"#888"}
+        value={search}
+        onChangeText={setSearch}
+      />
+
       <FlatList
-        data={enrollments}
-        keyExtractor={(item, index) =>
-          `${item.courseId ?? 'unknown'}-${item.userId ?? 'nouser'}-${index}`
-        }
+        data={filteredFeedbacks}
+        keyExtractor={(item, index) => `${item.courseId}-${index}`}
         renderItem={renderFeedback}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>
-            No feedbacks yet.
-          </Text>
-        }
+        ListEmptyComponent={<Text style={{ color: theme.text, textAlign: 'center', marginTop: spacing.md }}>No feedbacks match your search.</Text>}
       />
     </View>
   );
@@ -268,5 +261,12 @@ const styles = StyleSheet.create({
   geminiImage: {
     width: 24,
     height: 24,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
 });
