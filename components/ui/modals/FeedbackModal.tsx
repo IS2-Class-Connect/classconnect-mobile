@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -212,7 +212,7 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
   };
 
   const getUserById = (userId: string): User | undefined => users.find((u) => u.uuid === userId);
-  const studentsOnly = students.filter((s) => s.role === 'STUDENT');
+  const studentsOnly = useMemo(() => students.filter((s) => s.role === 'STUDENT'), [students]);
   const filteredStudents = studentsOnly.filter((s) => {
     const user = getUserById(s.userId);
     return user?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
@@ -235,24 +235,39 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
     setCheckingStudentFeedbacks(true);
 
     try {
-      const promises = studentsOnly.map(async (enrollment) => {
-        try {
-          const feedback = await getStudentFeedback(courseId, enrollment.userId, authToken);
-          if (feedback?.studentNote) {
-            return enrollment.userId;
-          }
-        } catch {
-          return null; // No feedback yet or error
-        }
-      });
+  const promises = studentsOnly.map(async (enrollment) => {
+    try {
+      const feedback = await getStudentFeedback(courseId, enrollment.userId, authToken);
+      
+      // If feedback exists and includes a studentNote, return the studentId
+      if (feedback?.studentNote) {
+        return enrollment.userId;
+      }
 
-      const result = await Promise.all(promises);
-      setStudentsWithFeedback(result.filter(Boolean) as string[]);
-    } catch (e) {
-      console.error('Error checking student feedbacks', e);
-    } finally {
-      setCheckingStudentFeedbacks(false);
+      // Feedback exists but has no rating – ignore
+      return null;
+    } catch (e: any) {
+      // If it's a 404, it means there's no feedback yet – expected, ignore
+      if (e?.response?.status === 404) {
+        return null;
+      }
+
+      // Unexpected error – log it
+      console.error(`Unexpected error for user ${enrollment.userId}:`, e);
+      return null;
     }
+  });
+
+  const result = await Promise.all(promises);
+  
+  // Filter out nulls and save the list of users who already received feedback
+  setStudentsWithFeedback(result.filter(Boolean) as string[]);
+} catch (e) {
+  console.error('Error checking student feedbacks:', e);
+} finally {
+  setCheckingStudentFeedbacks(false);
+}
+
   };
 
   fetchGivenFeedbacks();
