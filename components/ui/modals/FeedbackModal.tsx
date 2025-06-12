@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,16 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import {
   Enrollment,
-  updateEnrollment,
-  getMockCourseFeedbackSummary,
+  createCourseFeedback,
+  createStudentFeedback,
+  getAllCourseFeedbacks,
+  getStudentFeedback
 } from '../../../services/coursesApi';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
+import Markdown from 'react-native-markdown-display';
+import { ActivityIndicator } from 'react-native';
+
 
 interface User {
   uuid: string;
@@ -38,7 +43,6 @@ interface FeedbackModalProps {
   courseName?: string;
 }
 
-// Reusable feedback form component used both by students and professors
 const FeedbackForm = ({
   rating,
   setRating,
@@ -111,22 +115,45 @@ export default function FeedbackModal({
   courseName,
 }: FeedbackModalProps) {
   const theme = useTheme();
-  const { authToken } = useAuth();
+  const { authToken, user } = useAuth();
 
-  // State for feedback form inputs
   const [rating, setRating] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
-  // State for professor: selected student and whether to show feedback form
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
-  // View mode for professor tabs: view feedbacks, give feedback, or classy summary
   const [viewMode, setViewMode] = useState<'showFeedbacks' | 'giveFeedback' | 'classy'>('showFeedbacks');
-  // Search input for filtering students/feedbacks
   const [search, setSearch] = useState('');
-  // Toggle to show classy summary
   const [showClassyText, setShowClassyText] = useState(false);
+  const [classySummary, setClassySummary] = useState<string | null>(null);
+  const [courseFeedbacks, setCourseFeedbacks] = useState<
+  { studentId: string; courseNote: number; courseFeedback: string }[]
+>([]);
+const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+const [loadingClassy, setLoadingClassy] = useState(false);
+const [studentsWithFeedback, setStudentsWithFeedback] = useState<string[]>([]);
+const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
 
-  // Reset all state when modal closes
+
+
+  useEffect(() => {
+  const fetchAllFeedbacks = async () => {
+    if (!authToken || !courseId || viewMode !== 'showFeedbacks') return;
+    setLoadingFeedbacks(true);
+    try {
+      const res = await getAllCourseFeedbacks(courseId, authToken);
+      setCourseFeedbacks(res.feedbacks);
+    } catch (err) {
+      console.error('Error loading feedbacks:', err);
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  };
+  fetchAllFeedbacks();
+}, [viewMode, courseId, authToken]);
+
+
+
+
   useEffect(() => {
     if (!visible) {
       setRating(0);
@@ -139,7 +166,13 @@ export default function FeedbackModal({
     }
   }, [visible]);
 
-  // Submit handler for feedback form
+  useEffect(() => {
+  if (viewMode === 'giveFeedback') {
+    setLoadingFeedbacks(false);
+  }
+}, [viewMode]);
+
+
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Validation', 'Please select a rating (1-5 stars).');
@@ -147,8 +180,12 @@ export default function FeedbackModal({
     }
     try {
       if (mode === 'self') {
-        // Student submitting feedback for course
-        await onSubmit(rating, feedbackText);
+        if (!user?.uuid || !authToken || !courseId) return;
+        await createCourseFeedback(courseId, user.uuid, {
+          courseNote: rating,
+          courseFeedback: feedbackText,
+        }, authToken);
+        Alert.alert('Success', 'Thank you for your feedback!');
         onClose();
       } else if (
         mode === 'professor' &&
@@ -156,18 +193,13 @@ export default function FeedbackModal({
         courseId &&
         authToken
       ) {
-        // Professor submitting feedback for selected student
-        await updateEnrollment(
-          courseId,
-          selectedStudentId,
-          {
-            teacher_note: rating,
-            teacher_feedback: feedbackText || '',
-          },
-          authToken
-        );
+        if (!user?.uuid || !authToken || !courseId) return;
+        await createStudentFeedback(courseId, selectedStudentId, {
+          studentNote: rating,
+          studentFeedback: feedbackText,
+          teacherId: user.uuid,
+        }, authToken);
         Alert.alert('Success', 'Feedback sent to student.');
-        // Reset feedback form and stay in "Give Feedback" tab
         setShowFeedbackForm(false);
         setSelectedStudentId(null);
         setRating(0);
@@ -179,33 +211,90 @@ export default function FeedbackModal({
     }
   };
 
-  // Helper to get user info from ID
   const getUserById = (userId: string): User | undefined => users.find((u) => u.uuid === userId);
-
-  // Filter to only students (exclude assistants etc)
-  const studentsOnly = students.filter((s) => s.role === 'STUDENT');
-
-  // Filter students by search text matching name or feedback
+  const studentsOnly = useMemo(() => students.filter((s) => s.role === 'STUDENT'), [students]);
   const filteredStudents = studentsOnly.filter((s) => {
     const user = getUserById(s.userId);
-    const feedback = s.student_feedback?.toLowerCase() || '';
-    return (
-      (user?.name.toLowerCase().includes(search.toLowerCase()) ?? false) ||
-      feedback.includes(search.toLowerCase())
-    );
+    return user?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
   });
 
-  // Generate classy summary if courseId is available
-  const classySummary = courseId !== undefined ? getMockCourseFeedbackSummary(courseId) : null;
+  
+  const feedbackListWithUsers = courseFeedbacks
+  .map((fb) => {
+    const user = getUserById(fb.studentId);
+    return user ? { ...fb, user } : null;
+  })
+  .filter((entry): entry is { studentId: string; courseNote: number; courseFeedback: string; user: User } => !!entry);
 
-  // The student currently selected for feedback (professor mode)
+
+
+  useEffect(() => {
+  const fetchGivenFeedbacks = async () => {
+    if (!authToken || !courseId || viewMode !== 'giveFeedback') return;
+
+    setCheckingStudentFeedbacks(true);
+
+    try {
+  const promises = studentsOnly.map(async (enrollment) => {
+    try {
+      const feedback = await getStudentFeedback(courseId, enrollment.userId, authToken);
+      
+      // If feedback exists and includes a studentNote, return the studentId
+      if (feedback?.studentNote) {
+        return enrollment.userId;
+      }
+
+      // Feedback exists but has no rating – ignore
+      return null;
+    } catch (e: any) {
+      // If it's a 404, it means there's no feedback yet – expected, ignore
+      if (e?.response?.status === 404) {
+        return null;
+      }
+
+      // Unexpected error – log it
+      console.error(`Unexpected error for user ${enrollment.userId}:`, e);
+      return null;
+    }
+  });
+
+  const result = await Promise.all(promises);
+  
+  // Filter out nulls and save the list of users who already received feedback
+  setStudentsWithFeedback(result.filter(Boolean) as string[]);
+} catch (e) {
+  console.error('Error checking student feedbacks:', e);
+} finally {
+  setCheckingStudentFeedbacks(false);
+}
+
+  };
+
+  fetchGivenFeedbacks();
+}, [viewMode, courseId, authToken, studentsOnly]);
+
+  useEffect(() => {
+  const fetchClassySummary = async () => {
+    if (!authToken || !courseId || viewMode !== 'classy') return;
+    setLoadingClassy(true);
+    try {
+      const res = await getAllCourseFeedbacks(courseId, authToken);
+      setClassySummary(res?.summary ?? 'No summary available yet.');
+    } catch (err) {
+      console.error('Error loading summary:', err);
+      setClassySummary('Failed to load summary.');
+    } finally {
+      setLoadingClassy(false);
+    }
+  };
+  fetchClassySummary();
+}, [viewMode, courseId, authToken]);
+
   const userForFeedback = selectedStudentId ? getUserById(selectedStudentId) : null;
 
   if (!visible) return null;
 
-  // --- STUDENT MODE ---
   if (mode === 'self') {
-    // Only show simple feedback form for the course (no tabs or lists)
     return (
       <Modal visible={visible} animationType="slide" transparent>
         <View style={[styles.modalOverlay, { backgroundColor: theme.background + 'CC' }]}>
@@ -228,8 +317,6 @@ export default function FeedbackModal({
       </Modal>
     );
   }
-
-  // --- PROFESSOR/ASSISTANT MODE ---
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={[styles.modalOverlay, { backgroundColor: theme.background + 'CC' }]}>
@@ -249,200 +336,257 @@ export default function FeedbackModal({
 
           {/* Tabs: View Feedbacks, Give Feedback, Classy */}
           <View style={styles.toggleButtonsRow}>
-            <TouchableOpacity
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'showFeedbacks' && { backgroundColor: theme.primary },
+            ]}
+            onPress={() => {
+              setViewMode('showFeedbacks');
+              setShowFeedbackForm(false);
+              setSelectedStudentId(null);
+              setRating(0);
+              setFeedbackText('');
+              setShowClassyText(false);
+              setLoadingFeedbacks(true);
+            }}
+          >
+            <Text
               style={[
-                styles.toggleButton,
-                viewMode === 'showFeedbacks' && { backgroundColor: theme.primary },
+                styles.toggleButtonText,
+                { color: viewMode === 'showFeedbacks' ? theme.background : theme.primary },
               ]}
-              onPress={() => {
-                setViewMode('showFeedbacks');
-                setShowFeedbackForm(false);
-                setSelectedStudentId(null);
-                setRating(0);
-                setFeedbackText('');
-                setShowClassyText(false);
-              }}
             >
-              <Text
-                style={[
-                  styles.toggleButtonText,
-                  { color: viewMode === 'showFeedbacks' ? theme.background : theme.primary },
-                ]}
-              >
-                View Feedbacks
-              </Text>
-            </TouchableOpacity>
+              View Feedbacks
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'giveFeedback' && { backgroundColor: theme.primary },
+            ]}
+            onPress={() => {
+              setViewMode('giveFeedback');
+              setShowFeedbackForm(false);
+              setSelectedStudentId(null);
+              setRating(0);
+              setFeedbackText('');
+              setShowClassyText(false);
+              setLoadingFeedbacks(true);
+            }}
+          >
+            <Text
               style={[
-                styles.toggleButton,
-                viewMode === 'giveFeedback' && { backgroundColor: theme.primary },
+                styles.toggleButtonText,
+                { color: viewMode === 'giveFeedback' ? theme.background : theme.primary },
               ]}
-              onPress={() => {
-                setViewMode('giveFeedback');
-                setShowFeedbackForm(false);
-                setSelectedStudentId(null);
-                setRating(0);
-                setFeedbackText('');
-                setShowClassyText(false);
-              }}
             >
-              <Text
-                style={[
-                  styles.toggleButtonText,
-                  { color: viewMode === 'giveFeedback' ? theme.background : theme.primary },
-                ]}
-              >
-                Give Feedback
-              </Text>
-            </TouchableOpacity>
+              Give Feedback
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'classy' && { backgroundColor: theme.primary },
+            ]}
+            onPress={() => {
+              setViewMode('classy');
+              setShowClassyText(true);
+              setShowFeedbackForm(false);
+              setSelectedStudentId(null);
+              setLoadingClassy(true);
+            }}
+          >
+            <Image
+              source={require('../../../assets/icons/classy-logo.png')}
+              style={styles.classyLogoSmall}
+            />
+            <Text
               style={[
-                styles.toggleButton,
-                viewMode === 'classy' && { backgroundColor: theme.primary },
+                styles.toggleButtonText,
+                { color: viewMode === 'classy' ? theme.background : theme.primary },
               ]}
-              onPress={() => {
-                setViewMode('classy');
-                setShowClassyText(true);
-                setShowFeedbackForm(false);
-                setSelectedStudentId(null);
-              }}
             >
-              <Image
-                source={require('../../../assets/icons/classy-logo.png')}
-                style={styles.classyLogoSmall}
-              />
-              <Text
-                style={[
-                  styles.toggleButtonText,
-                  { color: viewMode === 'classy' ? theme.background : theme.primary },
-                ]}
-              >
-                Classy
-              </Text>
-            </TouchableOpacity>
-          </View>
+              Classy
+            </Text>
+          </TouchableOpacity>
+        </View>
+
 
           {/* Tab content */}
 
-          {/* View Feedbacks: list feedbacks with stars, comments, avatars */}
-          {viewMode === 'showFeedbacks' && (
-            <FlatList
-              data={filteredStudents.filter(
-                (s) => s.student_note !== undefined || s.student_feedback !== undefined
-              )}
-              keyExtractor={(item) => item.userId}
-              renderItem={({ item }) => {
-                const user = getUserById(item.userId);
-                if (!user) return null;
+{viewMode === 'showFeedbacks' && (
+  <>
+    {loadingFeedbacks ? (
+      <View style={{ alignItems: 'center', marginVertical: spacing.md }}>
+  <ActivityIndicator size="large" color={theme.primary} />
+  <Text style={{ color: theme.text, marginTop: spacing.sm }}>Loading feedbacks...</Text>
+</View>
 
-                return (
-                  <View style={styles.feedbackRow}>
-                    {user.urlProfilePhoto ? (
-                      <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
-                    ) : (
-                      <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
-                        <Text style={[styles.studentAvatarText, { color: theme.text }]}>
-                          {user.name[0]}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                      <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
-                      <View style={styles.starsContainer}>
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <Ionicons
-                            key={i}
-                            name={i <= (item.student_note ?? 0) ? 'star' : 'star-outline'}
-                            size={24}
-                            color={theme.warning}
-                            style={{ marginHorizontal: 2 }}
-                          />
-                        ))}
-                      </View>
-                      <Text style={{ color: theme.text, fontStyle: 'italic' }}>
-                        "{item.student_feedback || 'No comment'}"
-                      </Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          )}
-
-          {/* Give Feedback: list students to pick from, then show feedback form */}
-          {viewMode === 'giveFeedback' && (
-            <>
-              {!showFeedbackForm && (
-                <FlatList
-                  data={filteredStudents}
-                  keyExtractor={(item) => item.userId}
-                  renderItem={({ item }) => {
-                    const user = getUserById(item.userId);
-                    if (!user) return null;
-                    return (
-                      <View style={styles.feedbackRow}>
-                        {user.urlProfilePhoto ? (
-                          <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
-                        ) : (
-                          <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
-                            <Text style={[styles.studentAvatarText, { color: theme.text }]}>
-                              {user.name[0]}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
-                        <TouchableOpacity
-                          style={[styles.giveFeedbackBtn, { backgroundColor: theme.primary }]}
-                          onPress={() => {
-                            setSelectedStudentId(item.userId);
-                            setShowFeedbackForm(true);
-                            setRating(0);
-                            setFeedbackText('');
-                          }}
-                        >
-                          <Text style={[styles.giveFeedbackBtnText, { color: theme.background }]}>Give Feedback</Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  }}
-                />
+      
+    ) : (
+      <FlatList
+        data={feedbackListWithUsers}
+        keyExtractor={(item) => item.studentId}
+        renderItem={({ item }) => {
+          const user = item.user;
+          return (
+            <View style={styles.feedbackRow}>
+              {user.urlProfilePhoto ? (
+                <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
+              ) : (
+                <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
+                  <Text style={[styles.studentAvatarText, { color: theme.text }]}>
+                    {user.name[0]}
+                  </Text>
+                </View>
               )}
-              {showFeedbackForm && userForFeedback && (
-                <FeedbackForm
-                  rating={rating}
-                  setRating={setRating}
-                  feedbackText={feedbackText}
-                  setFeedbackText={setFeedbackText}
-                  onCancel={() => {
-                    setShowFeedbackForm(false);
-                    setSelectedStudentId(null);
-                    setRating(0);
-                    setFeedbackText('');
-                  }}
-                  onSubmit={handleSubmit}
-                  theme={theme}
-                />
-              )}
-            </>
-          )}
-
-          {/* Classy summary tab */}
-          {viewMode === 'classy' && showClassyText && classySummary && (
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={[styles.summaryText, { color: theme.text, textAlign: 'center' }]}>
-                <Text style={{ fontWeight: '700' }}>Curso: {courseName}</Text>
-              </Text>
-              <Text style={[styles.summaryText, { color: theme.text, textAlign: 'center' }]}>
-                {classySummary}
-              </Text>
-              <View style={styles.poweredByRow}>
-                <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
-                <Image source={require('../../../assets/icons/gemini-logo.png')} style={styles.geminiLogo} />
+              <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
+                <View style={styles.starsContainer}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Ionicons
+                      key={i}
+                      name={i <= item.courseNote ? 'star' : 'star-outline'}
+                      size={24}
+                      color={theme.warning}
+                      style={{ marginHorizontal: 2 }}
+                    />
+                  ))}
+                </View>
+                <Text style={{ color: theme.text, fontStyle: 'italic' }}>
+                  "{item.courseFeedback || 'No comment'}"
+                </Text>
               </View>
             </View>
-          )}
+          );
+        }}
+      />
+    )}
+  </>
+)}
+
+{viewMode === 'giveFeedback' && (
+  <>
+    {!showFeedbackForm && (
+      <>
+        {loadingFeedbacks ? (
+          <View style={{ alignItems: 'center', marginVertical: spacing.md }}>
+  <ActivityIndicator size="large" color={theme.primary} />
+  <Text style={{ color: theme.text, marginTop: spacing.sm }}>Loading students...</Text>
+</View>
+
+        ) : (
+          <FlatList
+            data={studentsOnly.filter((s) => {
+              const u = getUserById(s.userId);
+              return u?.name.toLowerCase().includes(search.toLowerCase()) &&
+                    !studentsWithFeedback.includes(s.userId);
+            })}
+
+            keyExtractor={(item) => item.userId}
+            renderItem={({ item }) => {
+              const user = getUserById(item.userId);
+              if (!user) return null;
+
+              return (
+                <TouchableOpacity
+                  style={styles.feedbackRow}
+                  onPress={() => {
+                    setSelectedStudentId(item.userId);
+                    setShowFeedbackForm(true);
+                  }}
+                >
+                  {user.urlProfilePhoto ? (
+                    <Image source={{ uri: user.urlProfilePhoto }} style={styles.studentAvatar} />
+                  ) : (
+                    <View style={[styles.studentAvatarPlaceholder, { backgroundColor: theme.border }]}>
+                      <Text style={[styles.studentAvatarText, { color: theme.text }]}>
+                        {user.name[0]}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={[styles.studentName, { color: theme.text }]}>{user.name}</Text>
+                  </View>
+                  <Text style={{ color: theme.primary, fontWeight: '700' }}>Give Feedback</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+      </>
+    )}
+    {showFeedbackForm && userForFeedback && (
+      <FeedbackForm
+        rating={rating}
+        setRating={setRating}
+        feedbackText={feedbackText}
+        setFeedbackText={setFeedbackText}
+        onCancel={() => {
+          setShowFeedbackForm(false);
+          setSelectedStudentId(null);
+          setRating(0);
+          setFeedbackText('');
+        }}
+        onSubmit={handleSubmit}
+        theme={theme}
+      />
+    )}
+  </>
+)}
+
+{viewMode === 'classy' && (
+  <>
+    {loadingClassy ? (
+<View style={{ alignItems: 'center', marginVertical: spacing.md }}>
+  <ActivityIndicator size="large" color={theme.primary} />
+  <Text style={{ color: theme.text, marginTop: spacing.sm }}>Loading Classy Opinion...</Text>
+</View>
+
+    ) : showClassyText && classySummary && (
+      <View style={{ marginBottom: spacing.md }}>
+        <Text style={[styles.summaryText, { color: theme.text, textAlign: 'center', fontWeight: '700' }]}>
+        Curso: {courseName}
+      </Text>
+
+        <Markdown
+          style={{
+            body: {
+              color: theme.text,
+              fontSize: fonts.size.md,
+              textAlign: 'center',
+            },
+            paragraph: {
+              marginTop: 0,
+              marginBottom: spacing.xs,
+            },
+            strong: {
+              fontWeight: 'bold',
+            },
+            em: {
+              fontStyle: 'italic',
+            },
+            link: {
+              color: theme.primary,
+              textDecorationLine: 'underline',
+            },
+          }}
+        >
+          {classySummary}
+        </Markdown>
+        <View style={styles.poweredByRow}>
+          <Text style={[styles.poweredByText, { color: theme.text }]}>powered by</Text>
+          <Image source={require('../../../assets/icons/gemini-logo.png')} style={styles.geminiLogo} />
+        </View>
+      </View>
+    )}
+  </>
+)}
+
+
 
           {/* Close button */}
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
