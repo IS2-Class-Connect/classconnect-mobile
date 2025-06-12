@@ -34,6 +34,7 @@ export default function ActivityRegisterScreen() {
 
   useEffect(() => {
     const fetchData = async () => {
+      console.log('Fetching activities for course:', courseId);
       if (!authToken || !courseId || !user?.uuid) {
         setLoading(false);
         return;
@@ -43,6 +44,7 @@ export default function ActivityRegisterScreen() {
           getCourseActivities(Number(courseId), authToken, user.uuid),
           getAllUsers(authToken),
         ]);
+        console.log('Fetched activities:', activityRes);
         setActivities(activityRes);
         setUsers(userRes);
       } catch {

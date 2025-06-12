@@ -25,6 +25,8 @@ import {
   getCourseEnrollments,
   updateEnrollment,
   Enrollment,
+  createCourseFeedback,
+  createStudentFeedback,
 } from '../services/coursesApi';
 import { getAllUsers, User } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +34,8 @@ import CourseForm from '../components/ui/forms/CoursesForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AssistantSelector from '../components/ui/modals/AssistantSelector';
 import FeedbackModal from '../components/ui/modals/FeedbackModal';
+import { Modal } from 'react-native';
+
 
 export default function CourseDetailScreen() {
   const theme = useTheme();
@@ -58,6 +62,9 @@ export default function CourseDetailScreen() {
 
   // Info about the teacher (for display)
   const [teacherInfo, setTeacherInfo] = useState<User | null>(null);
+
+  // Modal for Assistant actions
+  const [showAssistantModal, setShowAssistantModal] = useState(false);
 
   if (typeof course !== 'string') return null;
 
@@ -133,7 +140,6 @@ export default function CourseDetailScreen() {
     return theme.success;
   }, [theme, isTeacher, isAssistant, isEnrolled, isClosed, isFull]);
 
-  // Calculate how many buttons to show dynamically to adapt alignment
   const buttonsCount = (() => {
     let count = 0;
     if (isTeacher || isAssistant || isEnrolled) count++; // Modules button
@@ -222,251 +228,225 @@ export default function CourseDetailScreen() {
     setFeedbackModalVisible(false);
   };
 
-  // Handle sending feedback, either professor to student or student to course
   const handleSendFeedback = async (rating: number, feedback: string, studentId?: string) => {
-    if (!authToken || !user) return;
-    try {
-      if (studentId) {
-        // Feedback from professor/assistant to a student
-        await updateEnrollment(
-          parsedCourse.id,
-          studentId,
-          {
-            teacher_note: rating,
-            teacher_feedback: feedback || '',
-          },
-          authToken
-        );
-        Alert.alert('Success', 'Feedback sent to student!');
-      } else {
-        // Feedback from student to the course (self feedback)
-        await updateEnrollment(
-          parsedCourse.id,
-          user.uuid,
-          {
-            student_note: rating,
-            student_feedback: feedback || '',
-          },
-          authToken
-        );
-        Alert.alert('Success', 'Thank you for your feedback!');
-      }
-      setFeedbackModalVisible(false);
-    } catch (error) {
-      console.error('❌ Error sending feedback:', error);
-      Alert.alert('Error', 'Failed to send feedback.');
+  if (!authToken || !user) return;
+  try {
+    if (studentId) {
+      await createStudentFeedback(
+        parsedCourse.id,
+        studentId,
+        {
+          studentNote: rating,
+          studentFeedback: feedback,
+          teacherId: user.uuid,
+        },
+        authToken
+      );
+      Alert.alert('Success', 'Feedback sent to student!');
+    } else {
+      await createCourseFeedback(
+        parsedCourse.id,
+        user.uuid,
+        {
+          courseNote: rating,
+          courseFeedback: feedback,
+        },
+        authToken
+      );
+      Alert.alert('Success', 'Thank you for your feedback!');
     }
+    setFeedbackModalVisible(false);
+  } catch (error) {
+    console.error('❌ Error sending feedback:', error);
+    Alert.alert('Error', 'Failed to send feedback.');
+  }
+};
+
+  const handleAssistantModal = () => {
+    setShowAssistantModal(true);
   };
+
+  const handleCloseAssistantModal = () => {
+    setShowAssistantModal(false);
+  };
+
+  const handleSelectAssistant = () => {
+    setShowAssistantModal(false);
+    setShowAssistantSelector(true);
+  };
+
+  const handleViewAssistantActivity = () => {
+  router.push({
+    pathname: '/activity-register',
+    params: { courseId: String(parsedCourse.id) },
+  });
+};
+
+
 
   // --- UI Rendering ---
 
-    return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Back button */}
-        <TouchableOpacity onPress={() => router.replace('/courses')} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
+  return (
+  <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      {/* Back button */}
+      <TouchableOpacity onPress={() => router.replace('/courses')} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color={theme.text} />
+      </TouchableOpacity>
 
-        {/* Main card */}
-        <View style={[styles.cardExpanded, { borderColor, backgroundColor: theme.card }]}>
-          {editing ? (
-            <CourseForm
-              initialValues={parsedCourse}
-              onSubmit={() => setEditing(false)}
-              onCancel={() => setEditing(false)}
-              submitLabel="Save Changes"
-            />
-          ) : (
-            <>
-              <View style={styles.titleRow}>
-                <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
-                {(isEnrolled || isAssistant) && (
-                  <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
-                    <Ionicons
-                      name={isFavorite ? 'star' : 'star-outline'}
-                      size={26}
-                      color={isFavorite ? theme.warning : theme.text}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {role && (
-                <View style={[styles.roleBadge, { backgroundColor: borderColor + '20' }]}>
-                  <Ionicons name="person-circle-outline" size={16} color={borderColor} />
-                  <Text style={[styles.roleText, { color: borderColor }]}>{role}</Text>
-                </View>
+      {/* Main card */}
+      <View style={[styles.cardExpanded, { borderColor, backgroundColor: theme.card }]}>
+        {editing ? (
+          <CourseForm
+            initialValues={parsedCourse}
+            onSubmit={() => setEditing(false)}
+            onCancel={() => setEditing(false)}
+            submitLabel="Save Changes"
+          />
+        ) : (
+          <>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: theme.text }]}>{parsedCourse.title}</Text>
+              {(isEnrolled || isAssistant) && (
+                <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
+                  <Ionicons
+                    name={isFavorite ? 'star' : 'star-outline'}
+                    size={26}
+                    color={isFavorite ? theme.warning : theme.text}
+                  />
+                </TouchableOpacity>
               )}
+            </View>
 
-              <View style={[styles.descriptionBox, { backgroundColor: theme.primary + '20' }]}>
-                <Text style={[styles.description, { color: theme.text }]}>
-                  {parsedCourse.description}
-                </Text>
+            {role && (
+              <View style={[styles.roleBadge, { backgroundColor: borderColor + '20' }]}>
+                <Ionicons name="person-circle-outline" size={16} color={borderColor} />
+                <Text style={[styles.roleText, { color: borderColor }]}>{role}</Text>
               </View>
+            )}
 
-              {teacherInfo && (
-                <View style={styles.teacherRow}>
-                  <Image source={{ uri: teacherInfo.urlProfilePhoto }} style={styles.avatar} />
-                  <Text style={[styles.teacherName, { color: theme.text }]}>
-                    Teacher: {teacherInfo.name}
-                  </Text>
-                </View>
+            <View style={[styles.descriptionBox, { backgroundColor: theme.primary + '20' }]}>
+              <Text style={[styles.description, { color: theme.text }]}>{parsedCourse.description}</Text>
+            </View>
+
+            {teacherInfo && (
+              <View style={styles.teacherRow}>
+                <Image source={{ uri: teacherInfo.urlProfilePhoto }} style={styles.avatar} />
+                <Text style={[styles.teacherName, { color: theme.text }]}>Teacher: {teacherInfo.name}</Text>
+              </View>
+            )}
+
+            <View style={styles.contentArea}>
+              <Text style={[styles.status, { color: theme.text }]}>
+                Places: {studentEnrollments.length}/{parsedCourse.totalPlaces}
+              </Text>
+              {statusLabel && (
+                <Text style={[styles.status, { color: theme.error }]}>Status: {statusLabel}</Text>
               )}
+              <Text style={[styles.meta, { color: theme.text }]}>
+                Start: {new Date(parsedCourse.startDate).toDateString()}
+              </Text>
+              <Text style={[styles.meta, { color: theme.text }]}>
+                Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}
+              </Text>
+              <Text style={[styles.meta, { color: theme.text }]}>
+                End: {new Date(parsedCourse.endDate).toDateString()}
+              </Text>
 
-              <View style={styles.contentArea}>
-                <Text style={[styles.status, { color: theme.text }]}>
-                  Places: {studentEnrollments.length}/{parsedCourse.totalPlaces}
-                </Text>
-                {statusLabel && (
-                  <Text style={[styles.status, { color: theme.error }]}>Status: {statusLabel}</Text>
+              <View style={[styles.iconActionsContainer, { justifyContent: buttonsCount === 1 ? 'center' : 'flex-start' }]}>
+                {(isTeacher || isAssistant || isEnrolled) && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.iconAction}
+                      onPress={() => router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)}
+                    >
+                      <MaterialIcons name="view-module" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Modules</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  Start: {new Date(parsedCourse.startDate).toDateString()}
-                </Text>
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  Deadline: {new Date(parsedCourse.registrationDeadline).toDateString()}
-                </Text>
-                <Text style={[styles.meta, { color: theme.text }]}>
-                  End: {new Date(parsedCourse.endDate).toDateString()}
-                </Text>
 
-                <View
-                  style={[
-                    styles.iconActionsContainer,
-                    { justifyContent: buttonsCount === 1 ? 'center' : 'flex-start' },
-                  ]}
-                >
-                  {(isTeacher || isAssistant || isEnrolled) && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.iconAction}
-                        onPress={() =>
-                          router.push(`/modules?courseId=${parsedCourse.id}&role=${role}`)
-                        }
-                      >
-                        <MaterialIcons name="view-module" size={36} color={theme.primary} />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
-                          Modules
-                        </Text>
-                      </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.iconAction}
-                        onPress={() =>
-                          router.push(`/assessments?courseId=${parsedCourse.id}&role=${role}`)
-                        }
-                      >
-                        <Ionicons name="document-text-outline" size={36} color={theme.primary} />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
-                          Assessments
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
+                {(isTeacher || isAssistant) && (
+                  <>
 
-                  {(isTeacher || isAssistant) && (
-                    <>
-                      <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
-                        <Ionicons
-                          name="chatbubble-ellipses-outline"
-                          size={36}
-                          color={theme.primary}
-                        />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
-                          Feedback
-                        </Text>
-                      </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
+                      <Ionicons name="create-outline" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Edit</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
 
-                      <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
-                        <Ionicons name="create-outline" size={36} color={theme.primary} />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Edit</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
+                {isTeacher && (
+                  <>
+                    <TouchableOpacity style={styles.iconAction} onPress={handleSelectAssistant}>
+                      <Ionicons name="person-add-outline" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>+ Assistant</Text>
+                    </TouchableOpacity>
 
-                  {isTeacher && (
+                    <TouchableOpacity style={styles.iconAction} onPress={handleViewAssistantActivity}>
+                      <MaterialIcons name="assignment" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>View Log</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.iconAction} onPress={handleDelete}>
                       <Ionicons name="trash-outline" size={36} color={theme.error} />
                       <Text style={[styles.iconActionText, { color: theme.error }]}>Delete</Text>
                     </TouchableOpacity>
-                  )}
+                  </>
+                )}
 
-                  {!isTeacher && !isAssistant && !isEnrolled && (
-                    <TouchableOpacity
-                      style={[
-                        styles.iconAction,
-                        (isClosed || isFull) && { opacity: 0.5 },
-                      ]}
-                      disabled={isClosed || isFull}
-                      onPress={handleEnroll}
-                    >
-                      <Ionicons
-                        name="checkmark-circle-outline"
-                        size={36}
-                        color={isClosed || isFull ? '#aaa' : theme.success}
-                      />
-                      <Text
-                        style={[
-                          styles.iconActionText,
-                          { color: isClosed || isFull ? '#aaa' : theme.success },
-                        ]}
-                      >
-                        Enroll
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {!isTeacher && !isAssistant && isEnrolled && (
-                    <>
-                      <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
-                        <Ionicons
-                          name="chatbubble-ellipses-outline"
-                          size={36}
-                          color={theme.primary}
-                        />
-                        <Text style={[styles.iconActionText, { color: theme.primary }]}>
-                          Feedback
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity style={styles.iconAction} onPress={handleUnenroll}>
-                        <Ionicons name="exit-outline" size={36} color={theme.error} />
-                        <Text style={[styles.iconActionText, { color: theme.error }]}>Unenroll</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
+                {!isTeacher && !isAssistant && !isEnrolled && (
+                  <TouchableOpacity
+                    style={[styles.iconAction, (isClosed || isFull) && { opacity: 0.5 }]}
+                    disabled={isClosed || isFull}
+                    onPress={handleEnroll}
+                  >
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={36}
+                      color={isClosed || isFull ? '#aaa' : theme.success}
+                    />
+                    <Text style={[styles.iconActionText, { color: isClosed || isFull ? '#aaa' : theme.success }]}>
+                      Enroll
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </>
-          )}
-        </View>
+            </View>
+          </>
+        )}
+      </View>
 
-        <AssistantSelector
-          visible={showAssistantSelector}
-          onClose={() => setShowAssistantSelector(false)}
-          courseId={parsedCourse.id}
-          enrollments={enrollments}
-          courseName={parsedCourse.title}
-        />
+      <AssistantSelector
+        visible={showAssistantSelector}
+        onClose={() => setShowAssistantSelector(false)}
+        courseId={parsedCourse.id}
+        enrollments={enrollments}
+        courseName={parsedCourse.title}
+      />
 
-        <FeedbackModal
-          visible={feedbackModalVisible}
-          onClose={handleCloseFeedbackModal}
-          onSubmit={handleSendFeedback}
-          mode={isTeacher || isAssistant ? 'professor' : 'self'}
-          students={isTeacher || isAssistant ? enrollments : undefined}
-          users={users}
-          courseId={parsedCourse.id}
-          courseName={parsedCourse.title}
-        />
-      </ScrollView>
-    </SafeAreaView>
-  );
+      <FeedbackModal
+        visible={feedbackModalVisible}
+        onClose={handleCloseFeedbackModal}
+        onSubmit={handleSendFeedback}
+        mode={isTeacher || isAssistant ? 'professor' : 'self'}
+        students={isTeacher || isAssistant ? enrollments : undefined}
+        users={users}
+        courseId={parsedCourse.id}
+        courseName={parsedCourse.title}
+      />
+    </ScrollView>
+  </SafeAreaView>
+);
 
 }
 
-// --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: { padding: spacing.lg, paddingBottom: spacing.xl },
@@ -569,5 +549,43 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: fonts.size.sm,
     fontWeight: '600',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  modalBox: {
+  width: '85%',
+  maxWidth: 400,
+  backgroundColor: '#121212', // dark mode: theme.card
+  padding: spacing.lg,
+  borderRadius: 16,
+  alignItems: 'center',
+},
+modalTitle: {
+  fontSize: fonts.size.lg,
+  fontWeight: '700',
+  color: '#ECEDEE', // dark mode: theme.text
+  marginBottom: spacing.sm,
+},
+modalOption: {
+  fontSize: fonts.size.md,
+  color: '#339CFF', // dark mode: theme.primary
+  marginBottom: spacing.md,
+},
+
+  closeBtn: {
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  closeText: {
+    fontSize: fonts.size.md,
+    fontWeight: '500',
   },
 });

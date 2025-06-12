@@ -18,11 +18,24 @@ import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import Markdown from 'react-native-markdown-display';
 
+type Message = {
+  id: string;
+  text: string;
+  fromUser: boolean;
+};
+
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+
+  const [feedbackSelected, setFeedbackSelected] = useState<Record<string, number>>({});
+  const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
+  const [feedbackOpen, setFeedbackOpen] = useState<string | null>(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<string>>(new Set());
+  const [feedbackConfirmed, setFeedbackConfirmed] = useState<Set<string>>(new Set());
+
   const { user, authToken } = useAuth();
   const theme = useTheme();
   const flatListRef = useRef<FlatList>(null);
@@ -51,13 +64,35 @@ export default function ChatScreen() {
       setMessages((prev) => [botMsg, ...prev]);
     } catch (e) {
       setMessages((prev) => [
-        { id: (Date.now() + 2).toString(), text: 'Error getting response', fromUser: false },
+        { id: (Date.now() + 2).toString(), text: 'Classy is not available', fromUser: false },
         ...prev,
       ]);
     } finally {
       setLoading(false);
       setIsTyping(false);
     }
+  };
+
+  const handleFeedback = async (
+    messageId: string,
+    rating: number,
+    comment: string,
+    comment_feedback?: string
+  ) => {
+    if (!user || !authToken || feedbackSubmitted.has(messageId)) return;
+
+    setFeedbackSelected((prev) => ({ ...prev, [messageId]: rating }));
+    await addFeedback(comment, rating, user.uuid, authToken, comment_feedback);
+    setFeedbackSubmitted((prev) => new Set(prev).add(messageId));
+    setFeedbackConfirmed((prev) => new Set(prev).add(messageId));
+    setFeedbackOpen(null);
+    setTimeout(() => {
+      setFeedbackConfirmed((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    }, 4000);
   };
 
   useEffect(() => {
@@ -71,7 +106,6 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={80}
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Image source={require('../assets/icons/classy-logo.png')} style={{ width: 40, height: 40, marginRight: 8 }} />
@@ -86,46 +120,102 @@ export default function ChatScreen() {
           </View>
         </View>
 
-        {/* Messages */}
         <FlatList
           ref={flatListRef}
           data={messages}
           inverted
           contentContainerStyle={{ padding: spacing.md }}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.messageRow,
-                {
-                  alignSelf: item.fromUser ? 'flex-end' : 'flex-start',
-                  flexDirection: item.fromUser ? 'row-reverse' : 'row',
-                },
-              ]}
-            >
-              {/* Avatar IA o Usuario */}
-              {!item.fromUser ? (
-                <Image source={require('../assets/icons/classy-logo.png')} style={styles.avatar} />
-              ) : (
-                user?.urlProfilePhoto && (
-                  <Image source={{ uri: user.urlProfilePhoto }} style={[styles.avatar, { borderRadius: 12 }]} />
-                )
-              )}
+          renderItem={({ item }) => {
+            const isBot = !item.fromUser;
+            const feedbackSent = feedbackSubmitted.has(item.id);
+            const showFeedbackInput = feedbackOpen === item.id;
 
-              {/* Mensaje */}
+            return (
               <View
-                style={{
-                  backgroundColor: item.fromUser ? theme.primary : theme.surface,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  borderRadius: 16,
-                  maxWidth: '85%',
-                }}
+                style={[
+                  styles.messageRow,
+                  {
+                    alignSelf: item.fromUser ? 'flex-end' : 'flex-start',
+                    flexDirection: item.fromUser ? 'row-reverse' : 'row',
+                  },
+                ]}
               >
-                <Markdown style={markdownStyles}>{item.text}</Markdown>
+                {isBot ? (
+                  <Image source={require('../assets/icons/classy-logo.png')} style={styles.avatar} />
+                ) : (
+                  user?.urlProfilePhoto && (
+                    <Image source={{ uri: user.urlProfilePhoto }} style={[styles.avatar, { borderRadius: 12 }]} />
+                  )
+                )}
+
+                <View style={{ maxWidth: '85%' }}>
+                  <View
+                    style={{
+                      backgroundColor: item.fromUser ? theme.primary : theme.surface,
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 16,
+                    }}
+                  >
+                    <Markdown style={markdownStyles}>{item.text}</Markdown>
+                  </View>
+
+                  {isBot && !feedbackSent && (
+                    <View>
+                      <View style={styles.feedbackContainer}>
+                        <TouchableOpacity
+                          style={[styles.ratingButton, feedbackSelected[item.id] === 5 && { backgroundColor: theme.primary, borderRadius: 12 }]}
+                          onPress={() => {
+                            setFeedbackSelected((prev) => ({ ...prev, [item.id]: 5 }));
+                            setFeedbackOpen(item.id);
+                          }}
+                        >
+                          <Text style={{ fontSize: 16 }}>👍</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.ratingButton, feedbackSelected[item.id] === 1 && { backgroundColor: theme.primary, borderRadius: 12 }]}
+                          onPress={() => {
+                            setFeedbackSelected((prev) => ({ ...prev, [item.id]: 1 }));
+                            setFeedbackOpen(item.id);
+                          }}
+                        >
+                          <Text style={{ fontSize: 16 }}>👎</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {showFeedbackInput && (
+                        <View style={styles.commentContainer}>
+                          <TextInput
+                            placeholder="Leave a comment (optional)"
+                            placeholderTextColor={theme.border}
+                            value={feedbackComments[item.id] || ''}
+                            onChangeText={(text) =>
+                              setFeedbackComments((prev) => ({ ...prev, [item.id]: text }))
+                            }
+                            style={[styles.commentInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
+                          />
+                          <TouchableOpacity
+                            style={[styles.submitButton, { backgroundColor: theme.primary }]}
+                            onPress={() =>
+                              handleFeedback(item.id, feedbackSelected[item.id], item.text, feedbackComments[item.id])
+                            }
+                          >
+                            <Text style={{ color: 'white' }}>Save</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {feedbackConfirmed.has(item.id) && (
+                    <Text style={{ marginTop: spacing.xs, marginLeft: spacing.sm, color: theme.text, fontSize: 12 }}>
+                      ✅ Feedback submitted!
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-          )}
+            );
+          }}
           ListHeaderComponent={
             isTyping ? (
               <View style={styles.messageRow}>
@@ -138,7 +228,6 @@ export default function ChatScreen() {
           }
         />
 
-        {/* Input */}
         <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
           <TextInput
             style={[styles.input, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
@@ -190,9 +279,9 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     marginVertical: spacing.xs,
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.sm,
   },
   avatar: {
     width: 24,
@@ -218,6 +307,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
+  },
+  feedbackContainer: {
+    flexDirection: 'row',
+    marginTop: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  ratingButton: {
+    marginHorizontal: spacing.xs,
+    padding: spacing.xs,
+  },
+  commentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  commentInput: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  submitButton: {
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 });
 
