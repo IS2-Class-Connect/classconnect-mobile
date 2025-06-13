@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import TextField from '../fields/TextField';
 import Button from '../buttons/Button';
@@ -11,9 +11,10 @@ import { AssessmentExercise, ExerciseType } from '../../../services/assessmentsM
 type Props = {
   onSubmit: (exercise: AssessmentExercise) => void;
   onCancel: () => void;
+  initialData?: AssessmentExercise;
 };
 
-export default function ExerciseForm({ onSubmit, onCancel }: Props) {
+export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props) {
   const theme = useTheme();
 
   const [type, setType] = useState<ExerciseType>('open');
@@ -23,12 +24,50 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
   const [choiceInput, setChoiceInput] = useState('');
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
+  const [editingChoiceIndex, setEditingChoiceIndex] = useState<number | null>(null);
 
-  const handleAddChoice = () => {
-    if (choiceInput.trim()) {
-      setChoices(prev => [...prev, choiceInput]);
-      setChoiceInput('');
+  useEffect(() => {
+    if (initialData) {
+      setType(initialData.type);
+      setEnunciate(initialData.enunciate);
+      setLink(initialData.link ?? '');
+      setChoices(initialData.choices ?? []);
+      setAnswer(initialData.answer ?? '');
     }
+  }, [initialData]);
+
+  const handleAddOrUpdateChoice = () => {
+    const trimmed = choiceInput.trim();
+    if (!trimmed) return;
+
+    // Evitar duplicados si se está agregando
+    if (
+      editingChoiceIndex === null &&
+      choices.some((c) => c.toLowerCase() === trimmed.toLowerCase())
+    ) {
+      setError('Choice already exists.');
+      return;
+    }
+
+    if (editingChoiceIndex !== null) {
+      // Update
+      const newChoices = [...choices];
+      const old = newChoices[editingChoiceIndex];
+      newChoices[editingChoiceIndex] = trimmed;
+      setChoices(newChoices);
+      if (answer === old) setAnswer(trimmed);
+      setEditingChoiceIndex(null);
+    } else {
+      // Add
+      setChoices(prev => [...prev, trimmed]);
+    }
+
+    setChoiceInput('');
+  };
+
+  const handleEditChoice = (index: number) => {
+    setChoiceInput(choices[index]);
+    setEditingChoiceIndex(index);
   };
 
   const handleRemoveChoice = (index: number) => {
@@ -36,6 +75,10 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
     const removed = newChoices.splice(index, 1)[0];
     setChoices(newChoices);
     if (answer === removed) setAnswer('');
+    if (editingChoiceIndex === index) {
+      setChoiceInput('');
+      setEditingChoiceIndex(null);
+    }
   };
 
   const handleSave = () => {
@@ -61,7 +104,9 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
 
   return (
     <ScrollView contentContainerStyle={[styles.wrapper, { backgroundColor: theme.background, borderColor: theme.primary }]}>
-      <Text style={[styles.title, { color: theme.primary }]}>Add Exercise</Text>
+      <Text style={[styles.title, { color: theme.primary }]}>
+        {initialData ? 'Edit Exercise' : 'Add Exercise'}
+      </Text>
 
       <View style={styles.selectorRow}>
         {(['open', 'multiple_choice'] as ExerciseType[]).map((option) => (
@@ -73,7 +118,7 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
               borderColor: theme.primary,
             }]}
           >
-            <Text style={[styles.typeButtonText, { color: type === option ? '#fff' : theme.text }]}> 
+            <Text style={[styles.typeButtonText, { color: type === option ? '#fff' : theme.text }]}>
               {option === 'open' ? 'Open' : 'Multiple Choice'}
             </Text>
           </TouchableOpacity>
@@ -100,8 +145,10 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
         <>
           <View style={styles.choicesHeader}>
             <Text style={[styles.choicesTitle, { color: theme.text }]}>Choices</Text>
-            <TouchableOpacity onPress={handleAddChoice}>
-              <Text style={[styles.plusButton, { color: theme.primary }]}>＋</Text>
+            <TouchableOpacity onPress={handleAddOrUpdateChoice}>
+              <Text style={[styles.plusButton, { color: theme.primary }]}>
+                {editingChoiceIndex !== null ? '✎' : '＋'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -112,7 +159,7 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
             style={{ backgroundColor: theme.card }}
           />
 
-          <Text style={[styles.instruction, { color: theme.text }]}>Tap a choice to select it as the correct answer</Text>
+          <Text style={[styles.instruction, { color: theme.text }]}>Tap a choice to mark it as correct</Text>
 
           <View style={{ marginTop: spacing.sm }}>
             {choices.map((c, i) => (
@@ -123,6 +170,7 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
                     backgroundColor: answer === c ? theme.primary : theme.card,
                   }]}
                   onPress={() => setAnswer(c)}
+                  onLongPress={() => handleEditChoice(i)}
                 >
                   <Text style={{ color: answer === c ? '#fff' : theme.text }}>• {c}</Text>
                 </TouchableOpacity>
@@ -136,7 +184,7 @@ export default function ExerciseForm({ onSubmit, onCancel }: Props) {
       )}
 
       <View style={styles.buttons}>
-        <Button title="Save Exercise" onPress={handleSave} variant="primary" />
+        <Button title={initialData ? "Update Exercise" : "Save Exercise"} onPress={handleSave} variant="primary" />
         <View style={{ marginTop: spacing.sm }}>
           <Button title="Cancel" onPress={onCancel} variant="secondary" />
         </View>

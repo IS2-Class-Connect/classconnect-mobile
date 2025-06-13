@@ -364,6 +364,20 @@ export default function CourseDetailScreen() {
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>Modules</Text>
                     </TouchableOpacity>
 
+                    <TouchableOpacity
+                      style={styles.iconAction}
+                      onPress={() => router.push({
+                        pathname: '/assessments',
+                        params: {
+                          courseId: String(parsedCourse.id),
+                          role,
+                        },
+                      })}
+                    >
+                      <Ionicons name="clipboard-outline" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Assessments</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
                       <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { sendToAI } from '../services/chatIA';
+import { sendToAI, addFeedback } from '../services/chatIA';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 import Markdown from 'react-native-markdown-display';
@@ -111,9 +111,7 @@ export default function ChatScreen() {
             <Image source={require('../assets/icons/classy-logo.png')} style={{ width: 40, height: 40, marginRight: 8 }} />
             <Text style={[styles.headerText, { color: theme.text }]}>Classy</Text>
           </View>
-          <Text style={[styles.description, { color: theme.text }]}>
-            Your AI assistant to answer questions about using the ClassConnect app.
-          </Text>
+          <Text style={[styles.description, { color: theme.text }]}>Your AI assistant to answer questions about using the ClassConnect app.</Text>
           <View style={styles.poweredRow}>
             <Text style={{ color: theme.text, marginRight: 4 }}>powered by</Text>
             <Image source={require('../assets/icons/gemini-logo.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
