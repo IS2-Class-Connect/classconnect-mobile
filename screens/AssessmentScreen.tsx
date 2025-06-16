@@ -14,7 +14,7 @@ import {
   getAssessmentsByCourse,
   deleteAssessment,
   Assessment,
-  AssessmentFilter,
+  AssessmentFilterDto,
 } from '../services/assessmentsMockApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
 
@@ -27,15 +27,15 @@ export default function AssessmentScreen() {
   const { courseId, role } = useLocalSearchParams<{ courseId: string; role?: 'Student' | 'Professor' | 'Assistant' }>();
 
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'exam' | 'assignment'>('exam');
+  const [selectedTab, setSelectedTab] = useState<'Exam' | 'Task'>('Exam');
   const [formVisible, setFormVisible] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState<AssessmentFilter>({});
-  const [tempFilters, setTempFilters] = useState<AssessmentFilter>({});
+  const [filters, setFilters] = useState<AssessmentFilterDto>({});
+  const [tempFilters, setTempFilters] = useState<AssessmentFilterDto>({});
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
@@ -73,17 +73,15 @@ export default function AssessmentScreen() {
     return '#dc3545';
   };
 
-  const hasActiveFilters = filters.fromDate || filters.toDate || filters.status;
-  const filterButtonColor = hasActiveFilters ? theme.primary : '#888';
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const filterButtonColor = filters.day ? theme.primary : '#888';
 
   const formatDate = (dateString?: string) =>
     dateString ? new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Select date';
 
-    if (!authToken || !user || !courseId) return null;
+  if (!authToken || !user || !courseId) return null;
 
-  return (
+    return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -93,10 +91,10 @@ export default function AssessmentScreen() {
         <Text style={[styles.title, { color: theme.primary }]}>Assessments</Text>
 
         <View style={styles.tabContainer}>
-          {['exam', 'assignment'].map((type) => (
+          {['Exam', 'Task'].map((type) => (
             <TouchableOpacity
               key={type}
-              onPress={() => { setSelectedTab(type as any); setPage(1); }}
+              onPress={() => { setSelectedTab(type as 'Exam' | 'Task'); setPage(1); }}
               style={[
                 styles.tabButton,
                 { borderBottomColor: selectedTab === type ? theme.primary : 'transparent' }
@@ -106,7 +104,7 @@ export default function AssessmentScreen() {
                 styles.tabText,
                 { color: selectedTab === type ? theme.primary : theme.text }
               ]}>
-                {type === 'exam' ? 'Exams' : 'Tasks'}
+                {type === 'Exam' ? 'Exams' : 'Tasks'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -116,7 +114,7 @@ export default function AssessmentScreen() {
           onPress={() => { setTempFilters(filters); setFilterModalVisible(true); }}
           style={[styles.filterButton, { backgroundColor: filterButtonColor }]}
         >
-          <Ionicons name="filter" size={18} color="#fff" />
+          <Ionicons name="calendar" size={18} color="#fff" />
           <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 6 }}>Filters</Text>
         </TouchableOpacity>
 
@@ -186,7 +184,6 @@ export default function AssessmentScreen() {
         )}
       </ScrollView>
 
-      {/* Floating add button */}
       {isProfessor && (
         <TouchableOpacity
           style={[styles.floatingButton, { backgroundColor: theme.primary }]}
@@ -199,7 +196,6 @@ export default function AssessmentScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Form modal */}
       {formVisible && (
         <View style={styles.overlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
@@ -216,55 +212,22 @@ export default function AssessmentScreen() {
         </View>
       )}
 
-        {/* Filter modal */}
       <Modal visible={filterModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.filterModal, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Filter Assessments</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Select a day</Text>
 
             <View style={styles.filterRow}>
-              <Text style={{ color: theme.text }}>From:</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker('from')}>
+              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
                 <Text style={{ color: theme.primary }}>
-                  {tempFilters.fromDate ? new Date(tempFilters.fromDate).toLocaleDateString() : 'Select date'}
+                  {tempFilters.day ? new Date(tempFilters.day).toLocaleDateString() : 'Select date'}
                 </Text>
               </TouchableOpacity>
-            </View>
-
-            <View style={styles.filterRow}>
-              <Text style={{ color: theme.text }}>To:</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker('to')}>
-                <Text style={{ color: theme.primary }}>
-                  {tempFilters.toDate ? new Date(tempFilters.toDate).toLocaleDateString() : 'Select date'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.filterRow}>
-              <Text style={{ color: theme.text }}>Status:</Text>
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {['UPCOMING', 'OPEN', 'CLOSED'].map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    onPress={() =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        status: prev.status === s ? undefined : s as 'upcoming' | 'open' | 'closed',
-                      }))
-                    }
-                    style={{
-                      paddingHorizontal: spacing.sm,
-                      paddingVertical: spacing.xs,
-                      borderRadius: 6,
-                      borderWidth: 1,
-                      borderColor: tempFilters.status === s ? theme.primary : '#999',
-                      backgroundColor: tempFilters.status === s ? theme.primary : 'transparent',
-                    }}
-                  >
-                    <Text style={{ color: tempFilters.status === s ? '#fff' : theme.text }}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {tempFilters.day && (
+                <TouchableOpacity onPress={() => setTempFilters((prev) => ({ ...prev, day: undefined }))}>
+                  <Ionicons name="close-circle" size={20} color={theme.text} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.filterFooter}>
@@ -272,6 +235,7 @@ export default function AssessmentScreen() {
                 onPress={() => {
                   setFilters({});
                   setTempFilters({});
+                  setPage(1);
                   setFilterModalVisible(false);
                 }}
               >
@@ -291,21 +255,18 @@ export default function AssessmentScreen() {
 
             {showDatePicker && (
               <DateTimePicker
-                value={
-                  tempFilters[showDatePicker === 'from' ? 'fromDate' : 'toDate']
-                    ? new Date(tempFilters[showDatePicker === 'from' ? 'fromDate' : 'toDate']!)
-                    : new Date()
-                }
+                value={tempFilters.day ? new Date(tempFilters.day) : new Date()}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                style={{ alignSelf: 'center', width: 300 }}
                 onChange={(e, selectedDate) => {
                   if (e.type === 'set' && selectedDate) {
                     setTempFilters((prev) => ({
                       ...prev,
-                      [showDatePicker]: selectedDate.toISOString(),
+                      day: selectedDate.toISOString(),
                     }));
                   }
-                  setShowDatePicker(null);
+                  setShowDatePicker(false);
                 }}
               />
             )}
@@ -428,8 +389,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginVertical: spacing.sm,
-    gap: spacing.sm,
   },
   filterFooter: {
     flexDirection: 'row',
@@ -444,4 +407,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 });
-
