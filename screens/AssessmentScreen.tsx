@@ -213,66 +213,104 @@ export default function AssessmentScreen() {
       )}
 
       <Modal visible={filterModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.filterModal, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Select a day</Text>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.filterModal, { backgroundColor: theme.card }]}>
+      {/* Header con flecha */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+        <TouchableOpacity onPress={() => setFilterModalVisible(false)} style={{ paddingRight: spacing.sm }}>
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <Text
+          style={[
+            styles.modalTitle,
+            {
+              color: theme.text,
+              flex: 1,
+              textAlign: 'center',
+              marginRight: 24,
+            },
+          ]}
+        >
+          Date
+        </Text>
+      </View>
 
-            <View style={styles.filterRow}>
-              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                <Text style={{ color: theme.primary }}>
-                  {tempFilters.day ? new Date(tempFilters.day).toLocaleDateString() : 'Select date'}
-                </Text>
-              </TouchableOpacity>
-              {tempFilters.day && (
-                <TouchableOpacity onPress={() => setTempFilters((prev) => ({ ...prev, day: undefined }))}>
-                  <Ionicons name="close-circle" size={20} color={theme.text} />
-                </TouchableOpacity>
-              )}
-            </View>
+      <View style={[styles.filterRow, { justifyContent: 'space-between' }]}>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+          <Text style={{ color: theme.primary }}>
+            {tempFilters.day ? new Date(tempFilters.day).toLocaleDateString() : 'Select date'}
+          </Text>
+        </TouchableOpacity>
+        {tempFilters.day && (
+          <TouchableOpacity onPress={() => setTempFilters((prev) => ({ ...prev, day: undefined }))}>
+            <Ionicons name="close-circle" size={20} color={theme.text} />
+          </TouchableOpacity>
+        )}
+      </View>
 
-            <View style={styles.filterFooter}>
-              <TouchableOpacity
-                onPress={() => {
-                  setFilters({});
-                  setTempFilters({});
-                  setPage(1);
-                  setFilterModalVisible(false);
-                }}
-              >
-                <Text style={{ color: theme.primary }}>Clear Filters</Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => {
-                  setFilters(tempFilters);
-                  setPage(1);
-                  setFilterModalVisible(false);
-                }}
-              >
-                <Text style={{ color: theme.primary }}>Apply Filters</Text>
-              </TouchableOpacity>
-            </View>
+      <View style={styles.filterFooter}>
+        <TouchableOpacity
+          onPress={() => {
+            setFilters({});
+            setTempFilters({});
+            setPage(1);
+            setFilterModalVisible(false);
+          }}
+        >
+          <Text style={{ color: theme.primary }}>Clear Filters</Text>
+        </TouchableOpacity>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={tempFilters.day ? new Date(tempFilters.day) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                style={{ alignSelf: 'center', width: 300 }}
-                onChange={(e, selectedDate) => {
-                  if (e.type === 'set' && selectedDate) {
-                    setTempFilters((prev) => ({
-                      ...prev,
-                      day: selectedDate.toISOString(),
-                    }));
-                  }
-                  setShowDatePicker(false);
-                }}
-              />
-            )}
-          </View>
+        <TouchableOpacity
+          onPress={() => {
+            setFilters(tempFilters);
+            setPage(1);
+            setFilterModalVisible(false);
+          }}
+        >
+          <Text style={{ color: theme.primary }}>Apply Filters</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showDatePicker && (
+        <View style={{ alignItems: 'center', marginTop: spacing.md }}>
+          <DateTimePicker
+            value={tempFilters.day ? new Date(tempFilters.day) : new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            style={{ alignSelf: 'center', width: 300 }}
+            onChange={(e, selectedDate) => {
+              if (Platform.OS === 'android') {
+                if (e.type === 'set' && selectedDate) {
+                  setTempFilters((prev) => ({
+                    ...prev,
+                    day: selectedDate.toISOString(),
+                  }));
+                }
+                setShowDatePicker(false);
+              } else {
+                // En iOS, no aplicar directamente
+                setTempFilters((prev) => ({
+                  ...prev,
+                  day: selectedDate?.toISOString() ?? prev.day,
+                }));
+              }
+            }}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={{ marginTop: spacing.sm }}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Text style={{ color: theme.primary, fontWeight: '600' }}>OK</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      </Modal>
+      )}
+    </View>
+  </View>
+</Modal>
+
     </SafeAreaView>
   );
 }

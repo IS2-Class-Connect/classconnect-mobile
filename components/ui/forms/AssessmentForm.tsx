@@ -37,7 +37,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<AssessmentType>('exam');
+  const [type, setType] = useState<AssessmentType>('Exam');
   const [startDate, setStartDate] = useState(new Date());
   const [deadline, setDeadline] = useState(new Date());
   const [tolerance, setTolerance] = useState('2');
@@ -165,7 +165,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
         </Text>
 
         <View style={styles.typeSelectorContainer}>
-          {(['exam', 'assignment'] as AssessmentType[]).map((option) => (
+          {(['Exam', 'Task'] as AssessmentType[]).map((option) => (
             <TouchableOpacity
               key={option}
               onPress={() => setType(option)}
@@ -175,7 +175,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
               }]}
             >
               <Text style={[styles.typeButtonText, { color: type === option ? '#fff' : theme.text }]}>
-                {option === 'exam' ? 'Exam' : 'Task'}
+                {option === 'Exam' ? 'Exam' : 'Task'}
               </Text>
             </TouchableOpacity>
           ))}

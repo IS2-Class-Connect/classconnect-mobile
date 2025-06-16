@@ -102,6 +102,7 @@ export async function deleteAssessment(
 }
 
 // GET paginated and filtered assessments for a course
+// GET paginated and filtered assessments for a course
 export async function getAssessmentsByCourse(
   courseId: number,
   page: number = 1,
@@ -127,19 +128,15 @@ export async function getAssessmentsByCourse(
     filtered = filtered.filter((a) => a.teacher_id === filters.userId);
   }
 
-  // Filter by day: if start_time or deadline falls on the given date
+  // Filter by day: includes assessments active during the selected day
   if (filters.day) {
-    const dayStart = new Date(filters.day);
-    const dayEnd = new Date(filters.day);
-    dayEnd.setHours(23, 59, 59, 999);
+    const target = new Date(filters.day);
+    target.setHours(12, 0, 0, 0); // midday to avoid timezone edge cases
 
     filtered = filtered.filter((a) => {
       const start = new Date(a.start_time);
       const end = new Date(a.deadline);
-      return (
-        (start >= dayStart && start <= dayEnd) ||
-        (end >= dayStart && end <= dayEnd)
-      );
+      return start <= target && end >= target;
     });
   }
 
@@ -153,6 +150,7 @@ export async function getAssessmentsByCourse(
     page,
   };
 }
+
 
 // SUBMIT an assessment (stores user responses)
 export async function submitAssessment(
