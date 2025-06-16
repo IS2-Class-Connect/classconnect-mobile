@@ -8,14 +8,14 @@ export interface AssessmentExercise {
   enunciate: string;
   link?: string;
   choices?: string[];
-  answer?: string; // Solo para multiple_choice
+  answer?: string;
 }
 
 export interface AssessmentSubmission {
   note?: number;
   feedback?: string;
   AI_feedback?: string;
-  [exerciseId: string]: any; // respuestas por ejercicio, p. ej. { answer: "..." }
+  [exerciseId: string]: any;
 }
 
 export interface Assessment {
@@ -24,7 +24,7 @@ export interface Assessment {
   title: string;
   description: string;
   type: AssessmentType;
-  tolerance_time: number; // en horas
+  tolerance_time: number;
   start_time: string;
   deadline: string;
   created_time: string;
@@ -33,13 +33,26 @@ export interface Assessment {
   submissions: Record<string, AssessmentSubmission>;
 }
 
-const mockAssessments: Record<string, Assessment> = {}; // clave: courseId-id
+const mockAssessments: Record<string, Assessment> = {};
+const PAGE_SIZE = 10;
 
 function generateKey(courseId: number, id: string): string {
   return `${courseId}-${id}`;
 }
 
-// Crear una evaluación (registrando userId)
+function safeDate(input?: string): Date | null {
+  return input ? new Date(input) : null;
+}
+
+export interface AssessmentFilter {
+  type?: AssessmentType;
+  title?: string;
+  fromDate?: string; // ISO string
+  toDate?: string;   // ISO string
+  status?: 'upcoming' | 'open' | 'closed';
+}
+
+// Crear evaluación
 export async function createAssessment(
   data: Omit<Assessment, 'id' | 'created_time' | 'submissions' | 'teacher_id'>,
   userId: string
@@ -57,7 +70,7 @@ export async function createAssessment(
   return full;
 }
 
-// Editar evaluación (también registra userId como último editor)
+// Editar evaluación
 export async function updateAssessment(
   courseId: number,
   id: string,
@@ -66,7 +79,6 @@ export async function updateAssessment(
 ): Promise<Assessment> {
   const key = generateKey(courseId, id);
   if (!mockAssessments[key]) throw new Error('Assessment not found');
-
   mockAssessments[key] = {
     ...mockAssessments[key],
     ...data,
@@ -84,16 +96,64 @@ export async function deleteAssessment(
   delete mockAssessments[key];
 }
 
-// Obtener todas las evaluaciones de un curso
+// Obtener evaluaciones con paginación + filtros
 export async function getAssessmentsByCourse(
-  courseId: number
-): Promise<Assessment[]> {
-  return Object.values(mockAssessments).filter(
+  courseId: number,
+  page: number = 1,
+  filters: AssessmentFilter = {}
+): Promise<{ assessments: Assessment[]; total: number; page: number }> {
+  let filtered = Object.values(mockAssessments).filter(
     (a) => a.courseId === courseId
   );
+
+  const now = new Date();
+  const from = safeDate(filters.fromDate);
+  const to = safeDate(filters.toDate);
+
+  if (filters.type) {
+    filtered = filtered.filter((a) => a.type === filters.type);
+  }
+
+  if (filters.title) {
+    const title = filters.title.toLowerCase();
+    filtered = filtered.filter((a) => a.title.toLowerCase().includes(title));
+  }
+
+  if (from) {
+    filtered = filtered.filter((a) => new Date(a.start_time) >= from);
+  }
+
+  if (to) {
+    filtered = filtered.filter((a) => new Date(a.start_time) <= to);
+  }
+
+  if (filters.status) {
+    filtered = filtered.filter((a) => {
+      const start = new Date(a.start_time);
+      const end = new Date(a.deadline);
+      switch (filters.status) {
+        case 'upcoming':
+          return now < start;
+        case 'open':
+          return now >= start && now <= end;
+        case 'closed':
+          return now > end;
+      }
+    });
+  }
+
+  const total = filtered.length;
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+
+  return {
+    assessments: filtered.slice(start, end),
+    total,
+    page,
+  };
 }
 
-// Enviar respuesta como alumno
+// Enviar respuesta
 export async function submitAssessment(
   courseId: number,
   id: string,
@@ -103,16 +163,14 @@ export async function submitAssessment(
   const key = generateKey(courseId, id);
   const assessment = mockAssessments[key];
   if (!assessment) throw new Error('Assessment not found');
-
   assessment.submissions[userId] = {
     ...assessment.submissions[userId],
     ...responses,
   };
-
   return assessment.submissions[userId];
 }
 
-// Corrección manual por docente
+// Corrección manual
 export async function correctAssessmentManually(
   courseId: number,
   id: string,
@@ -122,16 +180,14 @@ export async function correctAssessmentManually(
   const key = generateKey(courseId, id);
   const assessment = mockAssessments[key];
   if (!assessment || !assessment.submissions[userId]) throw new Error('Submission not found');
-
   assessment.submissions[userId] = {
     ...assessment.submissions[userId],
     ...correction,
   };
-
   return assessment.submissions[userId];
 }
 
-// Corrección automática por IA de un ejercicio
+// Corrección IA simulada
 export async function getAIAssessmentCorrection(
   courseId: number,
   id: string,
@@ -140,9 +196,6 @@ export async function getAIAssessmentCorrection(
 ): Promise<string> {
   const key = generateKey(courseId, id);
   const answer = mockAssessments[key]?.submissions[userId]?.[exerciseId]?.answer;
-
   if (!answer) return 'No answer provided.';
-
-  // IA simulada
   return `AI Score: 8.5. Your explanation is correct, but could benefit from real-world examples.`;
 }

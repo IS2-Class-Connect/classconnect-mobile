@@ -1,13 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-  Alert,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
+  ScrollView, Alert, Modal, Platform
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -18,33 +14,41 @@ import {
   getAssessmentsByCourse,
   deleteAssessment,
   Assessment,
+  AssessmentFilter,
 } from '../services/assessmentsMockApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
-import Button from '../components/ui/buttons/Button';
+
+const PAGE_SIZE = 10;
 
 export default function AssessmentScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { authToken, user } = useAuth();
-  const { courseId, role } = useLocalSearchParams<{
-    courseId: string;
-    role?: 'Student' | 'Professor' | 'Assistant';
-  }>();
+  const { courseId, role } = useLocalSearchParams<{ courseId: string; role?: 'Student' | 'Professor' | 'Assistant' }>();
 
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [selectedTab, setSelectedTab] = useState<'exam' | 'assignment'>('exam');
   const [formVisible, setFormVisible] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [filters, setFilters] = useState<AssessmentFilter>({});
+  const [tempFilters, setTempFilters] = useState<AssessmentFilter>({});
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
-  const isStudent = role === 'Student';
 
   const fetchAssessments = async () => {
     if (!authToken || !courseId) return;
     try {
-      const data = await getAssessmentsByCourse(Number(courseId));
-      setAssessments(data);
+      const res = await getAssessmentsByCourse(Number(courseId), page, {
+        ...filters,
+        type: selectedTab,
+      });
+      setAssessments(res.assessments);
+      setTotal(res.total);
     } catch (e) {
       console.error('Error loading assessments:', e);
     }
@@ -52,59 +56,37 @@ export default function AssessmentScreen() {
 
   useEffect(() => {
     fetchAssessments();
-  }, [courseId]);
+  }, [courseId, selectedTab, page, filters]);
 
-  const filtered = assessments.filter((a) => a.type === selectedTab);
-
-  const handleDelete = (id: string) => {
-    Alert.alert('Confirm Delete', 'Are you sure you want to delete this assessment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAssessment(Number(courseId), id);
-            await fetchAssessments();
-          } catch (e) {
-            console.error('Delete failed:', e);
-          }
-        },
-      },
-    ]);
+  const getStatus = (a: Assessment): 'UPCOMING' | 'OPEN' | 'CLOSED' => {
+    const now = new Date();
+    const start = new Date(a.start_time);
+    const end = new Date(a.deadline);
+    if (now < start) return 'UPCOMING';
+    if (now >= start && now <= end) return 'OPEN';
+    return 'CLOSED';
   };
 
-  const getCardBorderColor = (assessment: Assessment): string => {
-    const now = new Date();
-    const start = new Date(assessment.start_time);
-    const deadline = new Date(assessment.deadline);
-    if (now < start) return '#007bff';
-    if (now >= start && now <= deadline) return '#28a745';
+  const getCardBorderColor = (status: string): string => {
+    if (status === 'UPCOMING') return '#007bff';
+    if (status === 'OPEN') return '#28a745';
     return '#dc3545';
   };
 
-  const handleCardPress = (assessment: Assessment) => {
-    const now = new Date();
-    const start = new Date(assessment.start_time);
-    const deadline = new Date(assessment.deadline);
-    const isOpen = now >= start && now <= deadline;
-    if (isOpen) {
-      router.push({
-        pathname: '/assessment-detail',
-        params: {
-          courseId,
-          assessmentId: assessment.id.toString(),
-        },
-      });
-    }
-  };
+  const hasActiveFilters = filters.fromDate || filters.toDate || filters.status;
+  const filterButtonColor = hasActiveFilters ? theme.primary : '#888';
 
-  if (!authToken || !user || !courseId) return null;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const formatDate = (dateString?: string) =>
+    dateString ? new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Select date';
+
+    if (!authToken || !user || !courseId) return null;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
 
@@ -114,65 +96,97 @@ export default function AssessmentScreen() {
           {['exam', 'assignment'].map((type) => (
             <TouchableOpacity
               key={type}
-              onPress={() => setSelectedTab(type as 'exam' | 'assignment')}
+              onPress={() => { setSelectedTab(type as any); setPage(1); }}
               style={[
                 styles.tabButton,
-                {
-                  borderBottomColor: selectedTab === type ? theme.primary : 'transparent',
-                },
+                { borderBottomColor: selectedTab === type ? theme.primary : 'transparent' }
               ]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: selectedTab === type ? theme.primary : theme.text },
-                ]}
-              >
+              <Text style={[
+                styles.tabText,
+                { color: selectedTab === type ? theme.primary : theme.text }
+              ]}>
                 {type === 'exam' ? 'Exams' : 'Tasks'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
+        <TouchableOpacity
+          onPress={() => { setTempFilters(filters); setFilterModalVisible(true); }}
+          style={[styles.filterButton, { backgroundColor: filterButtonColor }]}
+        >
+          <Ionicons name="filter" size={18} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 6 }}>Filters</Text>
+        </TouchableOpacity>
+
+        {assessments.length === 0 && (
+          <Text style={[styles.emptyText, { color: theme.text }]}>No results found.</Text>
+        )}
+
         <View style={styles.list}>
-          {filtered.length === 0 && (
-            <Text style={[styles.emptyText, { color: theme.text }]}>No {selectedTab}s found.</Text>
-          )}
-
-          {filtered.map((a) => (
-            <TouchableOpacity
-              key={a.id}
-              style={[styles.itemCard, { borderColor: getCardBorderColor(a) }]}
-              onPress={() => handleCardPress(a)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{a.title}</Text>
-                <Text style={{ color: theme.text, fontSize: fonts.size.sm }}>
-                  Due: {new Date(a.deadline).toLocaleDateString()}
-                </Text>
-              </View>
-
-              {(isProfessor || isAssistant) && (
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <TouchableOpacity onPress={() => {
-                    setEditingAssessment(a);
-                    setFormVisible(true);
-                  }}>
-                    <Text style={{ fontSize: 18, color: theme.primary }}>✏️</Text>
-                  </TouchableOpacity>
-
-                  {isProfessor && (
-                    <TouchableOpacity onPress={() => handleDelete(a.id)}>
-                      <Text style={{ fontSize: 18, color: theme.primary }}>🗑️</Text>
-                    </TouchableOpacity>
-                  )}
+          {assessments.map((a) => {
+            const status = getStatus(a);
+            return (
+              <TouchableOpacity
+                key={a.id}
+                onPress={() => {
+                  if (status === 'OPEN') {
+                    router.push({ pathname: '/assessment-detail', params: { courseId, assessmentId: a.id } });
+                  }
+                }}
+                style={[styles.itemCard, { borderColor: getCardBorderColor(status) }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{a.title}</Text>
+                  <Text style={{ color: theme.text }}>
+                    Due: {new Date(a.deadline).toLocaleDateString()}
+                  </Text>
+                  <Text style={{ color: theme.text, fontStyle: 'italic' }}>
+                    Status: {status}
+                  </Text>
                 </View>
-              )}
-            </TouchableOpacity>
-          ))}
+                {(isProfessor || isAssistant) && (
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <TouchableOpacity onPress={() => { setEditingAssessment(a); setFormVisible(true); }}>
+                      <Text style={{ fontSize: 18, color: theme.primary }}>✏️</Text>
+                    </TouchableOpacity>
+                    {isProfessor && (
+                      <TouchableOpacity onPress={() => {
+                        Alert.alert('Confirm Delete', 'Are you sure?', [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete', style: 'destructive', onPress: async () => {
+                              await deleteAssessment(Number(courseId), a.id);
+                              await fetchAssessments();
+                            }
+                          }
+                        ]);
+                      }}>
+                        <Text style={{ fontSize: 18, color: theme.primary }}>🗑️</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
+
+        {totalPages > 1 && (
+          <View style={styles.pagination}>
+            <TouchableOpacity disabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
+              <Text style={{ color: theme.primary }}>Prev</Text>
+            </TouchableOpacity>
+            <Text style={{ color: theme.text }}>Page {page} / {totalPages}</Text>
+            <TouchableOpacity disabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>
+              <Text style={{ color: theme.primary }}>Next</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
+      {/* Floating add button */}
       {isProfessor && (
         <TouchableOpacity
           style={[styles.floatingButton, { backgroundColor: theme.primary }]}
@@ -185,6 +199,7 @@ export default function AssessmentScreen() {
         </TouchableOpacity>
       )}
 
+      {/* Form modal */}
       {formVisible && (
         <View style={styles.overlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
@@ -200,14 +215,117 @@ export default function AssessmentScreen() {
           </View>
         </View>
       )}
+
+        {/* Filter modal */}
+      <Modal visible={filterModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.filterModal, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Filter Assessments</Text>
+
+            <View style={styles.filterRow}>
+              <Text style={{ color: theme.text }}>From:</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker('from')}>
+                <Text style={{ color: theme.primary }}>
+                  {tempFilters.fromDate ? new Date(tempFilters.fromDate).toLocaleDateString() : 'Select date'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterRow}>
+              <Text style={{ color: theme.text }}>To:</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker('to')}>
+                <Text style={{ color: theme.primary }}>
+                  {tempFilters.toDate ? new Date(tempFilters.toDate).toLocaleDateString() : 'Select date'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterRow}>
+              <Text style={{ color: theme.text }}>Status:</Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {['UPCOMING', 'OPEN', 'CLOSED'].map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    onPress={() =>
+                      setTempFilters((prev) => ({
+                        ...prev,
+                        status: prev.status === s ? undefined : s as 'upcoming' | 'open' | 'closed',
+                      }))
+                    }
+                    style={{
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: spacing.xs,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: tempFilters.status === s ? theme.primary : '#999',
+                      backgroundColor: tempFilters.status === s ? theme.primary : 'transparent',
+                    }}
+                  >
+                    <Text style={{ color: tempFilters.status === s ? '#fff' : theme.text }}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.filterFooter}>
+              <TouchableOpacity
+                onPress={() => {
+                  setFilters({});
+                  setTempFilters({});
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text style={{ color: theme.primary }}>Clear Filters</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setFilters(tempFilters);
+                  setPage(1);
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text style={{ color: theme.primary }}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={
+                  tempFilters[showDatePicker === 'from' ? 'fromDate' : 'toDate']
+                    ? new Date(tempFilters[showDatePicker === 'from' ? 'fromDate' : 'toDate']!)
+                    : new Date()
+                }
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                onChange={(e, selectedDate) => {
+                  if (e.type === 'set' && selectedDate) {
+                    setTempFilters((prev) => ({
+                      ...prev,
+                      [showDatePicker]: selectedDate.toISOString(),
+                    }));
+                  }
+                  setShowDatePicker(null);
+                }}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  container: { padding: spacing.lg, paddingBottom: spacing.xl },
-  backButton: { marginBottom: spacing.md, alignSelf: 'flex-start' },
+  container: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  backButton: {
+    marginBottom: spacing.md,
+    alignSelf: 'flex-start',
+  },
   title: {
     fontSize: fonts.size.xl,
     fontWeight: 'bold',
@@ -231,8 +349,16 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontWeight: '600',
   },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+  },
   list: {
-    marginTop: spacing.md,
     gap: spacing.md,
   },
   itemCard: {
@@ -285,4 +411,37 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  filterModal: {
+    width: '85%',
+    borderRadius: 12,
+    padding: spacing.lg,
+  },
+  modalTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    marginBottom: spacing.md,
+  },
+  filterRow: {
+    marginVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  filterFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
 });
+
