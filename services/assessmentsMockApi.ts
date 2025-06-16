@@ -100,8 +100,17 @@ export async function deleteAssessment(
   const key = generateKey(courseId, id);
   delete mockAssessments[key];
 }
+// GET one assessment by ID
+export async function getAssessmentById(
+  courseId: number,
+  id: string
+): Promise<Assessment> {
+  const key = generateKey(courseId, id);
+  const assessment = mockAssessments[key];
+  if (!assessment) throw new Error('Assessment not found');
+  return assessment;
+}
 
-// GET paginated and filtered assessments for a course
 // GET paginated and filtered assessments for a course
 export async function getAssessmentsByCourse(
   courseId: number,

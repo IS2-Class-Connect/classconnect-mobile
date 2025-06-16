@@ -129,10 +129,16 @@ export default function AssessmentScreen() {
               <TouchableOpacity
                 key={a.id}
                 onPress={() => {
-                  if (status === 'OPEN') {
-                    router.push({ pathname: '/assessment-detail', params: { courseId, assessmentId: a.id } });
-                  }
+                  router.push({
+                    pathname: '/assessment-detail',
+                    params: {
+                      courseId: String(courseId),
+                      assessmentId: a.id,
+                      role: role ?? 'Student',
+                    },
+                  });
                 }}
+
                 style={[styles.itemCard, { borderColor: getCardBorderColor(status) }]}
               >
                 <View style={{ flex: 1 }}>
