@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../constants/fonts';
@@ -34,6 +35,7 @@ export default function AssessmentDetailScreen() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [countdown, setCountdown] = useState('');
   const [editVisible, setEditVisible] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
@@ -41,6 +43,8 @@ export default function AssessmentDetailScreen() {
 
   const parsedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
   const parsedAssessmentId = Array.isArray(assessmentId) ? assessmentId[0] : assessmentId;
+
+  const hasSubmitted = assessment?.submissions?.[user?.uuid ?? ''] !== undefined;
 
   useEffect(() => {
     if (parsedCourseId && parsedAssessmentId) {
@@ -70,6 +74,19 @@ export default function AssessmentDetailScreen() {
       interval = setInterval(updateCountdown, 1000);
     }
     return () => clearInterval(interval);
+  }, [assessment]);
+
+  // Verifica si ya arrancó el examen
+  useEffect(() => {
+    if (!parsedCourseId || !parsedAssessmentId || !isStudent) return;
+
+    const checkStart = async () => {
+      const key = `startTime_${parsedCourseId}_${parsedAssessmentId}`;
+      const started = await AsyncStorage.getItem(key);
+      setHasStarted(!!started);
+    };
+
+    checkStart();
   }, [assessment]);
 
   const getStatus = () => {
@@ -149,7 +166,14 @@ export default function AssessmentDetailScreen() {
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: theme.primary }]}
                 onPress={() =>
-                  router.push({ pathname: '/exercises-page', params: { courseId: parsedCourseId, assessmentId: parsedAssessmentId } })
+                  router.push({
+                    pathname: '/exercises',
+                    params: {
+                      courseId: parsedCourseId,
+                      assessmentId: parsedAssessmentId,
+                      role: role ?? 'Professor',
+                    },
+                  })
                 }
               >
                 <Text style={styles.buttonText}>View Exercises</Text>
@@ -177,8 +201,23 @@ export default function AssessmentDetailScreen() {
 
           {isStudent && getStatus() === 'OPEN' && (
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: theme.primary }]}
-              onPress={() =>
+              style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
+              onPress={() => {
+              if (hasSubmitted) {
+                Alert.alert('Already submitted', 'You have already submitted this assessment.');
+                return;
+              }
+
+              if (hasStarted) {
+                router.push({
+                  pathname: '/exercises',
+                  params: {
+                    courseId: parsedCourseId,
+                    assessmentId: parsedAssessmentId,
+                    role: 'Student',
+                  },
+                });
+              } else {
                 Alert.alert(
                   'Start Assessment',
                   'Are you sure? You will have limited time and cannot leave once started.',
@@ -187,13 +226,29 @@ export default function AssessmentDetailScreen() {
                     {
                       text: 'Start',
                       onPress: () =>
-                        router.push({ pathname: '/assessment-start', params: { courseId: parsedCourseId, assessmentId: parsedAssessmentId } }),
+                        router.push({
+                          pathname: '/exercises',
+                          params: {
+                            courseId: parsedCourseId,
+                            assessmentId: parsedAssessmentId,
+                            role: 'Student',
+                          },
+                        }),
                     },
                   ]
-                )
+                );
               }
+}}
+
+              disabled={hasSubmitted}
             >
-              <Text style={styles.buttonText}>Start Assessment</Text>
+              <Text style={styles.buttonText}>
+                {hasSubmitted
+                  ? 'Already Submitted'
+                  : hasStarted
+                  ? 'Continue Assessment'
+                  : 'Start Assessment'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
