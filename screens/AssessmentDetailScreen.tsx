@@ -19,13 +19,13 @@ import {
   getAssessmentById,
   deleteAssessment,
   Assessment,
-} from '../services/assessmentsMockApi';
+} from '../services/assessmentsApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
 
 export default function AssessmentDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, authToken } = useAuth();
   const { courseId, assessmentId, role } = useLocalSearchParams<{
     courseId: string | string[];
     assessmentId: string | string[];
@@ -46,23 +46,33 @@ export default function AssessmentDetailScreen() {
 
   const hasSubmitted = assessment?.submissions?.[user?.uuid ?? ''] !== undefined;
 
-  useEffect(() => {
-    if (parsedCourseId && parsedAssessmentId) {
-      getAssessmentById(Number(parsedCourseId), parsedAssessmentId).then(setAssessment);
+    useEffect(() => {
+    if (parsedCourseId && parsedAssessmentId && authToken) {
+      getAssessmentById(parsedAssessmentId, authToken)
+        .then((data) => {
+          console.log('🧪 Assessment fetched in DetailScreen:', JSON.stringify(data, null, 2));
+          setAssessment(data);
+        })
+        .catch((err) => console.error('Error loading assessment:', err));
     }
-  }, [parsedAssessmentId]);
+  }, [parsedAssessmentId, parsedCourseId, authToken]);
 
-  useEffect(() => {
+
+    useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
-    if (assessment) {
+
+    if (assessment && parsedCourseId && parsedAssessmentId && authToken) {
       const updateCountdown = () => {
         const now = new Date();
-        const start = new Date(assessment.start_time);
+        const start = new Date(assessment.startTime);
         const diff = start.getTime() - now.getTime();
+
         if (diff <= 0) {
           clearInterval(interval);
           setCountdown('Starting now');
-          getAssessmentById(Number(parsedCourseId), parsedAssessmentId).then(setAssessment);
+          getAssessmentById(parsedAssessmentId, authToken)
+            .then(setAssessment)
+            .catch((err) => console.error('Error refreshing assessment:', err));
         } else {
           const hours = Math.floor(diff / 3600000);
           const minutes = Math.floor((diff % 3600000) / 60000);
@@ -70,11 +80,14 @@ export default function AssessmentDetailScreen() {
           setCountdown(`${hours}h ${minutes}m ${seconds}s`);
         }
       };
+
       updateCountdown();
       interval = setInterval(updateCountdown, 1000);
     }
+
     return () => clearInterval(interval);
-  }, [assessment]);
+  }, [assessment, parsedCourseId, parsedAssessmentId, authToken]);
+
 
   // Verifica si ya arrancó el examen
   useEffect(() => {
@@ -92,7 +105,7 @@ export default function AssessmentDetailScreen() {
   const getStatus = () => {
     if (!assessment) return '';
     const now = new Date();
-    const start = new Date(assessment.start_time);
+    const start = new Date(assessment.startTime);
     const end = new Date(assessment.deadline);
     if (now < start) return 'UPCOMING';
     if (now >= start && now <= end) return 'OPEN';
@@ -119,18 +132,29 @@ export default function AssessmentDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Confirm delete', 'Are you sure you want to delete this assessment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteAssessment(Number(parsedCourseId), parsedAssessmentId);
+  if (!user || !authToken) {
+    Alert.alert('Error', 'You must be logged in to delete this assessment.');
+    return;
+  }
+
+  Alert.alert('Confirm delete', 'Are you sure you want to delete this assessment?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          await deleteAssessment(Number(parsedCourseId), parsedAssessmentId, authToken, user.uuid);
           router.back();
-        },
+        } catch (error) {
+          console.error('Error deleting assessment:', error);
+          Alert.alert('Error', 'Could not delete assessment.');
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
+
 
   if (!assessment) return null;
 
@@ -153,13 +177,14 @@ export default function AssessmentDetailScreen() {
 
           {renderStatusTag()}
 
-          <Text style={[styles.label, { color: theme.text }]}>Start: {new Date(assessment.start_time).toLocaleString()}</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Start: {new Date(assessment.startTime).toLocaleString()}</Text>
           <Text style={[styles.label, { color: theme.text }]}>Deadline: {new Date(assessment.deadline).toLocaleString()}</Text>
-          <Text style={[styles.label, { color: theme.text }]}>Duration: {assessment.tolerance_time} hours ⏱️</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Duration: {assessment.toleranceTime} hours ⏱️</Text>
 
           <Text style={[styles.description, { color: theme.text }]}> {assessment.description || 'No description provided.'}</Text>
 
-          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>Exercises: {Object.keys(assessment.exercises || {}).length}</Text>
+          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}> Exercises: {assessment.exercises?.length ?? 0}</Text>
+
 
           {(isProfessor || isAssistant) && (
             <>
@@ -262,8 +287,20 @@ export default function AssessmentDetailScreen() {
               initialData={assessment}
               onClose={async () => {
                 setEditVisible(false);
-                const updated = await getAssessmentById(Number(parsedCourseId), parsedAssessmentId);
-                setAssessment(updated);
+
+                // Validación de condiciones necesarias
+                if (!authToken || !parsedCourseId || !parsedAssessmentId) {
+                  Alert.alert('Error', 'No se pudo actualizar la evaluación: faltan datos de autenticación o identificación.');
+                  return;
+                }
+
+                try {
+                  const updated = await getAssessmentById(parsedAssessmentId, authToken);
+                  setAssessment(updated);
+                } catch (error) {
+                  console.error('Error al obtener la evaluación actualizada:', error);
+                  Alert.alert('Error', 'No se pudo actualizar la evaluación.');
+                }
               }}
             />
           </View>

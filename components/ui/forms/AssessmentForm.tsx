@@ -23,7 +23,7 @@ import {
   createAssessment,
   updateAssessment,
   Assessment,
-} from '../../../services/assessmentsMockApi';
+} from '../../../services/assessmentsApi';
 
 type AssessmentFormProps = {
   courseId: number;
@@ -33,7 +33,7 @@ type AssessmentFormProps = {
 
 export default function AssessmentForm({ courseId, onClose, initialData }: AssessmentFormProps) {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { user, authToken } = useAuth();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -43,9 +43,9 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
   const [tolerance, setTolerance] = useState('2');
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [exercises, setExercises] = useState<Record<string, AssessmentExercise>>({});
+  const [exercises, setExercises] = useState<AssessmentExercise[]>([]);
   const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
-  const [editingExerciseKey, setEditingExerciseKey] = useState<string | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const [showPickerModal, setShowPickerModal] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -53,56 +53,82 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
   const [dateBuffer, setDateBuffer] = useState<Date>(new Date());
 
   useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title);
-      setDescription(initialData.description);
-      setType(initialData.type);
-      setTolerance(String(initialData.tolerance_time));
-      setStartDate(new Date(initialData.start_time));
-      setDeadline(new Date(initialData.deadline));
-      setExercises(initialData.exercises || {});
-    }
-  }, [initialData]);
+  if (initialData) {
+    const copy = JSON.parse(JSON.stringify(initialData));
+    setTitle(copy.title);
+    setDescription(copy.description);
+    setType(copy.type);
+    setTolerance(String(copy.toleranceTime));
+    setStartDate(new Date(copy.startTime));
+    setDeadline(new Date(copy.deadline));
+    setExercises(copy.exercises || []);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []); 
 
-  const handleSubmit = async () => {
-    if (!title.trim() || !user?.uuid) {
-      setErrorMessage('Title is required and user must be authenticated.');
-      setErrorVisible(true);
-      return;
-    }
 
-    try {
-      if (initialData) {
-        await updateAssessment(courseId, initialData.id, {
-          title,
-          description,
-          type,
-          tolerance_time: parseInt(tolerance),
-          start_time: startDate.toISOString(),
-          deadline: deadline.toISOString(),
-          exercises,
-        }, user.uuid);
-        Alert.alert('✅ Assessment updated');
-      } else {
-        await createAssessment({
-          courseId,
-          title,
-          description,
-          type,
-          tolerance_time: parseInt(tolerance),
-          start_time: startDate.toISOString(),
-          deadline: deadline.toISOString(),
-          exercises,
-        }, user.uuid);
-        Alert.alert('✅ Assessment created');
-      }
-      onClose();
-    } catch (e) {
-      console.error(e);
-      setErrorMessage('Something went wrong. Please try again.');
-      setErrorVisible(true);
-    }
-  };
+    const handleSubmit = async () => {
+        if (!title.trim()) {
+          setErrorMessage('❌ The assessment must have a title.');
+          setErrorVisible(true);
+          return;
+        }
+
+        if (!user?.uuid) {
+          setErrorMessage('❌ User is not authenticated. Please log in again.');
+          setErrorVisible(true);
+          return;
+        }
+
+        if (!authToken) {
+          setErrorMessage('❌ Authentication token is missing. Please reload the app.');
+          setErrorVisible(true);
+          return;
+        }
+
+        if (startDate >= deadline) {
+          setErrorMessage('❌ Start time must be before the deadline.');
+          setErrorVisible(true);
+          return;
+        }
+
+        try {
+          const basePayload = {
+            title: title.trim(),
+            description: description.trim(),
+            toleranceTime: parseInt(tolerance) || 0,
+            startTime: startDate.toISOString(),
+            deadline: deadline.toISOString(),
+            exercises,
+          };
+
+          if (initialData) {
+            console.log('📦 Payload enviado al backend:', basePayload);
+            await updateAssessment(initialData.id, basePayload, user.uuid, authToken);
+            Alert.alert('✅ Assessment updated');
+          } else {
+            const fullPayload = {
+              ...basePayload,
+              type,
+            };
+            await createAssessment(fullPayload, courseId, user.uuid, authToken);
+            Alert.alert('✅ Assessment created');
+          }
+
+          onClose();
+        } catch (e: unknown) {
+          if (e instanceof Error) {
+            console.error(e.message);
+            setErrorMessage(`❌ ${e.message}`);
+          } else {
+            console.error(e);
+            setErrorMessage('❌ Something went wrong. Please try again.');
+          }
+          setErrorVisible(true);
+        }
+      };
+
+
 
   const openPicker = (field: 'start' | 'deadline', initial: Date) => {
     setPickerField(field);
@@ -123,22 +149,23 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
   );
 
   const handleAddExercise = (exercise: AssessmentExercise) => {
-    if (editingExerciseKey) {
-      setExercises(prev => ({ ...prev, [editingExerciseKey]: exercise }));
-      setEditingExerciseKey(null);
+    if (editingIndex !== null) {
+      const updated = [...exercises];
+      updated[editingIndex] = exercise;
+      setExercises(updated);
+      setEditingIndex(null);
     } else {
-      const key = `exercise_${Object.keys(exercises).length + 1}`;
-      setExercises(prev => ({ ...prev, [key]: exercise }));
+      setExercises((prev) => [...prev, exercise]);
     }
     setExerciseModalVisible(false);
   };
 
-  const handleEditExercise = (key: string) => {
-    setEditingExerciseKey(key);
+  const handleEditExercise = (index: number) => {
+    setEditingIndex(index);
     setExerciseModalVisible(true);
   };
 
-  const confirmRemoveExercise = (key: string) => {
+  const confirmRemoveExercise = (index: number) => {
     Alert.alert(
       'Delete Exercise',
       'Are you sure you want to delete this exercise?',
@@ -148,8 +175,8 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const copy = { ...exercises };
-            delete copy[key];
+            const copy = [...exercises];
+            copy.splice(index, 1);
             setExercises(copy);
           },
         },
@@ -204,7 +231,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
           <View style={styles.exerciseHeader}>
             <Text style={[styles.exerciseTitle, { color: theme.text }]}>Exercises</Text>
             <TouchableOpacity onPress={() => {
-              setEditingExerciseKey(null);
+              setEditingIndex(null);
               setExerciseModalVisible(true);
             }}>
               <Text style={[styles.plusButton, { color: theme.primary }]}>＋</Text>
@@ -212,13 +239,13 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
           </View>
 
           <View style={styles.exerciseList}>
-            {Object.entries(exercises).map(([key, ex]) => (
-              <View key={key} style={styles.exerciseItem}>
+            {exercises.map((ex, i) => (
+              <View key={i} style={styles.exerciseItem}>
                 <Text style={{ flex: 1, color: theme.text }}>• {ex.enunciate} ({ex.type})</Text>
-                <TouchableOpacity onPress={() => handleEditExercise(key)}>
+                <TouchableOpacity onPress={() => handleEditExercise(i)}>
                   <Text style={[styles.editButton, { color: theme.primary }]}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => confirmRemoveExercise(key)}>
+                <TouchableOpacity onPress={() => confirmRemoveExercise(i)}>
                   <Text style={[styles.deleteButton, { color: theme.primary }]}>🗑️</Text>
                 </TouchableOpacity>
               </View>
@@ -284,9 +311,9 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
               onSubmit={handleAddExercise}
               onCancel={() => {
                 setExerciseModalVisible(false);
-                setEditingExerciseKey(null);
+                setEditingIndex(null);
               }}
-              initialData={editingExerciseKey ? exercises[editingExerciseKey] : undefined}
+              initialData={editingIndex !== null ? exercises[editingIndex] : undefined}
             />
           </View>
         </View>
@@ -294,6 +321,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
     </>
   );
 }
+
 
 const styles = StyleSheet.create({
   wrapper: {

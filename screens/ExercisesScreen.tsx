@@ -17,7 +17,7 @@ import {
   AssessmentExercise,
   getAssessmentById,
   submitAssessment,
-} from '../services/assessmentsMockApi';
+} from '../services/assessmentsApi';
 import { fonts } from '../constants/fonts';
 import { spacing } from '../constants/spacing';
 
@@ -27,7 +27,7 @@ export default function ExercisesScreen() {
     courseId: string;
     role: string;
   }>();
-  const { user } = useAuth();
+  const { user, authToken } = useAuth();
   const router = useRouter();
   const theme = useTheme();
 
@@ -45,24 +45,33 @@ export default function ExercisesScreen() {
   const STORAGE_KEY = `startTime_${courseId}_${assessmentId}`;
 
   useEffect(() => {
-    if (assessmentId && courseId) {
-      getAssessmentById(Number(courseId), assessmentId).then(async (res) => {
+    const fetchAssessment = async () => {
+      if (!assessmentId || !courseId || !authToken) return;
+
+      try {
+        const res = await getAssessmentById(assessmentId, authToken);
         setAssessment(res);
-        const durationMs = (res.tolerance_time ?? 0) * 60 * 60 * 1000;
 
         if (isStudent) {
+          const durationMs = (res.toleranceTime ?? 0) * 60 * 60 * 1000;
           const savedStart = await AsyncStorage.getItem(STORAGE_KEY);
           let startTime = savedStart ? parseInt(savedStart, 10) : Date.now();
+
           if (!savedStart) {
             await AsyncStorage.setItem(STORAGE_KEY, startTime.toString());
           }
+
           const timePassed = Date.now() - startTime;
           const remaining = durationMs - timePassed;
           setRemainingTime(remaining > 0 ? remaining : 0);
         }
-      });
-    }
-  }, [assessmentId]);
+      } catch (error) {
+        console.error('Error fetching assessment:', error);
+      }
+    };
+
+    fetchAssessment();
+  }, [assessmentId, courseId, authToken]);
 
   useEffect(() => {
     if (!isStudent || !remainingTime || submitted) return;
@@ -104,8 +113,7 @@ export default function ExercisesScreen() {
     );
   };
 
-  const currentExerciseId = Object.keys(assessment?.exercises || {})[index];
-  const currentExercise = assessment?.exercises?.[currentExerciseId];
+  const currentExercise = assessment?.exercises?.[index];
 
   const renderExercise = (exercise: AssessmentExercise, id: string) => {
     return (
@@ -167,7 +175,7 @@ export default function ExercisesScreen() {
   };
 
   const getTimeColor = () => {
-    const tolerance = assessment?.tolerance_time ?? 1;
+    const tolerance = assessment?.toleranceTime ?? 1;
     const total = tolerance * 3600000;
     const ratio = remainingTime / total;
 
@@ -185,7 +193,7 @@ export default function ExercisesScreen() {
           <Text style={[styles.backArrow, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
         <Text style={[styles.counter, { color: theme.text }]}>
-          Exercise {index + 1} of {Object.keys(assessment.exercises).length}
+          Exercise {index + 1} of {assessment.exercises.length}
         </Text>
       </View>
 
@@ -196,7 +204,7 @@ export default function ExercisesScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {renderExercise(currentExercise, currentExerciseId)}
+        {renderExercise(currentExercise, index.toString())}
       </ScrollView>
 
       <View style={styles.navContainer}>
@@ -205,7 +213,7 @@ export default function ExercisesScreen() {
             <Text style={styles.navButtonText}>← Back</Text>
           </TouchableOpacity>
         )}
-        {index < Object.keys(assessment.exercises).length - 1 ? (
+        {index < assessment.exercises.length - 1 ? (
           <TouchableOpacity style={styles.navButton} onPress={() => setIndex(index + 1)}>
             <Text style={styles.navButtonText}>Next →</Text>
           </TouchableOpacity>

@@ -6,7 +6,7 @@ import Dialog from '../alerts/Dialog';
 import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
-import { AssessmentExercise, ExerciseType } from '../../../services/assessmentsMockApi';
+import { AssessmentExercise, ExerciseType } from '../../../services/assessmentsApi';
 
 type Props = {
   onSubmit: (exercise: AssessmentExercise) => void;
@@ -40,17 +40,15 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
     const trimmed = choiceInput.trim();
     if (!trimmed) return;
 
-    // Evitar duplicados si se está agregando
-    if (
-      editingChoiceIndex === null &&
-      choices.some((c) => c.toLowerCase() === trimmed.toLowerCase())
-    ) {
-      setError('Choice already exists.');
+    const duplicate = choices.some((c, i) =>
+      c.toLowerCase() === trimmed.toLowerCase() && i !== editingChoiceIndex
+    );
+    if (duplicate) {
+      setError('This choice already exists.');
       return;
     }
 
     if (editingChoiceIndex !== null) {
-      // Update
       const newChoices = [...choices];
       const old = newChoices[editingChoiceIndex];
       newChoices[editingChoiceIndex] = trimmed;
@@ -58,16 +56,17 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       if (answer === old) setAnswer(trimmed);
       setEditingChoiceIndex(null);
     } else {
-      // Add
       setChoices(prev => [...prev, trimmed]);
     }
 
     setChoiceInput('');
+    setError('');
   };
 
   const handleEditChoice = (index: number) => {
     setChoiceInput(choices[index]);
     setEditingChoiceIndex(index);
+    setError('');
   };
 
   const handleRemoveChoice = (index: number) => {
@@ -79,6 +78,7 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       setChoiceInput('');
       setEditingChoiceIndex(null);
     }
+    setError('');
   };
 
   const handleSave = () => {
@@ -86,18 +86,25 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       setError('Enunciate is required.');
       return;
     }
-    if (type === 'multiple_choice' && (choices.length < 1 || !answer.trim())) {
-      setError('At least one choice and a correct answer are required.');
-      return;
+    if (type === 'multiple_choice') {
+      if (choices.length < 2) {
+        setError('At least two choices are required.');
+        return;
+      }
+      if (!answer.trim()) {
+        setError('Please select the correct answer.');
+        return;
+      }
     }
 
     const exercise: AssessmentExercise = {
       type,
-      enunciate,
-      link: link || undefined,
+      enunciate: enunciate.trim() || '',
+      link: link.trim() || undefined,
       choices: type === 'multiple_choice' ? choices : undefined,
-      answer: type === 'multiple_choice' ? answer : undefined,
+      answer: type === 'multiple_choice' ? answer.trim() || undefined : undefined,
     };
+
 
     onSubmit(exercise);
   };
@@ -112,7 +119,10 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
         {(['open', 'multiple_choice'] as ExerciseType[]).map((option) => (
           <TouchableOpacity
             key={option}
-            onPress={() => setType(option)}
+            onPress={() => {
+              setType(option);
+              setError('');
+            }}
             style={[styles.typeButton, {
               backgroundColor: type === option ? theme.primary : theme.card,
               borderColor: theme.primary,
@@ -128,7 +138,10 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       <TextField
         placeholder="Enunciate"
         value={enunciate}
-        onChangeText={setEnunciate}
+        onChangeText={text => {
+          setEnunciate(text);
+          setError('');
+        }}
         multiline
         numberOfLines={5}
         style={[styles.textArea, { backgroundColor: theme.card }]}
@@ -155,7 +168,10 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
           <TextField
             placeholder="New Choice"
             value={choiceInput}
-            onChangeText={setChoiceInput}
+            onChangeText={text => {
+              setChoiceInput(text);
+              setError('');
+            }}
             style={{ backgroundColor: theme.card }}
           />
 
@@ -169,7 +185,10 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
                     borderColor: theme.primary,
                     backgroundColor: answer === c ? theme.primary : theme.card,
                   }]}
-                  onPress={() => setAnswer(c)}
+                  onPress={() => {
+                    setAnswer(c);
+                    setError('');
+                  }}
                   onLongPress={() => handleEditChoice(i)}
                 >
                   <Text style={{ color: answer === c ? '#fff' : theme.text }}>• {c}</Text>
