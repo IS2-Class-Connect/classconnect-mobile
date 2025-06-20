@@ -20,6 +20,9 @@ import {
 } from '../services/assessmentsApi';
 import { fonts } from '../constants/fonts';
 import { spacing } from '../constants/spacing';
+import { shareHtmlAsPdf } from '../utils/pdfUtils';
+import { generateAssessmentHtml } from '../utils/generateAssessmentHtml';
+import { FileText } from 'lucide-react-native';
 
 export default function ExercisesScreen() {
   const { assessmentId, courseId, role } = useLocalSearchParams<{
@@ -52,7 +55,6 @@ export default function ExercisesScreen() {
         const res = await getAssessmentById(assessmentId, authToken);
         setAssessment(res);
 
-        // Set timer for students
         if (isStudent) {
           const durationMs = (res.toleranceTime ?? 0) * 60 * 60 * 1000;
           const savedStart = await AsyncStorage.getItem(STORAGE_KEY);
@@ -81,7 +83,7 @@ export default function ExercisesScreen() {
       setRemainingTime((prev) => {
         if (prev <= 1000) {
           clearInterval(timerRef.current!);
-          handleAutoSubmit(); // Auto-submit when time is up
+          handleAutoSubmit();
           return 0;
         }
         return prev - 1000;
@@ -91,7 +93,6 @@ export default function ExercisesScreen() {
     return () => clearInterval(timerRef.current!);
   }, [remainingTime, isStudent, submitted]);
 
-  // Function for manual submission (button press)
   const handleSubmit = () => {
     if (!assessment || !user || !authToken) return;
     Alert.alert(
@@ -112,22 +113,19 @@ export default function ExercisesScreen() {
               Alert.alert('Error', 'There was a problem submitting your answers.');
             }
           },
-          style: 'default',
         },
         { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
-  // Function for auto-submission (time's up)
   const handleAutoSubmit = async () => {
     if (!assessment || !user || !authToken) return;
     try {
       await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
       await AsyncStorage.removeItem(STORAGE_KEY);
       setSubmitted(true);
-      Alert.alert('Time\'s up', 'Your answers were submitted automatically.');
+      Alert.alert("Time's up", 'Your answers were submitted automatically.');
       router.back();
     } catch (error) {
       console.error('Error auto-submitting assessment:', error);
@@ -135,59 +133,67 @@ export default function ExercisesScreen() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!assessment) return;
+
+    try {
+      const html = await generateAssessmentHtml(assessment);
+      await shareHtmlAsPdf(html);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'Could not generate PDF.');
+    }
+  };
+
   const currentExercise = assessment?.exercises?.[index];
 
-  const renderExercise = (exercise: AssessmentExercise, id: string) => {
-    return (
-      <View key={id} style={styles.exerciseContainer}>
-        <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
-
-        {exercise.link && (
-          <Text style={[styles.link, { color: theme.primary }]}>
-            [Attached Resource: {exercise.link}]
-          </Text>
-        )}
-
-        {exercise.type === 'multiple_choice' && exercise.choices && (
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[styles.notice, { color: theme.text }]}>Only one correct answer</Text>
-            {exercise.choices.map((choice, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[
-                  styles.choice,
-                  {
-                    borderColor: theme.primary,
-                    backgroundColor:
-                      responses[id] === choice ? theme.primary + '33' : 'transparent',
-                  },
-                ]}
-                disabled={isReadonly}
-                onPress={() => setResponses({ ...responses, [id]: choice })}
-              >
-                <Text style={[styles.choiceText, { color: theme.text }]}>{choice}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {exercise.type === 'open' && (
-          <TextInput
-            style={[
-              styles.input,
-              { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card },
-            ]}
-            multiline
-            editable={!isReadonly}
-            placeholder="Write your answer here..."
-            placeholderTextColor={theme.text + '88'}
-            value={responses[id] || ''}
-            onChangeText={(text) => setResponses({ ...responses, [id]: text })}
-          />
-        )}
-      </View>
-    );
-  };
+  const renderExercise = (exercise: AssessmentExercise, id: string) => (
+    <View key={id} style={styles.exerciseContainer}>
+      <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
+      {exercise.link && (
+        <Text style={[styles.link, { color: theme.primary }]}>[Attached Resource: {exercise.link}]</Text>
+      )}
+      {exercise.type === 'multiple_choice' && exercise.choices && (
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={[styles.notice, { color: theme.text }]}>Only one correct answer</Text>
+          {exercise.choices.map((choice, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[
+                styles.choice,
+                {
+                  borderColor: theme.primary,
+                  backgroundColor: responses[id] === choice ? theme.primary + '33' : 'transparent',
+                },
+              ]}
+              disabled={isReadonly}
+              onPress={() => setResponses({ ...responses, [id]: choice })}
+            >
+              <Text style={[styles.choiceText, { color: theme.text }]}>{choice}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      {exercise.type === 'open' && (
+        <TextInput
+          style={[
+            styles.input,
+            {
+              color: theme.text,
+              borderColor: theme.primary,
+              backgroundColor: theme.card,
+            },
+          ]}
+          multiline
+          editable={!isReadonly}
+          placeholder="Write your answer here..."
+          placeholderTextColor={theme.text + '88'}
+          value={responses[id] || ''}
+          onChangeText={(text) => setResponses({ ...responses, [id]: text })}
+        />
+      )}
+    </View>
+  );
 
   const formatTime = (ms: number) => {
     const h = Math.floor(ms / 3600000);
@@ -214,15 +220,16 @@ export default function ExercisesScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backArrow, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
-        <Text style={[styles.counter, { color: theme.text }]}>
-          Exercise {index + 1} of {assessment.exercises.length}
-        </Text>
+
+        <Text style={[styles.counter, { color: theme.text }]}>Exercise {index + 1} of {assessment.exercises.length}</Text>
+
+        <TouchableOpacity onPress={handleExportPdf} style={styles.exportButton}>
+          <FileText size={24} stroke="#339CFF" />
+        </TouchableOpacity>
       </View>
 
       {isStudent && (
-        <Text style={[styles.timer, { color: getTimeColor() }]}>
-          Time remaining: {formatTime(remainingTime)}
-        </Text>
+        <Text style={[styles.timer, { color: getTimeColor() }]}>Time remaining: {formatTime(remainingTime)}</Text>
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -275,6 +282,11 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     left: 0,
+    padding: spacing.sm,
+  },
+  exportButton: {
+    position: 'absolute',
+    right: 0,
     padding: spacing.sm,
   },
   backArrow: {
