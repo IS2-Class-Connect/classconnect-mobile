@@ -33,7 +33,7 @@ export default function ExercisesScreen() {
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [index, setIndex] = useState(0);
-  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [responses, setResponses] = useState<Record<string, string>>({});
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [submitted, setSubmitted] = useState(false);
 
@@ -52,6 +52,7 @@ export default function ExercisesScreen() {
         const res = await getAssessmentById(assessmentId, authToken);
         setAssessment(res);
 
+        // Set timer for students
         if (isStudent) {
           const durationMs = (res.toleranceTime ?? 0) * 60 * 60 * 1000;
           const savedStart = await AsyncStorage.getItem(STORAGE_KEY);
@@ -80,7 +81,7 @@ export default function ExercisesScreen() {
       setRemainingTime((prev) => {
         if (prev <= 1000) {
           clearInterval(timerRef.current!);
-          handleSubmit();
+          handleAutoSubmit(); // Auto-submit when time is up
           return 0;
         }
         return prev - 1000;
@@ -90,8 +91,9 @@ export default function ExercisesScreen() {
     return () => clearInterval(timerRef.current!);
   }, [remainingTime, isStudent, submitted]);
 
+  // Function for manual submission (button press)
   const handleSubmit = () => {
-    if (!assessment || !user) return;
+    if (!assessment || !user || !authToken) return;
     Alert.alert(
       'Confirm submission',
       'This is final. Are you sure you want to submit?',
@@ -99,11 +101,16 @@ export default function ExercisesScreen() {
         {
           text: 'Submit',
           onPress: async () => {
-            await submitAssessment(Number(courseId), assessmentId, user.uuid, responses);
-            await AsyncStorage.removeItem(STORAGE_KEY);
-            setSubmitted(true);
-            Alert.alert('Submitted', 'Your answers have been submitted.');
-            router.back();
+            try {
+              await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
+              await AsyncStorage.removeItem(STORAGE_KEY);
+              setSubmitted(true);
+              Alert.alert('Submitted', 'Your answers have been submitted.');
+              router.back();
+            } catch (error) {
+              console.error('Error submitting assessment:', error);
+              Alert.alert('Error', 'There was a problem submitting your answers.');
+            }
           },
           style: 'default',
         },
@@ -111,6 +118,21 @@ export default function ExercisesScreen() {
       ],
       { cancelable: true }
     );
+  };
+
+  // Function for auto-submission (time's up)
+  const handleAutoSubmit = async () => {
+    if (!assessment || !user || !authToken) return;
+    try {
+      await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      setSubmitted(true);
+      Alert.alert('Time\'s up', 'Your answers were submitted automatically.');
+      router.back();
+    } catch (error) {
+      console.error('Error auto-submitting assessment:', error);
+      Alert.alert('Error', 'Failed to auto-submit your answers.');
+    }
   };
 
   const currentExercise = assessment?.exercises?.[index];

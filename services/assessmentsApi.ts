@@ -16,13 +16,6 @@ export interface AssessmentExercise {
   answer?: string;
 }
 
-export interface AssessmentSubmission {
-  note?: number;
-  feedback?: string;
-  AI_feedback?: string;
-  [exerciseId: string]: any;
-}
-
 export interface Assessment {
   id: string;
   courseId: number;
@@ -35,7 +28,6 @@ export interface Assessment {
   createdAt: string;
   teacherId: string;
   exercises: AssessmentExercise[];
-  submissions?: Record<string, AssessmentSubmission>;
 }
 
 export interface AssessmentFilterDto {
@@ -43,6 +35,23 @@ export interface AssessmentFilterDto {
   startTimeBegin?: string;
   startTimeEnd?: string;
   day?: string;
+}
+
+// 🔸 Nueva interfaz: Submission real
+export interface SubmittedAnswer {
+  answer: string;
+  correction: string;
+}
+
+export interface Submission {
+  userId: string;
+  assesId: string;
+  answers: SubmittedAnswer[];
+  note?: number;
+  feedback?: string;
+  AIFeedback?: string;
+  submittedAt: string;
+  correctedAt?: string;
 }
 
 // ✅ GET paginated and filtered assessments
@@ -86,9 +95,6 @@ export async function getAssessmentsByCourse(
   };
 }
 
-
-
-
 // ✅ GET one assessment by ID (mapping _id -> id)
 export async function getAssessmentById(
   id: string,
@@ -99,43 +105,39 @@ export async function getAssessmentById(
 
   const mapped: Assessment = {
     ...raw,
-    id: raw.id ?? raw._id, // Prioriza `id`, si no existe usa `_id`
+    id: raw.id ?? raw._id,
   };
 
   return mapped;
 }
 
-
 // ✅ CREATE assessment
-// Accepts exercises as an array instead of a record
 export async function createAssessment(
-  data: Omit<Assessment, 'id' | 'createdAt' | 'submissions' | 'teacherId' | 'courseId'> & {
-    exercises: AssessmentExercise[]; // 🔧 Ensure exercises are passed as an array
+  data: Omit<Assessment, 'id' | 'createdAt' | 'teacherId' | 'courseId'> & {
+    exercises: AssessmentExercise[];
   },
   courseId: number,
   userId: string,
   token: string
 ): Promise<Assessment> {
-  const payload = { ...data, userId }; // 👤 Attach the userId to the payload
+  const payload = { ...data, userId };
   const response = await postToGateway(`/courses/${courseId}/assessments`, payload, token);
   return response.data as Assessment;
 }
 
 // ✅ UPDATE assessment
-// Accepts partial updates and exercises as an array
 export async function updateAssessment(
   id: string,
-  data: Partial<Omit<Assessment, 'id' | 'createdAt' | 'submissions'>> & {
-    exercises?: AssessmentExercise[]; // 🔧 Optional array of exercises for update
+  data: Partial<Omit<Assessment, 'id' | 'createdAt'>> & {
+    exercises?: AssessmentExercise[];
   },
   userId: string,
   token: string
 ): Promise<Assessment> {
-  const payload = { ...data, userId }; // 👤 Attach the userId to the payload
+  const payload = { ...data, userId };
   const response = await patchToGateway(`/assessments/${id}`, payload, token);
   return response.data as Assessment;
 }
-
 
 // ✅ DELETE assessment
 export async function deleteAssessment(
@@ -147,40 +149,33 @@ export async function deleteAssessment(
   await deleteFromGateway(`/assessments/${id}?userId=${userId}`, token);
 }
 
-// ⚠️ MOCKED submission
+// ✅ SUBMIT assessment (POST /assessments/:id/submissions)
 export async function submitAssessment(
-  courseId: number,
-  id: string,
+  assessmentId: string,
   userId: string,
-  responses: Record<string, any>
-): Promise<AssessmentSubmission> {
-  return {
-    ...responses,
-    note: 7.5,
-    feedback: 'Buen trabajo en general.',
-  };
+  answers: string[],
+  token: string
+): Promise<Submission> {
+  const payload = { userId, answers };
+  const response = await postToGateway(`/assessments/${assessmentId}/submissions`, payload, token);
+  return response.data as Submission;
 }
 
-// ⚠️ MOCKED manual correction
-export async function correctAssessmentManually(
-  courseId: number,
-  id: string,
-  userId: string,
-  correction: Partial<AssessmentSubmission>
-): Promise<AssessmentSubmission> {
-  return {
-    ...correction,
-    note: correction.note ?? 9,
-    feedback: correction.feedback ?? 'Corrección manual aplicada.',
-  };
+// ✅ GET ALL submissions (GET /assessments/:id/submissions)
+export async function getSubmissionsForAssessment(
+  assessmentId: string,
+  token: string
+): Promise<Submission[]> {
+  const response = await getFromGateway(`/assessments/${assessmentId}/submissions`, token);
+  return response.data as Submission[];
 }
 
-// ⚠️ MOCKED AI correction
-export async function getAIAssessmentCorrection(
-  courseId: number,
-  id: string,
+// ✅ GET submission of one user (GET /assessments/:id/submissions/:userId)
+export async function getUserSubmissionForAssessment(
+  assessmentId: string,
   userId: string,
-  exerciseId: string
-): Promise<string> {
-  return `AI Score: 8.5. Your explanation is correct, but could benefit from real-world examples.`;
+  token: string
+): Promise<Submission> {
+  const response = await getFromGateway(`/assessments/${assessmentId}/submissions/${userId}`, token);
+  return response.data as Submission;
 }

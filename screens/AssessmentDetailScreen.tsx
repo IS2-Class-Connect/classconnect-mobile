@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../constants/fonts';
@@ -18,6 +19,7 @@ import { spacing } from '../constants/spacing';
 import {
   getAssessmentById,
   deleteAssessment,
+  getUserSubmissionForAssessment,
   Assessment,
 } from '../services/assessmentsApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
@@ -36,6 +38,7 @@ export default function AssessmentDetailScreen() {
   const [countdown, setCountdown] = useState('');
   const [editVisible, setEditVisible] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
@@ -44,9 +47,7 @@ export default function AssessmentDetailScreen() {
   const parsedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
   const parsedAssessmentId = Array.isArray(assessmentId) ? assessmentId[0] : assessmentId;
 
-  const hasSubmitted = assessment?.submissions?.[user?.uuid ?? ''] !== undefined;
-
-    useEffect(() => {
+  useEffect(() => {
     if (parsedCourseId && parsedAssessmentId && authToken) {
       getAssessmentById(parsedAssessmentId, authToken)
         .then((data) => {
@@ -57,8 +58,17 @@ export default function AssessmentDetailScreen() {
     }
   }, [parsedAssessmentId, parsedCourseId, authToken]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!parsedAssessmentId || !user?.uuid || !authToken) return;
 
-    useEffect(() => {
+      getUserSubmissionForAssessment(parsedAssessmentId, user.uuid, authToken)
+        .then(() => setHasSubmitted(true))
+        .catch(() => setHasSubmitted(false));
+    }, [parsedAssessmentId, user?.uuid, authToken])
+  );
+
+  useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
 
     if (assessment && parsedCourseId && parsedAssessmentId && authToken) {
@@ -88,8 +98,6 @@ export default function AssessmentDetailScreen() {
     return () => clearInterval(interval);
   }, [assessment, parsedCourseId, parsedAssessmentId, authToken]);
 
-
-  // Verifica si ya arrancó el examen
   useEffect(() => {
     if (!parsedCourseId || !parsedAssessmentId || !isStudent) return;
 
@@ -132,29 +140,28 @@ export default function AssessmentDetailScreen() {
   };
 
   const handleDelete = () => {
-  if (!user || !authToken) {
-    Alert.alert('Error', 'You must be logged in to delete this assessment.');
-    return;
-  }
+    if (!user || !authToken) {
+      Alert.alert('Error', 'You must be logged in to delete this assessment.');
+      return;
+    }
 
-  Alert.alert('Confirm delete', 'Are you sure you want to delete this assessment?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Delete',
-      style: 'destructive',
-      onPress: async () => {
-        try {
-          await deleteAssessment(Number(parsedCourseId), parsedAssessmentId, authToken, user.uuid);
-          router.back();
-        } catch (error) {
-          console.error('Error deleting assessment:', error);
-          Alert.alert('Error', 'Could not delete assessment.');
-        }
+    Alert.alert('Confirm delete', 'Are you sure you want to delete this assessment?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteAssessment(Number(parsedCourseId), parsedAssessmentId, authToken, user.uuid);
+            router.back();
+          } catch (error) {
+            console.error('Error deleting assessment:', error);
+            Alert.alert('Error', 'Could not delete assessment.');
+          }
+        },
       },
-    },
-  ]);
-};
-
+    ]);
+  };
 
   if (!assessment) return null;
 
@@ -173,18 +180,29 @@ export default function AssessmentDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.card, marginTop: 20 }]}>
           <Text style={[styles.title, { color: theme.primary }]}>{assessment.title}</Text>
 
-          <Text style={[styles.typeTag, { backgroundColor: theme.primary + '22', color: theme.primary }]}> {assessment.type} </Text>
+          <Text style={[styles.typeTag, { backgroundColor: theme.primary + '22', color: theme.primary }]}>
+            {assessment.type}
+          </Text>
 
           {renderStatusTag()}
 
-          <Text style={[styles.label, { color: theme.text }]}>Start: {new Date(assessment.startTime).toLocaleString()}</Text>
-          <Text style={[styles.label, { color: theme.text }]}>Deadline: {new Date(assessment.deadline).toLocaleString()}</Text>
-          <Text style={[styles.label, { color: theme.text }]}>Duration: {assessment.toleranceTime} hours ⏱️</Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Start: {new Date(assessment.startTime).toLocaleString()}
+          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Deadline: {new Date(assessment.deadline).toLocaleString()}
+          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Duration: {assessment.toleranceTime} hours ⏱️
+          </Text>
 
-          <Text style={[styles.description, { color: theme.text }]}> {assessment.description || 'No description provided.'}</Text>
+          <Text style={[styles.description, { color: theme.text }]}>
+            {assessment.description || 'No description provided.'}
+          </Text>
 
-          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}> Exercises: {assessment.exercises?.length ?? 0}</Text>
-
+          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>
+            Exercises: {assessment.exercises?.length ?? 0}
+          </Text>
 
           {(isProfessor || isAssistant) && (
             <>
@@ -219,8 +237,6 @@ export default function AssessmentDetailScreen() {
                   <Text style={[styles.buttonText, { color: '#dc3545' }]}>Delete</Text>
                 </TouchableOpacity>
               )}
-
-              <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>Submissions: {Object.keys(assessment.submissions || {}).length}</Text>
             </>
           )}
 
@@ -228,43 +244,42 @@ export default function AssessmentDetailScreen() {
             <TouchableOpacity
               style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
               onPress={() => {
-              if (hasSubmitted) {
-                Alert.alert('Already submitted', 'You have already submitted this assessment.');
-                return;
-              }
+                if (hasSubmitted) {
+                  Alert.alert('Already submitted', 'You have already submitted this assessment.');
+                  return;
+                }
 
-              if (hasStarted) {
-                router.push({
-                  pathname: '/exercises',
-                  params: {
-                    courseId: parsedCourseId,
-                    assessmentId: parsedAssessmentId,
-                    role: 'Student',
-                  },
-                });
-              } else {
-                Alert.alert(
-                  'Start Assessment',
-                  'Are you sure? You will have limited time and cannot leave once started.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Start',
-                      onPress: () =>
-                        router.push({
-                          pathname: '/exercises',
-                          params: {
-                            courseId: parsedCourseId,
-                            assessmentId: parsedAssessmentId,
-                            role: 'Student',
-                          },
-                        }),
+                if (hasStarted) {
+                  router.push({
+                    pathname: '/exercises',
+                    params: {
+                      courseId: parsedCourseId,
+                      assessmentId: parsedAssessmentId,
+                      role: 'Student',
                     },
-                  ]
-                );
-              }
-}}
-
+                  });
+                } else {
+                  Alert.alert(
+                    'Start Assessment',
+                    'Are you sure? You will have limited time and cannot leave once started.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Start',
+                        onPress: () =>
+                          router.push({
+                            pathname: '/exercises',
+                            params: {
+                              courseId: parsedCourseId,
+                              assessmentId: parsedAssessmentId,
+                              role: 'Student',
+                            },
+                          }),
+                      },
+                    ]
+                  );
+                }
+              }}
               disabled={hasSubmitted}
             >
               <Text style={styles.buttonText}>
@@ -287,10 +302,8 @@ export default function AssessmentDetailScreen() {
               initialData={assessment}
               onClose={async () => {
                 setEditVisible(false);
-
-                // Validación de condiciones necesarias
                 if (!authToken || !parsedCourseId || !parsedAssessmentId) {
-                  Alert.alert('Error', 'No se pudo actualizar la evaluación: faltan datos de autenticación o identificación.');
+                  Alert.alert('Error', 'No se pudo actualizar la evaluación: faltan datos.');
                   return;
                 }
 

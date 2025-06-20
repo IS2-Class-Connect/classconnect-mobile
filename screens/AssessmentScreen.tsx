@@ -1,3 +1,4 @@
+// AssessmentScreen.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
@@ -32,7 +33,7 @@ export default function AssessmentScreen() {
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState<AssessmentFilterDto>({});
+  const [filters, setFilters] = useState<AssessmentFilterDto>({ type: 'Exam' });
   const [tempFilters, setTempFilters] = useState<AssessmentFilterDto>({});
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -40,16 +41,21 @@ export default function AssessmentScreen() {
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
 
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      type: selectedTab,
+    }));
+    setPage(1);
+  }, [selectedTab]);
+
   const fetchAssessments = async () => {
     if (!authToken || !courseId) return;
     try {
       const res = await getAssessmentsByCourse(
         Number(courseId),
         page,
-        {
-          ...filters,
-          type: selectedTab,
-        },
+        filters,
         authToken
       );
       console.log('Fetched assessments:', res);
@@ -62,7 +68,7 @@ export default function AssessmentScreen() {
 
   useEffect(() => {
     fetchAssessments();
-  }, [courseId, selectedTab, page, filters]);
+  }, [filters, page]);
 
   const getStatus = (a: Assessment): 'UPCOMING' | 'OPEN' | 'CLOSED' => {
     const now = new Date();
@@ -97,7 +103,7 @@ export default function AssessmentScreen() {
           {['Exam', 'Task'].map((type) => (
             <TouchableOpacity
               key={type}
-              onPress={() => { setSelectedTab(type as 'Exam' | 'Task'); setPage(1); }}
+              onPress={() => setSelectedTab(type as 'Exam' | 'Task')}
               style={[
                 styles.tabButton,
                 { borderBottomColor: selectedTab === type ? theme.primary : 'transparent' }
@@ -114,7 +120,10 @@ export default function AssessmentScreen() {
         </View>
 
         <TouchableOpacity
-          onPress={() => { setTempFilters(filters); setFilterModalVisible(true); }}
+          onPress={() => {
+            setTempFilters(filters);
+            setFilterModalVisible(true);
+          }}
           style={[styles.filterButton, { backgroundColor: filterButtonColor }]}
         >
           <Ionicons name="calendar" size={18} color="#fff" />
@@ -220,8 +229,113 @@ export default function AssessmentScreen() {
         </View>
       )}
 
+      {/* Modal de filtros */}
       <Modal visible={filterModalVisible} transparent animationType="fade">
-        {/* ...modal de filtros (omitido por brevedad, pero sin cambios respecto al tuyo)... */}
+        <View style={styles.overlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card, padding: spacing.lg }]}>
+            <Text style={[styles.title, { color: theme.primary }]}>Filter by date</Text>
+
+            {tempFilters.day ? (
+              <Text style={{ color: theme.text, marginTop: spacing.sm }}>
+                Selected day: {new Date(tempFilters.day).toLocaleDateString()}
+              </Text>
+            ) : (
+              <Text style={{ color: theme.text, marginTop: spacing.sm }}>
+                No day selected
+              </Text>
+            )}
+
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              style={[styles.filterButton, { backgroundColor: theme.primary, marginTop: spacing.md }]}
+            >
+              <Ionicons name="calendar" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 6 }}>Pick day</Text>
+            </TouchableOpacity>
+
+            {tempFilters.day && (
+              <TouchableOpacity
+                onPress={() => setTempFilters({ ...tempFilters, day: undefined })}
+                style={{ marginTop: spacing.md }}
+              >
+                <Text style={{ color: '#dc3545', fontWeight: '600' }}>Clear selected day</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.md }}>
+              <TouchableOpacity
+                style={[styles.filterButton, { flex: 1, backgroundColor: theme.primary }]}
+                onPress={() => {
+                  setFilters({
+                    ...tempFilters,
+                    type: selectedTab,
+                  });
+                  setPage(1);
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Apply filters</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterButton, { flex: 1, backgroundColor: '#888' }]}
+                onPress={() => {
+                  setFilters({ type: selectedTab });
+                  setPage(1);
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Clear filters</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setFilterModalVisible(false)}
+              style={{ marginTop: spacing.lg }}
+            >
+              <Text style={{ color: theme.primary, textAlign: 'center' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          {Platform.OS === 'ios' && showDatePicker && (
+            <Modal transparent animationType="fade">
+              <View style={styles.overlay}>
+                <View style={[styles.centeredDatePicker, { backgroundColor: theme.card }]}>
+                  <DateTimePicker
+                    value={tempFilters.day ? new Date(tempFilters.day) : new Date()}
+                    mode="date"
+                    display="inline"
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        const dayString = selectedDate.toISOString().split('T')[0];
+                        setTempFilters({ ...tempFilters, day: dayString });
+                      }
+                      setShowDatePicker(false);
+                    }}
+                  />
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ marginTop: spacing.md }}>
+                    <Text style={{ color: theme.primary, textAlign: 'center' }}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+          )}
+
+          {Platform.OS === 'android' && showDatePicker && (
+            <DateTimePicker
+              value={tempFilters.day ? new Date(tempFilters.day) : new Date()}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(false);
+                if (event.type === 'set' && selectedDate) {
+                  const dayString = selectedDate.toISOString().split('T')[0];
+                  setTempFilters({ ...tempFilters, day: dayString });
+                }
+              }}
+            />
+          )}
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -306,19 +420,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    padding: spacing.lg,
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '90%',
+    width: '100%',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -328,5 +437,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     marginTop: spacing.lg,
+  },
+  centeredDatePicker: {
+    borderRadius: 12,
+    padding: spacing.md,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
 });
