@@ -213,7 +213,12 @@ export default function AssessmentScreen() {
         </TouchableOpacity>
       )}
 
-      {formVisible && (
+      <Modal
+        visible={formVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFormVisible(false)}
+      >
         <View style={styles.overlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <AssessmentForm
@@ -227,7 +232,8 @@ export default function AssessmentScreen() {
             />
           </View>
         </View>
-      )}
+      </Modal>
+
 
       {/* Modal de filtros */}
       <Modal visible={filterModalVisible} transparent animationType="fade">

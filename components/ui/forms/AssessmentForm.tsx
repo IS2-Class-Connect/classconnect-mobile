@@ -53,82 +53,91 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
   const [dateBuffer, setDateBuffer] = useState<Date>(new Date());
 
   useEffect(() => {
-  if (initialData) {
-    const copy = JSON.parse(JSON.stringify(initialData));
-    setTitle(copy.title);
-    setDescription(copy.description);
-    setType(copy.type);
-    setTolerance(String(copy.toleranceTime));
-    setStartDate(new Date(copy.startTime));
-    setDeadline(new Date(copy.deadline));
-    setExercises(copy.exercises || []);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []); 
+    if (initialData) {
+      const copy = JSON.parse(JSON.stringify(initialData));
+      setTitle(copy.title);
+      setDescription(copy.description);
+      setType(copy.type);
+      setTolerance(String(copy.toleranceTime));
+      setStartDate(new Date(copy.startTime));
+      setDeadline(new Date(copy.deadline));
+      setExercises(copy.exercises || []);
+    }
+  }, []);
 
+  useEffect(() => {
+    if (type === 'Task') {
+      setTolerance('0');
+    }
+  }, [type]);
 
-    const handleSubmit = async () => {
-        if (!title.trim()) {
-          setErrorMessage('❌ The assessment must have a title.');
-          setErrorVisible(true);
-          return;
-        }
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setErrorMessage('❌ The assessment must have a title.');
+      setErrorVisible(true);
+      return;
+    }
 
-        if (!user?.uuid) {
-          setErrorMessage('❌ User is not authenticated. Please log in again.');
-          setErrorVisible(true);
-          return;
-        }
+    if (!user?.uuid) {
+      setErrorMessage('❌ User is not authenticated. Please log in again.');
+      setErrorVisible(true);
+      return;
+    }
 
-        if (!authToken) {
-          setErrorMessage('❌ Authentication token is missing. Please reload the app.');
-          setErrorVisible(true);
-          return;
-        }
+    if (!authToken) {
+      setErrorMessage('❌ Authentication token is missing. Please reload the app.');
+      setErrorVisible(true);
+      return;
+    }
 
-        if (startDate >= deadline) {
-          setErrorMessage('❌ Start time must be before the deadline.');
-          setErrorVisible(true);
-          return;
-        }
+    if (startDate >= deadline) {
+      setErrorMessage('❌ Start time must be before the deadline.');
+      setErrorVisible(true);
+      return;
+    }
 
-        try {
-          const basePayload = {
-            title: title.trim(),
-            description: description.trim(),
-            toleranceTime: parseInt(tolerance) || 0,
-            startTime: startDate.toISOString(),
-            deadline: deadline.toISOString(),
-            exercises,
-          };
+    const parsedTolerance = parseInt(tolerance) || 0;
 
-          if (initialData) {
-            console.log('📦 Payload enviado al backend:', basePayload);
-            await updateAssessment(initialData.id, basePayload, user.uuid, authToken);
-            Alert.alert('✅ Assessment updated');
-          } else {
-            const fullPayload = {
-              ...basePayload,
-              type,
-            };
-            await createAssessment(fullPayload, courseId, user.uuid, authToken);
-            Alert.alert('✅ Assessment created');
-          }
+    if (type === 'Exam' && parsedTolerance === 0) {
+      setErrorMessage('❌ Exam duration cannot be 0. Please specify a valid tolerance time.');
+      setErrorVisible(true);
+      return;
+    }
 
-          onClose();
-        } catch (e: unknown) {
-          if (e instanceof Error) {
-            console.error(e.message);
-            setErrorMessage(`❌ ${e.message}`);
-          } else {
-            console.error(e);
-            setErrorMessage('❌ Something went wrong. Please try again.');
-          }
-          setErrorVisible(true);
-        }
+    try {
+      const basePayload = {
+        title: title.trim(),
+        description: description.trim(),
+        toleranceTime: type === 'Task' ? 0 : parsedTolerance,
+        startTime: startDate.toISOString(),
+        deadline: deadline.toISOString(),
+        exercises,
       };
 
+      if (initialData) {
+        await updateAssessment(initialData.id, basePayload, user.uuid, authToken);
+        Alert.alert('✅ Assessment updated');
+      } else {
+        const fullPayload = {
+          ...basePayload,
+          type,
+        };
+        await createAssessment(fullPayload, courseId, user.uuid, authToken);
+        Alert.alert('✅ Assessment created');
+      }
 
+      onClose();
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error(e.message);
+        setErrorMessage(`❌ ${e.message}`);
+      } else {
+        console.error(e);
+        setErrorMessage('❌ Something went wrong. Please try again.');
+      }
+      setErrorVisible(true);
+    }
+  };
 
   const openPicker = (field: 'start' | 'deadline', initial: Date) => {
     setPickerField(field);
@@ -202,7 +211,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
               }]}
             >
               <Text style={[styles.typeButtonText, { color: type === option ? '#fff' : theme.text }]}>
-                {option === 'Exam' ? 'Exam' : 'Task'}
+                {option}
               </Text>
             </TouchableOpacity>
           ))}
@@ -220,11 +229,19 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
           />
           <TextField
             placeholder="Tolerance (hours)"
-            value={tolerance}
+            value={type === 'Task' ? '' : tolerance}
             onChangeText={setTolerance}
             keyboardType="numeric"
-            style={[styles.smallInput, { backgroundColor: theme.card }]}
+            editable={type === 'Exam'}
+            style={[
+              styles.smallInput,
+              {
+                backgroundColor: theme.card,
+                opacity: type === 'Task' ? 0.5 : 1,
+              },
+            ]}
           />
+
           {renderDateField('Start Time', startDate, 'start')}
           {renderDateField('Deadline', deadline, 'deadline')}
 
@@ -321,7 +338,6 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
     </>
   );
 }
-
 
 const styles = StyleSheet.create({
   wrapper: {
