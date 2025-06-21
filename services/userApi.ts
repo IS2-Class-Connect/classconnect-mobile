@@ -153,8 +153,8 @@ export async function getCurrentUserFromBackend(token: string): Promise<User> {
 /**
  * Retrieves user data by UUID.
  */
-export async function findUserByUuid(uuid: string): Promise<User> {
-  const response = await getFromGateway(`/users/${uuid}`);
+export async function findUserByUuid(uuid: string, token:string): Promise<User> {
+  const response = await getFromGateway(`/users/${uuid}`, token);
   console.log('✅ User data fetched by UUID:', response);
   return response as User;
 }
