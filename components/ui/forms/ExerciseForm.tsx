@@ -81,11 +81,17 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
     setError('');
   };
 
-  const handleSave = () => {
+    const handleSave = () => {
     if (!enunciate.trim()) {
       setError('Enunciate is required.');
       return;
     }
+
+    if (link && !/^https?:\/\/.+/.test(link.trim())) {
+      setError('The link must start with http:// or https://');
+      return;
+    }
+
     if (type === 'multiple_choice') {
       if (choices.length < 2) {
         setError('At least two choices are required.');
@@ -105,9 +111,9 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       answer: type === 'multiple_choice' ? answer.trim() || undefined : undefined,
     };
 
-
     onSubmit(exercise);
   };
+
 
   return (
     <ScrollView contentContainerStyle={[styles.wrapper, { backgroundColor: theme.background, borderColor: theme.primary }]}>
@@ -136,23 +142,45 @@ export default function ExerciseForm({ onSubmit, onCancel, initialData }: Props)
       </View>
 
       <TextField
-        placeholder="Enunciate"
-        value={enunciate}
-        onChangeText={text => {
-          setEnunciate(text);
-          setError('');
-        }}
-        multiline
-        numberOfLines={5}
-        style={[styles.textArea, { backgroundColor: theme.card }]}
-      />
+      placeholder="Enunciate"
+      value={enunciate}
+      onChangeText={text => {
+        setEnunciate(text);
+        setError('');
+      }}
+      multiline
+      numberOfLines={5}
+      style={[
+        styles.textArea,
+        {
+          backgroundColor: theme.card,
+          width: '100%',
+          maxWidth: '100%',
+          flexGrow: 0,
+          flexShrink: 0,
+          alignSelf: 'stretch',
+          textAlignVertical: 'top',
+          textAlign: 'left',
+        }
+      ]}
+    />
+
 
       <TextField
         placeholder="Link (optional)"
         value={link}
         onChangeText={setLink}
-        style={{ backgroundColor: theme.card }}
+        style={{
+          backgroundColor: theme.card,
+          width: '100%',
+          maxWidth: '100%',
+          flexGrow: 0,
+          flexShrink: 0,
+          alignSelf: 'stretch',
+          textAlign: 'left',
+        }}
       />
+
 
       {type === 'multiple_choice' && (
         <>
@@ -250,6 +278,9 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 100,
+    padding: spacing.sm,
+    borderRadius: 8,
+    fontSize: fonts.size.md,
     textAlignVertical: 'top',
   },
   choicesHeader: {

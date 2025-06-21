@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,9 +21,12 @@ import {
   getAssessmentById,
   deleteAssessment,
   getUserSubmissionForAssessment,
+  getSubmissionsForAssessment,
   Assessment,
+  Submission,
 } from '../services/assessmentsApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
+import StudentsSubmissionsModal from '../components/ui/modals/StudentsSubmissionsModal';
 
 export default function AssessmentDetailScreen() {
   const theme = useTheme();
@@ -39,6 +43,8 @@ export default function AssessmentDetailScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
@@ -163,6 +169,18 @@ export default function AssessmentDetailScreen() {
     ]);
   };
 
+  const openSubmissionsModal = async () => {
+    if (!parsedAssessmentId || !authToken) return;
+    try {
+      const data = await getSubmissionsForAssessment(parsedAssessmentId, authToken);
+      setSubmissions(data);
+      setModalVisible(true);
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+      Alert.alert('Error', 'Could not load submissions.');
+    }
+  };
+
   if (!assessment) return null;
 
   return (
@@ -186,26 +204,20 @@ export default function AssessmentDetailScreen() {
 
           {renderStatusTag()}
 
-          <Text style={[styles.label, { color: theme.text }]}>
-            Start: {new Date(assessment.startTime).toLocaleString()}
-          </Text>
-          <Text style={[styles.label, { color: theme.text }]}>
-            Deadline: {new Date(assessment.deadline).toLocaleString()}
-          </Text>
-          <Text style={[styles.label, { color: theme.text }]}>
-            Duration: {assessment.toleranceTime} hours ⏱️
-          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Start: {new Date(assessment.startTime).toLocaleString()}</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Deadline: {new Date(assessment.deadline).toLocaleString()}</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Duration: {assessment.toleranceTime} hours ⏱️</Text>
 
-          <Text style={[styles.description, { color: theme.text }]}>
-            {assessment.description || 'No description provided.'}
-          </Text>
+          <Text style={[styles.description, { color: theme.text }]}>{assessment.description || 'No description provided.'}</Text>
 
-          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>
-            Exercises: {assessment.exercises?.length ?? 0}
-          </Text>
+          <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>Exercises: {assessment.exercises?.length ?? 0}</Text>
 
           {(isProfessor || isAssistant) && (
             <>
+              <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={openSubmissionsModal}>
+                <Text style={styles.buttonText}>Submissions</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: theme.primary }]}
                 onPress={() =>
@@ -230,10 +242,7 @@ export default function AssessmentDetailScreen() {
               </TouchableOpacity>
 
               {isProfessor && (
-                <TouchableOpacity
-                  style={[styles.buttonOutline, { borderColor: '#dc3545' }]}
-                  onPress={handleDelete}
-                >
+                <TouchableOpacity style={[styles.buttonOutline, { borderColor: '#dc3545' }]} onPress={handleDelete}>
                   <Text style={[styles.buttonText, { color: '#dc3545' }]}>Delete</Text>
                 </TouchableOpacity>
               )}
@@ -283,11 +292,7 @@ export default function AssessmentDetailScreen() {
               disabled={hasSubmitted}
             >
               <Text style={styles.buttonText}>
-                {hasSubmitted
-                  ? 'Already Submitted'
-                  : hasStarted
-                  ? 'Continue Assessment'
-                  : 'Start Assessment'}
+                {hasSubmitted ? 'Already Submitted' : hasStarted ? 'Continue Assessment' : 'Start Assessment'}
               </Text>
             </TouchableOpacity>
           )}
@@ -303,7 +308,7 @@ export default function AssessmentDetailScreen() {
               onClose={async () => {
                 setEditVisible(false);
                 if (!authToken || !parsedCourseId || !parsedAssessmentId) {
-                  Alert.alert('Error', 'No se pudo actualizar la evaluación: faltan datos.');
+                  Alert.alert('Error', 'Failed to update assessment: missing data.');
                   return;
                 }
 
@@ -311,14 +316,22 @@ export default function AssessmentDetailScreen() {
                   const updated = await getAssessmentById(parsedAssessmentId, authToken);
                   setAssessment(updated);
                 } catch (error) {
-                  console.error('Error al obtener la evaluación actualizada:', error);
-                  Alert.alert('Error', 'No se pudo actualizar la evaluación.');
+                  console.error('Error fetching updated assessment:', error);
+                  Alert.alert('Error', 'Could not refresh assessment.');
                 }
               }}
             />
           </View>
         </View>
       </Modal>
+
+      <StudentsSubmissionsModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        submissions={submissions}
+        assessmentType={assessment?.type ?? 'Exam'}
+        onSelect={() => {}}
+      />
     </>
   );
 }

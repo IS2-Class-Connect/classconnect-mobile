@@ -24,55 +24,71 @@ export async function generateAssessmentHtml(assessment: Assessment): Promise<st
       const body =
         ex.type === 'multiple_choice'
           ? `<ul class="choices">${options}</ul>`
-          : `<p style="margin-top:8px;">_____________________________</p>`;
+          : `<div class="open-space">
+               ${'<div class="line"></div>'.repeat(10)}
+             </div>`;
+
+      const linkHtml = ex.link
+        ? `<p class="resource"><em>Resource: <a href="${ex.link}" target="_blank">${ex.link}</a></em></p>`
+        : '';
+
       return `
         <div class="exercise">
-          <h3>Ejercicio ${idx + 1}</h3>
+          ${idx > 0 ? '<hr class="separator" />' : ''}
+          <h3>Exercise ${idx + 1}</h3>
           <p class="enunciate">${ex.enunciate}</p>
-          ${ex.link ? `<p><em>Recurso: ${ex.link}</em></p>` : ''}
+          ${linkHtml}
           ${body}
         </div>
       `;
     })
     .join('');
 
-  // Duración
   const toleranceHours = assessment.toleranceTime ?? 'N/A';
   const durationText =
     typeof toleranceHours === 'number'
       ? `${toleranceHours} ${toleranceHours === 1 ? 'hour' : 'hours'}`
       : toleranceHours;
 
-  // Tipo en mayúsculas
   const capitalizedType = assessment.type.toUpperCase();
 
-  // Return HTML
+  // Final HTML string
   return `
     <html>
       <head>
         <meta charset="utf-8" />
         <style>
+          @media print {
+            .exercise {
+              page-break-inside: avoid;
+            }
+          }
+
           body {
             font-family: 'Times New Roman', serif;
             padding: 32px;
             line-height: 1.6;
             text-align: center;
           }
+
           h1 {
             color: #165BAA;
             font-size: 28px;
             margin: 4px 0;
           }
+
           h2 {
             color: #165BAA;
             font-size: 20px;
             margin: 8px 0 16px;
           }
+
           h3 {
             color: #333;
             margin-bottom: 6px;
             text-align: left;
           }
+
           .type {
             font-size: 24px;
             font-weight: bold;
@@ -80,24 +96,35 @@ export async function generateAssessmentHtml(assessment: Assessment): Promise<st
             margin-bottom: 12px;
             text-transform: uppercase;
           }
+
           .duration {
             margin-top: 4px;
             margin-bottom: 20px;
             font-weight: 500;
           }
+
           img {
             width: 100px;
             margin: 12px 0;
           }
+
           .content {
             margin-top: 32px;
             padding-top: 16px;
             border-top: 2px solid #ccc;
             text-align: left;
           }
+
+          .separator {
+            border: none;
+            border-top: 2px solid #ccc;
+            margin: 32px 0;
+          }
+
           .exercise {
             margin-bottom: 24px;
           }
+
           .enunciate {
             color: #165BAA;
             font-size: 18px;
@@ -105,9 +132,33 @@ export async function generateAssessmentHtml(assessment: Assessment): Promise<st
             text-align: center;
             margin: 8px 0 12px;
           }
+
           .choices {
             margin-left: 20px;
             padding-left: 16px;
+          }
+
+          .resource {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+            text-align: left;
+          }
+
+          .resource a {
+            color: #165BAA;
+            text-decoration: none;
+          }
+
+          .open-space {
+            margin-top: 12px;
+            margin-bottom: 12px;
+          }
+
+          .line {
+            border-bottom: 1px solid #888;
+            margin: 10px 0;
+            height: 16px;
           }
         </style>
       </head>

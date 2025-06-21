@@ -23,6 +23,8 @@ import { spacing } from '../constants/spacing';
 import { shareHtmlAsPdf } from '../utils/pdfUtils';
 import { generateAssessmentHtml } from '../utils/generateAssessmentHtml';
 import { FileText } from 'lucide-react-native';
+import { Linking } from 'react-native';
+
 
 export default function ExercisesScreen() {
   const { assessmentId, courseId, role } = useLocalSearchParams<{
@@ -151,8 +153,16 @@ export default function ExercisesScreen() {
     <View key={id} style={styles.exerciseContainer}>
       <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
       {exercise.link && (
-        <Text style={[styles.link, { color: theme.primary }]}>[Attached Resource: {exercise.link}]</Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(exercise.link!)}
+          accessibilityRole="link"
+        >
+          <Text style={[styles.link, { color: theme.primary, textDecorationLine: 'underline' }]}>
+            📎 Attached Resource
+          </Text>
+        </TouchableOpacity>
       )}
+
       {exercise.type === 'multiple_choice' && exercise.choices && (
         <View style={{ marginTop: spacing.md }}>
           <Text style={[styles.notice, { color: theme.text }]}>Only one correct answer</Text>
