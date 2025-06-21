@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,8 +24,6 @@ import { spacing } from '../constants/spacing';
 import { shareHtmlAsPdf } from '../utils/pdfUtils';
 import { generateAssessmentHtml } from '../utils/generateAssessmentHtml';
 import { FileText } from 'lucide-react-native';
-import { Linking } from 'react-native';
-
 
 export default function ExercisesScreen() {
   const { assessmentId, courseId, role } = useLocalSearchParams<{
@@ -41,12 +40,10 @@ export default function ExercisesScreen() {
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [submitted, setSubmitted] = useState(false);
-
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const isStudent = role === 'Student';
   const isReadonly = !isStudent;
-
   const STORAGE_KEY = `startTime_${courseId}_${assessmentId}`;
 
   useEffect(() => {
@@ -57,8 +54,9 @@ export default function ExercisesScreen() {
         const res = await getAssessmentById(assessmentId, authToken);
         setAssessment(res);
 
-        if (isStudent) {
-          const durationMs = (res.toleranceTime ?? 0) * 60 * 60 * 1000;
+        const shouldTime = isStudent && res.type === 'Exam' && (res.toleranceTime ?? 0) > 0;
+        if (shouldTime) {
+          const durationMs = res.toleranceTime * 60 * 60 * 1000;
           const savedStart = await AsyncStorage.getItem(STORAGE_KEY);
           let startTime = savedStart ? parseInt(savedStart, 10) : Date.now();
 
@@ -79,7 +77,14 @@ export default function ExercisesScreen() {
   }, [assessmentId, courseId, authToken]);
 
   useEffect(() => {
-    if (!isStudent || !remainingTime || submitted) return;
+    const shouldRunTimer =
+      isStudent &&
+      !submitted &&
+      assessment?.type === 'Exam' &&
+      (assessment.toleranceTime ?? 0) > 0 &&
+      remainingTime > 0;
+
+    if (!shouldRunTimer) return;
 
     timerRef.current = setInterval(() => {
       setRemainingTime((prev) => {
@@ -93,7 +98,7 @@ export default function ExercisesScreen() {
     }, 1000);
 
     return () => clearInterval(timerRef.current!);
-  }, [remainingTime, isStudent, submitted]);
+  }, [remainingTime, isStudent, submitted, assessment]);
 
   const handleSubmit = () => {
     if (!assessment || !user || !authToken) return;
@@ -135,9 +140,8 @@ export default function ExercisesScreen() {
     }
   };
 
-  const handleExportPdf = async () => {
+    const handleExportPdf = async () => {
     if (!assessment) return;
-
     try {
       const html = await generateAssessmentHtml(assessment);
       await shareHtmlAsPdf(html);
@@ -153,16 +157,12 @@ export default function ExercisesScreen() {
     <View key={id} style={styles.exerciseContainer}>
       <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
       {exercise.link && (
-        <TouchableOpacity
-          onPress={() => Linking.openURL(exercise.link!)}
-          accessibilityRole="link"
-        >
+        <TouchableOpacity onPress={() => Linking.openURL(exercise.link!)}>
           <Text style={[styles.link, { color: theme.primary, textDecorationLine: 'underline' }]}>
             📎 Attached Resource
           </Text>
         </TouchableOpacity>
       )}
-
       {exercise.type === 'multiple_choice' && exercise.choices && (
         <View style={{ marginTop: spacing.md }}>
           <Text style={[styles.notice, { color: theme.text }]}>Only one correct answer</Text>
@@ -213,10 +213,11 @@ export default function ExercisesScreen() {
   };
 
   const getTimeColor = () => {
-    const tolerance = assessment?.toleranceTime ?? 1;
-    const total = tolerance * 3600000;
+    if (!assessment || assessment.type !== 'Exam' || (assessment.toleranceTime ?? 0) === 0) {
+      return 'transparent';
+    }
+    const total = assessment.toleranceTime * 3600000;
     const ratio = remainingTime / total;
-
     if (ratio > 0.5) return theme.text;
     if (ratio > 0.2) return '#f0ad4e';
     return '#dc3545';
@@ -230,16 +231,16 @@ export default function ExercisesScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backArrow, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
-
         <Text style={[styles.counter, { color: theme.text }]}>Exercise {index + 1} of {assessment.exercises.length}</Text>
-
         <TouchableOpacity onPress={handleExportPdf} style={styles.exportButton}>
           <FileText size={24} stroke="#339CFF" />
         </TouchableOpacity>
       </View>
 
-      {isStudent && (
-        <Text style={[styles.timer, { color: getTimeColor() }]}>Time remaining: {formatTime(remainingTime)}</Text>
+      {isStudent && assessment.type === 'Exam' && (assessment.toleranceTime ?? 0) > 0 && (
+        <Text style={[styles.timer, { color: getTimeColor() }]}>
+          Time remaining: {formatTime(remainingTime)}
+        </Text>
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>

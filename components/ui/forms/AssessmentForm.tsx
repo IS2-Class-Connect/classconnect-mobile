@@ -104,6 +104,12 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
       return;
     }
 
+    if (exercises.length === 0) {
+      setErrorMessage('❌ At least one exercise is required.');
+      setErrorVisible(true);
+      return;
+    }
+
     try {
       const basePayload = {
         title: title.trim(),

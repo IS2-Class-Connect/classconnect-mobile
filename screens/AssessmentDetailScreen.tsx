@@ -249,53 +249,74 @@ export default function AssessmentDetailScreen() {
             </>
           )}
 
-          {isStudent && getStatus() === 'OPEN' && (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
-              onPress={() => {
-                if (hasSubmitted) {
-                  Alert.alert('Already submitted', 'You have already submitted this assessment.');
-                  return;
-                }
+          {isStudent && (
+            (() => {
+              const status = getStatus();
+              const isTask = assessment.type === 'Task';
+              const isLateTask = isTask && status === 'CLOSED';
+              const canStart = (assessment.type === 'Exam' && status === 'OPEN') || isTask;
 
-                if (hasStarted) {
-                  router.push({
-                    pathname: '/exercises',
-                    params: {
-                      courseId: parsedCourseId,
-                      assessmentId: parsedAssessmentId,
-                      role: 'Student',
-                    },
-                  });
-                } else {
-                  Alert.alert(
-                    'Start Assessment',
-                    'Are you sure? You will have limited time and cannot leave once started.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Start',
-                        onPress: () =>
-                          router.push({
-                            pathname: '/exercises',
-                            params: {
-                              courseId: parsedCourseId,
-                              assessmentId: parsedAssessmentId,
-                              role: 'Student',
-                            },
-                          }),
+              if (!canStart) return null;
+
+              return (
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
+                  onPress={() => {
+                    if (hasSubmitted) {
+                      Alert.alert('Already submitted', 'You have already submitted this assessment.');
+                      return;
+                    }
+
+                    const params = {
+                      pathname: '/exercises',
+                      params: {
+                        courseId: parsedCourseId,
+                        assessmentId: parsedAssessmentId,
+                        role: 'Student',
                       },
-                    ]
-                  );
-                }
-              }}
-              disabled={hasSubmitted}
-            >
-              <Text style={styles.buttonText}>
-                {hasSubmitted ? 'Already Submitted' : hasStarted ? 'Continue Assessment' : 'Start Assessment'}
-              </Text>
-            </TouchableOpacity>
+                    };
+
+                    if (isLateTask) {
+                      Alert.alert(
+                        'Late Submission',
+                        'You are about to start a task after the deadline. Please check with your professor if this is allowed.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Continue', onPress: () => router.push(params) },
+                        ]
+                      );
+                      return;
+                    }
+
+                    if (hasStarted) {
+                      router.push(params);
+                    } else {
+                      Alert.alert(
+                        'Start Assessment',
+                        'Are you sure? You will have limited time and cannot leave once started.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Start', onPress: () => router.push(params) },
+                        ]
+                      );
+                    }
+                  }}
+                  disabled={hasSubmitted}
+                >
+                  <Text style={styles.buttonText}>
+                    {hasSubmitted
+                      ? 'Already Submitted'
+                      : isLateTask
+                      ? 'Submit (Late)'
+                      : hasStarted
+                      ? 'Continue Assessment'
+                      : 'Start Assessment'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()
           )}
+
         </View>
       </ScrollView>
 
