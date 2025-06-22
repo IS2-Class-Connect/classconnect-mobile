@@ -179,3 +179,45 @@ export async function getUserSubmissionForAssessment(
   const response = await getFromGateway(`/assessments/${assessmentId}/submissions/${userId}`, token);
   return response.data as Submission;
 }
+export interface Correction {
+  assessmentId: string;
+  userId: string;
+  commentsPerExercise: string[];
+  finalNote: number;
+  finalComment: string;
+  aiSummary?: string; 
+}
+
+export async function mockSubmitCorrection(
+  assessmentId: string,
+  userId: string,
+  correction: Omit<Correction, 'aiSummary'>,
+  token: string
+): Promise<Correction> {
+  console.log('📤 Mock POST correction:', { assessmentId, userId, correction, token });
+
+  return {
+    ...correction,
+    assessmentId,
+    userId,
+    aiSummary: 'Mocked AI summary based on correction comments.',
+  };
+}
+
+
+export async function mockGetCorrection(
+  assessmentId: string,
+  userId: string,
+  token: string
+): Promise<Correction> {
+  console.log('📥 Mock GET correction:', { assessmentId, userId, token });
+
+  return {
+    assessmentId,
+    userId,
+    commentsPerExercise: ['Well reasoned', 'Incorrect choice', 'Great explanation'],
+    finalNote: 8.5,
+    finalComment: 'Good performance overall.',
+    aiSummary: 'Student showed good understanding with minor mistakes.',
+  };
+}

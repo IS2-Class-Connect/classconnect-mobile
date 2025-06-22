@@ -16,6 +16,7 @@ import { fonts } from '../../../constants/fonts';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { UserCircle2 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 type Props = {
   visible: boolean;
@@ -33,39 +34,51 @@ export default function StudentsSubmissionsModal({
   onSelect,
 }: Props) {
   const theme = useTheme();
-  const { authToken} = useAuth();
+  const { authToken } = useAuth();
   const [users, setUsers] = useState<Record<string, User>>({});
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    if (!visible || submissions.length === 0) return;
-
     const fetchUsers = async () => {
-        if (!authToken) {
-            console.warn('No authToken available, skipping user fetch.');
-            return;
+      if (!authToken || submissions.length === 0) {
+        setLoading(false); // ✅ Prevent infinite loading
+        return;
+      }
+
+      setLoading(true);
+      const userMap: Record<string, User> = {};
+      const uncachedUserIds = submissions
+        .map((s) => s.userId)
+        .filter((id) => !users[id]);
+
+      for (const userId of uncachedUserIds) {
+        try {
+          const user = await findUserByUuid(userId, authToken);
+          userMap[userId] = user;
+        } catch (error) {
+          console.error('❌ Error fetching user', userId, error);
         }
+      }
+      setUsers((prev) => ({ ...prev, ...userMap }));
+      setLoading(false);
+    };
 
-        setLoading(true);
-        const userMap: Record<string, User> = {};
-        const uncachedUserIds = submissions
-            .map((s) => s.userId)
-            .filter((id) => !users[id]);
-
-        for (const userId of uncachedUserIds) {
-            try {
-            const user = await findUserByUuid(userId, authToken);
-            userMap[userId] = user;
-            } catch (error) {
-            console.error('❌ Error fetching user', userId, error);
-            }
-        }
-        setUsers((prev) => ({ ...prev, ...userMap }));
-        setLoading(false);
-        };
-
-    fetchUsers();
+    if (visible) {
+      fetchUsers();
+    }
   }, [visible]);
+
+  const handleNavigateToCorrection = (submission: Submission) => {
+    onClose(); // ✅ Close modal before navigating
+    router.push({
+      pathname: '/exercises-correction',
+      params: {
+        assessmentId: submission.assesId,
+        userId: submission.userId,
+      },
+    });
+  };
 
   const renderItem = ({ item }: { item: Submission }) => {
     const user = users[item.userId];
@@ -87,11 +100,13 @@ export default function StudentsSubmissionsModal({
         </View>
         <View style={styles.info}>
           <Text style={[styles.name, { color: theme.text }]}>{user.name}</Text>
-          <Text style={[styles.date, { color: theme.text + '99' }]}>Submitted: {date}</Text>
+          <Text style={[styles.date, { color: theme.text + '99' }]}>
+            Submitted: {date}
+          </Text>
         </View>
         <TouchableOpacity
           style={[styles.button, { borderColor: theme.primary }]}
-          onPress={() => onSelect(item)}
+          onPress={() => handleNavigateToCorrection(item)}
           accessibilityLabel={`Correct ${assessmentType === 'Exam' ? 'exam' : 'task'} for ${user.name}`}
         >
           <Text style={[styles.buttonText, { color: theme.primary }]}>
@@ -114,8 +129,13 @@ export default function StudentsSubmissionsModal({
           <Text style={[styles.title, { color: theme.text }]}>
             Submissions for {assessmentType === 'Exam' ? 'Exam' : 'Task'}
           </Text>
+
           {loading ? (
             <ActivityIndicator size="large" color={theme.primary} />
+          ) : submissions.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: theme.text + '99' }}>
+              No submissions yet.
+            </Text>
           ) : (
             <FlatList
               data={[...submissions].sort(
@@ -126,6 +146,7 @@ export default function StudentsSubmissionsModal({
               contentContainerStyle={{ paddingBottom: spacing.md }}
             />
           )}
+
           <TouchableOpacity
             onPress={onClose}
             style={[styles.closeButton, { borderColor: theme.primary }]}
