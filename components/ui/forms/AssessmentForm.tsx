@@ -121,6 +121,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
       };
 
       if (initialData) {
+        console.log('Updating assessment with data:', basePayload);
         await updateAssessment(initialData.id, basePayload, user.uuid, authToken);
         Alert.alert('✅ Assessment updated');
       } else {
@@ -128,6 +129,7 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
           ...basePayload,
           type,
         };
+        console.log('Creating assessment with data:', fullPayload);
         await createAssessment(fullPayload, courseId, user.uuid, authToken);
         Alert.alert('✅ Assessment created');
       }

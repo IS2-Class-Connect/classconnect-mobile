@@ -8,6 +8,8 @@ import {
   ScrollView,
   TextInput,
   Linking,
+  Image,
+  Modal,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +27,8 @@ import {
 } from '../services/assessmentsApi';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
+
+
 
 export default function CorrectionExerciseScreen() {
   const { assessmentId, userId, role } = useLocalSearchParams<{
@@ -45,10 +49,11 @@ export default function CorrectionExerciseScreen() {
   const [finalNote, setFinalNote] = useState<number>(0);
   const [finalComment, setFinalComment] = useState('');
   const [correctionLoaded, setCorrectionLoaded] = useState(false);
+  const [showClassyModal, setShowClassyModal] = useState(false);
 
   const totalPages = assessment ? assessment.exercises.length + 1 : 0;
   const isLastPage = index === totalPages - 1;
-
+   console.log('submission:', submission);
   useEffect(() => {
     const fetchData = async () => {
       if (!assessmentId || !userId || !authToken) return;
@@ -81,7 +86,6 @@ export default function CorrectionExerciseScreen() {
 
   const handleSubmitCorrection = async () => {
     if (!assessment || !submission || !user || !authToken) return;
-
     if (!finalComment.trim()) {
       Alert.alert('Comment required', 'Please write a final comment before submitting.');
       return;
@@ -206,6 +210,15 @@ export default function CorrectionExerciseScreen() {
         <Text style={[styles.counter, { color: theme.text }]}>
           {isLastPage ? 'Final feedback' : `Exercise ${index + 1} of ${assessment.exercises.length}`}
         </Text>
+
+        {isReadonly && (
+          <TouchableOpacity
+            onPress={() => setShowClassyModal(true)}
+            style={{ position: 'absolute', right: 0, padding: spacing.sm }}
+          >
+            <Image source={require('../assets/icons/classy-logo.png')} style={{ width: 32, height: 32 }} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', minHeight: '0%' }}>
@@ -274,6 +287,41 @@ export default function CorrectionExerciseScreen() {
           )
         )}
       </View>
+
+      {isReadonly && (
+        <Modal visible={showClassyModal} transparent animationType="fade">
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: spacing.lg,
+          }}>
+            <View style={{
+              width: '95%',
+              backgroundColor: theme.card,
+              borderRadius: 16,
+              padding: spacing.lg,
+              alignItems: 'center',
+            }}>
+              <Image source={require('../assets/icons/classy-logo.png')} style={{ width: 48, height: 48, marginBottom: spacing.md }} />
+              <Text style={[styles.label, { color: theme.text, textAlign: 'center', marginBottom: spacing.md }]}>
+                {submission?.AIFeedback ?? 'No Classy feedback available.'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md }}>
+                <Text style={{ color: theme.text, marginRight: spacing.sm }}>powered by</Text>
+                <Image source={require('../assets/icons/gemini-logo.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowClassyModal(false)}
+                style={{ marginTop: spacing.lg }}
+              >
+                <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
