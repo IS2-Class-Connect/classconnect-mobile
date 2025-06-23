@@ -175,3 +175,4 @@ export async function generateAssessmentHtml(assessment: Assessment): Promise<st
     </html>
   `;
 }
+

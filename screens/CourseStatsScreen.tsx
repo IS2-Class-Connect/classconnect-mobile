@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   Image,
+  Alert,
 } from 'react-native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -28,6 +29,9 @@ import { Enrollment, getCourseEnrollments } from '../services/coursesApi';
 import { ProgressBar } from 'react-native-paper';
 import { spacing } from '../constants/spacing';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { generateCourseStatsHtml } from '@/utils/generateCourseStatsHtml';
+import { shareHtmlAsPdf } from '@/utils/pdfUtils';
+import { FileText } from 'lucide-react-native';
 
 export default function CourseStatsScreen() {
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
@@ -101,6 +105,31 @@ export default function CourseStatsScreen() {
     setStudentStats(stats);
   };
 
+
+const handleExportPdf = async () => {
+  try {
+    const studentsStats = await Promise.all(
+      users.map(async (user) => {
+        const stats = await getStudentPerformanceSummary(numericCourseId, user.uuid, authToken!);
+        return { name: user.name, ...stats };
+      })
+    );
+
+    if (!courseStats) {
+      Alert.alert('Error', 'Course statistics are not available.');
+      return;
+    }
+
+    const html = await generateCourseStatsHtml(assessments, studentsStats, courseStats, users.map(user => user.name));
+
+    await shareHtmlAsPdf(html);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    Alert.alert('Error', 'Could not generate PDF.');
+  }
+};
+
+
   const renderSummary = () => {
     if (!courseStats) return null;
 
@@ -155,7 +184,13 @@ export default function CourseStatsScreen() {
           <Ionicons name="arrow-back" size={24} color="#4287f5" />
         </TouchableOpacity>
         <Text style={styles.title}>Performance</Text>
-        <Ionicons name="stats-chart" size={24} color="#4287f5" />
+         {/* Botón con el ícono de archivo */}
+          <View style={styles.exportButtonContainer}>
+            <TouchableOpacity onPress={handleExportPdf} style={styles.exportButton}>
+              <FileText size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
       </View>
 
       <View style={styles.tabRow}>
@@ -416,7 +451,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.lg,
-    paddingTop: 140,
+    paddingTop: 120,
   },
   topRow: {
     flexDirection: 'row',
@@ -515,4 +550,19 @@ const styles = StyleSheet.create({
     color: '#4287f5',
     fontWeight: 'bold',
   },
+  exportButtonContainer: {
+  marginTop: spacing.md,
+  marginBottom: spacing.md,
+  alignItems: 'center',
+},
+exportButton: {
+  backgroundColor: '#4287f5',
+  padding: spacing.sm,
+  borderRadius: 6,
+},
+exportText: {
+  color: '#fff',
+  fontWeight: 'bold',
+}
+
 });
