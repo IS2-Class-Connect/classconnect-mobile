@@ -163,9 +163,18 @@ export default function AssessmentScreen() {
                 </View>
                 {(isProfessor || isAssistant) && (
                   <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    <TouchableOpacity onPress={() => { setEditingAssessment(a); setFormVisible(true); }}>
+                    {status === 'UPCOMING' && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditingAssessment(a);
+                        setFormVisible(true);
+                      }}
+                    >
                       <Text style={{ fontSize: 18, color: theme.primary }}>✏️</Text>
                     </TouchableOpacity>
+                  )}
+
+
                     {isProfessor && (
                       <TouchableOpacity onPress={() => {
                         Alert.alert('Confirm Delete', 'Are you sure?', [

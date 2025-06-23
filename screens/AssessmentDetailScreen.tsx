@@ -197,6 +197,7 @@ export default function AssessmentDetailScreen() {
   };
 
   if (!assessment) return null;
+  const status = getStatus();
 
   return (
     <>
@@ -243,9 +244,22 @@ export default function AssessmentDetailScreen() {
                 <Text style={styles.buttonText}>View Exercises</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.buttonOutline, { borderColor: theme.primary }]} onPress={() => setEditVisible(true)}>
-                <Text style={[styles.buttonText, { color: theme.primary }]}>Edit</Text>
+              <TouchableOpacity
+                style={[
+                  styles.buttonOutline,
+                  {
+                    borderColor: status !== 'UPCOMING' ? '#aaa' : theme.primary,
+                    opacity: status !== 'UPCOMING' ? 0.5 : 1,
+                  },
+                ]}
+                onPress={() => setEditVisible(true)}
+                disabled={status !== 'UPCOMING'}
+              >
+                <Text style={[styles.buttonText, { color: status !== 'UPCOMING' ? '#aaa' : theme.primary }]}>
+                  Edit
+                </Text>
               </TouchableOpacity>
+
 
               {isProfessor && (
                 <TouchableOpacity style={[styles.buttonOutline, { borderColor: '#dc3545' }]} onPress={handleDelete}>
