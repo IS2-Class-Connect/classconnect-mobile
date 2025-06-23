@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
-  Dimensions,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,8 +26,6 @@ import {
 import { getAllUsers, User } from '../services/userApi';
 import { spacing } from '../constants/spacing';
 import DateTimePicker from '@react-native-community/datetimepicker';
-
-const screenWidth = Dimensions.get('window').width;
 
 export default function CourseStatsScreen() {
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
@@ -46,6 +45,8 @@ export default function CourseStatsScreen() {
   const [till, setTill] = useState<Date | null>(null);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showTillPicker, setShowTillPicker] = useState(false);
+  const [tempFrom, setTempFrom] = useState<Date>(new Date());
+  const [tempTill, setTempTill] = useState<Date>(new Date());
 
   useEffect(() => {
     if (!authToken) return;
@@ -89,7 +90,7 @@ export default function CourseStatsScreen() {
     setStudentStats(stats);
   };
 
-  const renderSummary = () => {
+    const renderSummary = () => {
     if (!courseStats) return null;
 
     const barData = [
@@ -161,13 +162,19 @@ export default function CourseStatsScreen() {
       {tab === 'summary' && (
         <View style={styles.dateRow}>
           <TouchableOpacity
-            onPress={() => setShowFromPicker(true)}
+            onPress={() => {
+              setTempFrom(from || new Date());
+              setShowFromPicker(true);
+            }}
             style={[styles.dateButton, styles.activeTab]}
           >
             <Text style={styles.dateLabel}>From: {from?.toDateString() || 'Select'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setShowTillPicker(true)}
+            onPress={() => {
+              setTempTill(till || new Date());
+              setShowTillPicker(true);
+            }}
             style={[styles.dateButton, styles.activeTab]}
           >
             <Text style={styles.dateLabel}>Till: {till?.toDateString() || 'Select'}</Text>
@@ -201,28 +208,55 @@ export default function CourseStatsScreen() {
         {tab === 'assessment' && <View />}
       </View>
 
-      {showFromPicker && (
-        <DateTimePicker
-          value={from || new Date()}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, selectedDate) => {
-            setShowFromPicker(false);
-            if (selectedDate) setFrom(selectedDate);
-          }}
-        />
-      )}
-      {showTillPicker && (
-        <DateTimePicker
-          value={till || new Date()}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, selectedDate) => {
-            setShowTillPicker(false);
-            if (selectedDate) setTill(selectedDate);
-          }}
-        />
-      )}
+      {/* FROM MODAL */}
+      <Modal visible={showFromPicker} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFromPicker(false)}>
+          <Pressable style={styles.modalContent}>
+            <DateTimePicker
+              value={tempFrom}
+              mode="date"
+              display="spinner"
+              onChange={(_, selectedDate) => {
+                if (selectedDate) setTempFrom(selectedDate);
+              }}
+              textColor="#000"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => { setFrom(null); setShowFromPicker(false); }}>
+                <Text style={styles.clearText}>Clean Date</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFrom(tempFrom); setShowFromPicker(false); }}>
+                <Text style={styles.confirmText}>Select Date</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* TILL MODAL */}
+      <Modal visible={showTillPicker} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowTillPicker(false)}>
+          <Pressable style={styles.modalContent}>
+            <DateTimePicker
+              value={tempTill}
+              mode="date"
+              display="spinner"
+              onChange={(_, selectedDate) => {
+                if (selectedDate) setTempTill(selectedDate);
+              }}
+              textColor="#000"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => { setTill(null); setShowTillPicker(false); }}>
+                <Text style={styles.clearText}>Clean Date</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setTill(tempTill); setShowTillPicker(false); }}>
+                <Text style={styles.confirmText}>Select Date</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -309,5 +343,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: spacing.md,
+    width: 300,
+    alignItems: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: spacing.md,
+  },
+  clearText: {
+    color: 'red',
+    fontWeight: 'bold',
+  },
+  confirmText: {
+    color: '#4287f5',
+    fontWeight: 'bold',
   },
 });
