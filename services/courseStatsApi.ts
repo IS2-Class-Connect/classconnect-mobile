@@ -59,5 +59,6 @@ export async function getAssessmentPerformanceSummary(
     `/courses/${courseId}/performance/by-assessment`,
     token
   );
+  console.log('Assessment performance response:', response);
   return response.data as AssessmentPerformanceDto[];
 }

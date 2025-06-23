@@ -25,6 +25,7 @@ import {
 } from '../services/courseStatsApi';
 import { getAllUsers, User } from '../services/userApi';
 import { Enrollment, getCourseEnrollments } from '../services/coursesApi';
+import { ProgressBar } from 'react-native-paper';
 import { spacing } from '../constants/spacing';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -49,6 +50,9 @@ export default function CourseStatsScreen() {
   const [tempFrom, setTempFrom] = useState<Date>(new Date());
   const [tempTill, setTempTill] = useState<Date>(new Date());
   const [showStudentPicker, setShowStudentPicker] = useState(false);
+  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentPerformanceDto | null>(null);
+  const [showAssessmentPicker, setShowAssessmentPicker] = useState(false);
+
 
   useEffect(() => {
     if (!authToken) return;
@@ -201,50 +205,95 @@ export default function CourseStatsScreen() {
           </TouchableOpacity>
 
           {studentStats && (
-            <View style={styles.chartContainer}>
-              <PieChart
-                data={[
-                  {
-                    value: studentStats.completedAssessments,
-                    color: 'green',
-                    text: `${(
-                      (studentStats.completedAssessments / studentStats.totalAssessments) * 100
-                    ).toFixed(0)}%`,
-                  },
-                  {
-                    value: studentStats.totalAssessments - studentStats.completedAssessments,
-                    color: 'red',
-                    text: `${(
-                      ((studentStats.totalAssessments - studentStats.completedAssessments) /
-                        studentStats.totalAssessments) *
-                      100
-                    ).toFixed(0)}%`,
-                  },
-                ]}
-                radius={80}
-                innerRadius={45}
-                donut
-                showText
-                textColor="white"
-                textSize={14}
-              />
-              <View style={{ height: spacing.md }} />
-              <Text style={styles.averageLabel}>
-                Student Average: {studentStats.averageGrade.toFixed(1)}
-              </Text>
-              <View style={{ height: spacing.sm }} />
-              <Text style={styles.chartLabel}>
-                Green indicates completed tasks, while red represents pending or missing ones.
-              </Text>
+  <View style={styles.chartContainer}>
+    <PieChart
+      data={[
+        {
+          value: studentStats.completedAssessments,
+          color: theme.primary, // Usando el color azul del tema
+          text: `${(
+            (studentStats.completedAssessments / studentStats.totalAssessments) * 100
+          ).toFixed(0)}%`,
+        },
+        {
+          value: studentStats.totalAssessments - studentStats.completedAssessments,
+          color: 'white',
+          text: `${(
+            ((studentStats.totalAssessments - studentStats.completedAssessments) /
+              studentStats.totalAssessments) *
+            100
+          ).toFixed(0)}%`,
+        },
+      ]}
+      radius={80}
+      innerRadius={0}
+      showText
+      textColor="black"
+      textSize={14}
+    />
+    <View style={{ height: spacing.md }} />
+    <Text style={styles.averageLabel}>
+      Student Average: {studentStats.averageGrade.toFixed(1)}
+    </Text>
+    <View style={{ height: spacing.sm }} />
+    <Text style={styles.chartLabel}>
+      Blue indicates completed tasks, while white represents pending or missing ones.
+    </Text>
+  </View>
+)}
 
-            </View>
-          )}
+
         </>
       )}
 
       <View style={styles.section}>
         {tab === 'summary' && renderSummary()}
-        {tab === 'assessment' && <View />}
+        {tab === 'assessment'  && (
+  <>
+    <TouchableOpacity
+      style={[styles.dateButton, styles.activeTab, { alignSelf: 'center', marginBottom: spacing.md }]}
+      onPress={() => setShowAssessmentPicker(true)}
+    >
+      <Text style={styles.dateLabel}>
+        {selectedAssessment ? selectedAssessment.title : 'Select assessment...'}
+      </Text>
+    </TouchableOpacity>
+
+   {selectedAssessment && (
+  <View style={styles.chartContainer}>
+    <PieChart
+      data={[
+        {
+          value: selectedAssessment.completionRate * 100,
+          color: theme.primary, // Usando el color azul del tema
+          text: `${(selectedAssessment.completionRate * 100).toFixed(0)}%`,
+        },
+        {
+          value: (1 - selectedAssessment.completionRate) * 100,
+          color: 'white',
+          text: `${((1 - selectedAssessment.completionRate) * 100).toFixed(0)}%`,
+        },
+      ]}
+      radius={80}
+      innerRadius={0}
+      showText
+      textColor="black"
+      textSize={14}
+    />
+    <Text style={styles.averageLabel}>
+      Assessment Average Grade: {selectedAssessment.averageGrade.toFixed(1)}
+    </Text>
+    <Text style={styles.chartLabel}>
+      The pie chart shows the percentage of completed assessments.
+    </Text>
+  </View>
+)}
+
+
+
+
+    </>
+  )}
       </View>
 
       {/* FROM MODAL */}
@@ -329,6 +378,36 @@ export default function CourseStatsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+
+      {/* ASSESSMENT SELECTOR MODAL */}
+      <Modal visible={showAssessmentPicker} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAssessmentPicker(false)}>
+          <Pressable style={[styles.modalContent, { paddingHorizontal: 0, width: 320 }]}>
+            <Text style={{ fontWeight: 'bold', marginBottom: spacing.md }}>Select Assessment</Text>
+            <ScrollView style={{ maxHeight: 300, width: '100%' }}>
+              {assessments.map((assessment, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => {
+                    console.log('Selected assessment:', assessment);
+                    setSelectedAssessment(assessment);
+                    setShowAssessmentPicker(false);
+                  }}
+                  style={{
+                    padding: spacing.sm,
+                    borderBottomColor: '#ddd',
+                    borderBottomWidth: 1,
+                  }}
+                >
+                  <Text style={{ textAlign: 'center' }}>{assessment.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -372,7 +451,7 @@ const styles = StyleSheet.create({
   chartLabel: {
     textAlign: 'center',
     fontSize: 14,
-    marginBottom: spacing.md, // aumentado para mejor separación del texto explicativo
+    marginBottom: spacing.md,
     color: '#ccc',
   },
   averageLabel: {
@@ -400,7 +479,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.lg,
-    marginTop: spacing.lg, // agregado para más aire entre el selector y el gráfico
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   barLabel: {
