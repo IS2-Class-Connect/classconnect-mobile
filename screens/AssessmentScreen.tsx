@@ -1,5 +1,6 @@
 // AssessmentScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState , useCallback} from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
   ScrollView, Alert, Modal, Platform
@@ -50,25 +51,68 @@ export default function AssessmentScreen() {
   }, [selectedTab]);
 
   const fetchAssessments = async () => {
-    if (!authToken || !courseId) return;
-    try {
-      const res = await getAssessmentsByCourse(
-        Number(courseId),
-        page,
-        filters,
-        authToken
-      );
-      console.log('Fetched assessments:', res);
-      setAssessments(res.assessments);
-      setTotal(res.total);
-    } catch (e) {
-      console.error('Error loading assessments:', e);
-    }
-  };
+  if (!authToken || !courseId) return;
+  try {
+    const res = await getAssessmentsByCourse(
+      Number(courseId),
+      page,
+      filters,
+      authToken
+    );
+    console.log('Fetched assessments:', res);
+    setAssessments(res.assessments);
+    setTotal(res.total);
 
-  useEffect(() => {
-    fetchAssessments();
-  }, [filters, page]);
+    if (
+      editingAssessment &&
+      !res.assessments.some((a) => a.id === editingAssessment.id)
+    ) {
+      setEditingAssessment(null);
+      setFormVisible(false);
+    }
+
+  } catch (e) {
+    console.error('Error loading assessments:', e);
+  }
+};
+
+
+  useFocusEffect(
+  useCallback(() => {
+    const refresh = async () => {
+
+      if (!authToken || !courseId) return;
+
+      try {
+        const res = await getAssessmentsByCourse(
+          Number(courseId),
+          1, 
+          { ...filters, type: selectedTab },
+          authToken
+        );
+        setAssessments(res.assessments);
+        setTotal(res.total);
+        setPage(1);
+
+        if (
+          editingAssessment &&
+          !res.assessments.some((a) => a.id === editingAssessment.id)
+        ) {
+          setEditingAssessment(null);
+          setFormVisible(false);
+        }
+      } catch (err) {
+        console.error('Error refreshing assessment:', err);
+        setEditingAssessment(null);     
+        setFormVisible(false);
+      }
+    };
+
+    refresh();
+  }, [filters, selectedTab])
+);
+
+
 
   const getStatus = (a: Assessment): 'UPCOMING' | 'OPEN' | 'CLOSED' => {
     const now = new Date();

@@ -57,59 +57,72 @@ export default function AssessmentDetailScreen() {
   const parsedAssessmentId = Array.isArray(assessmentId) ? assessmentId[0] : assessmentId;
 
   useEffect(() => {
-    if (parsedCourseId && parsedAssessmentId && authToken) {
-      getAssessmentById(parsedAssessmentId, authToken)
-        .then(setAssessment)
-        .catch((err) => console.error('Error loading assessment:', err));
-    }
-  }, [parsedAssessmentId, parsedCourseId, authToken]);
+  if (parsedCourseId && parsedAssessmentId && authToken) {
+    getAssessmentById(parsedAssessmentId, authToken)
+      .then(setAssessment)
+      .catch((err) => {
+        console.error('Error loading assessment:', err);
+        if (
+          err?.response?.status === 404 ||
+          err?.message?.includes('404') ||
+          err?.detail?.includes('not found')
+        ) {
+          Alert.alert(
+            'Assessment not found',
+            'This assessment was deleted. You will be returned to the previous screen.',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to load the assessment.');
+        }
+      });
+  }
+}, [parsedAssessmentId, parsedCourseId, authToken]);
 
-    useFocusEffect(
-    useCallback(() => {
-      if (!parsedAssessmentId || !user?.uuid || !authToken) return;
-
-      getUserSubmissionForAssessment(parsedAssessmentId, user.uuid, authToken)
-        .then((submission) => {
-          setHasSubmitted(true);
-          setStudentSubmission(submission);
-        })
-        .catch(() => {
-          setHasSubmitted(false);
-          setStudentSubmission(null);
-        });
-    }, [parsedAssessmentId, user?.uuid, authToken])
-  );
 
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
+  let interval: NodeJS.Timeout | undefined;
+  let cancelled = false;
 
-    if (assessment && parsedCourseId && parsedAssessmentId && authToken) {
-      const updateCountdown = () => {
-        const now = new Date();
-        const start = new Date(assessment.startTime);
-        const diff = start.getTime() - now.getTime();
+  if (!assessment || !parsedAssessmentId || !authToken) return;
 
-        if (diff <= 0) {
-          clearInterval(interval);
-          setCountdown('Starting now');
-          getAssessmentById(parsedAssessmentId, authToken)
-            .then(setAssessment)
-            .catch((err) => console.error('Error refreshing assessment:', err));
+  const updateCountdown = async () => {
+    const now = new Date();
+    const start = new Date(assessment.startTime);
+    const diff = start.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      clearInterval(interval);
+      setCountdown('Starting now');
+      try {
+        const updated = await getAssessmentById(parsedAssessmentId, authToken);
+        if (!cancelled) setAssessment(updated);
+      } catch (err: any) {
+        if (!cancelled && err?.response?.status === 404) {
+          Alert.alert('Assessment deleted', 'It was removed during the countdown.');
+          router.back();
         } else {
-          const hours = Math.floor(diff / 3600000);
-          const minutes = Math.floor((diff % 3600000) / 60000);
-          const seconds = Math.floor((diff % 60000) / 1000);
-          setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+          console.error('Error refreshing assessment during countdown:', err);
         }
-      };
-
-      updateCountdown();
-      interval = setInterval(updateCountdown, 1000);
+      }
+    } else {
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      if (!cancelled) setCountdown(`${hours}h ${minutes}m ${seconds}s`);
     }
+  };
 
-    return () => clearInterval(interval);
-  }, [assessment, parsedCourseId, parsedAssessmentId, authToken]);
+  updateCountdown();
+  interval = setInterval(updateCountdown, 1000);
+
+  return () => {
+    cancelled = true;
+    clearInterval(interval);
+  };
+}, [assessment?.startTime, parsedAssessmentId, authToken]);
+
 
   useEffect(() => {
     if (!parsedCourseId || !parsedAssessmentId || !isStudent) return;
