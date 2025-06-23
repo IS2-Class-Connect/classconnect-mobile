@@ -395,6 +395,22 @@ export default function CourseDetailScreen() {
                     </TouchableOpacity>
                   </>
                 )}
+                <TouchableOpacity
+                    style={styles.iconAction}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/course-stats',
+                        params: {
+                          courseId: String(parsedCourse.id),
+                          courseName: parsedCourse.title,
+                          role,
+                        },
+                      })
+                    }
+                  >
+                    <Ionicons name="stats-chart-outline" size={36} color={theme.primary} />
+                    <Text style={[styles.iconActionText, { color: theme.primary }]}>Stats</Text>
+                  </TouchableOpacity>
 
                 {isTeacher && (
                   <>
@@ -407,7 +423,7 @@ export default function CourseDetailScreen() {
                       <MaterialIcons name="assignment" size={36} color={theme.primary} />
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>View Log</Text>
                     </TouchableOpacity>
-
+                    
                     <TouchableOpacity style={styles.iconAction} onPress={handleDelete}>
                       <Ionicons name="trash-outline" size={36} color={theme.error} />
                       <Text style={[styles.iconActionText, { color: theme.error }]}>Delete</Text>
