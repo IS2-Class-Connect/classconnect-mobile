@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   Platform,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
+import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -22,8 +22,9 @@ import {
   AssessmentPerformanceDto,
   CoursePerformanceDto,
   StudentPerformanceInCourseDto,
-} from '../services/CourseStatsApi';
+} from '../services/courseStatsApi';
 import { getAllUsers, User } from '../services/userApi';
+import { Enrollment, getCourseEnrollments } from '../services/coursesApi';
 import { spacing } from '../constants/spacing';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -47,10 +48,11 @@ export default function CourseStatsScreen() {
   const [showTillPicker, setShowTillPicker] = useState(false);
   const [tempFrom, setTempFrom] = useState<Date>(new Date());
   const [tempTill, setTempTill] = useState<Date>(new Date());
+  const [showStudentPicker, setShowStudentPicker] = useState(false);
 
   useEffect(() => {
     if (!authToken) return;
-    fetchUsers();
+    fetchEnrolledStudents();
     fetchAssessments();
   }, [authToken]);
 
@@ -64,11 +66,16 @@ export default function CourseStatsScreen() {
     }
   }, [tab, selectedStudent]);
 
-  const fetchUsers = async () => {
-    const all = await getAllUsers(authToken!);
-    setUsers(all);
-    setSelectedStudent(all[0] ?? null);
-  };
+  const fetchEnrolledStudents = async () => {
+  const enrollments = await getCourseEnrollments(numericCourseId, authToken!);
+  const studentEnrollments = enrollments.filter((e) => e.role === 'STUDENT');
+  const studentIds = studentEnrollments.map((e) => e.userId);
+  const allUsers = await getAllUsers(authToken!);
+  const filtered = allUsers.filter((u) => studentIds.includes(u.uuid));
+  setUsers(filtered);
+};
+
+
 
   const fetchAssessments = async () => {
     const data = await getAssessmentPerformanceSummary(numericCourseId, authToken!);
@@ -90,7 +97,7 @@ export default function CourseStatsScreen() {
     setStudentStats(stats);
   };
 
-    const renderSummary = () => {
+  const renderSummary = () => {
     if (!courseStats) return null;
 
     const barData = [
@@ -183,28 +190,60 @@ export default function CourseStatsScreen() {
       )}
 
       {tab === 'student' && (
-        <FlatList
-          data={users}
-          horizontal
-          keyExtractor={(item) => item.uuid}
-          contentContainerStyle={{ paddingHorizontal: spacing.md }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => setSelectedStudent(item)}
-              style={[
-                styles.studentCard,
-                selectedStudent?.uuid === item.uuid && styles.selectedStudent,
-              ]}
-            >
-              <Text>{item.name}</Text>
-            </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={[styles.dateButton, styles.activeTab, { alignSelf: 'center', marginBottom: spacing.md }]}
+            onPress={() => setShowStudentPicker(true)}
+          >
+            <Text style={styles.dateLabel}>
+              {selectedStudent ? selectedStudent.name : 'Seleccionar estudiante...'}
+            </Text>
+          </TouchableOpacity>
+
+          {studentStats && (
+            <View style={styles.chartContainer}>
+              <PieChart
+                data={[
+                  {
+                    value: studentStats.completedAssessments,
+                    color: 'green',
+                    text: `${(
+                      (studentStats.completedAssessments / studentStats.totalAssessments) * 100
+                    ).toFixed(0)}%`,
+                  },
+                  {
+                    value: studentStats.totalAssessments - studentStats.completedAssessments,
+                    color: 'red',
+                    text: `${(
+                      ((studentStats.totalAssessments - studentStats.completedAssessments) /
+                        studentStats.totalAssessments) *
+                      100
+                    ).toFixed(0)}%`,
+                  },
+                ]}
+                radius={80}
+                innerRadius={45}
+                donut
+                showText
+                textColor="white"
+                textSize={14}
+              />
+              <View style={{ height: spacing.md }} />
+              <Text style={styles.averageLabel}>
+                Student Average: {studentStats.averageGrade.toFixed(1)}
+              </Text>
+              <View style={{ height: spacing.sm }} />
+              <Text style={styles.chartLabel}>
+                Green indicates completed tasks, while red represents pending or missing ones.
+              </Text>
+
+            </View>
           )}
-        />
+        </>
       )}
 
       <View style={styles.section}>
         {tab === 'summary' && renderSummary()}
-        {tab === 'student' && <View />}
         {tab === 'assessment' && <View />}
       </View>
 
@@ -257,6 +296,39 @@ export default function CourseStatsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* STUDENT SELECTOR MODAL */}
+      <Modal visible={showStudentPicker} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowStudentPicker(false)}>
+          <Pressable style={[styles.modalContent, { paddingHorizontal: 0, width: 320 }]}>
+            <Text style={{ fontWeight: 'bold', marginBottom: spacing.md }}>Seleccionar estudiante</Text>
+            <ScrollView style={{ maxHeight: 300, width: '100%' }}>
+              {users.map((user) => (
+                <TouchableOpacity
+                  key={user.uuid}
+                  onPress={() => {
+                    setSelectedStudent(user);
+                    setShowStudentPicker(false);
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: spacing.sm,
+                    borderBottomColor: '#ddd',
+                    borderBottomWidth: 1,
+                  }}
+                >
+                  <Image
+                    source={{ uri: user.urlProfilePhoto }}
+                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: spacing.sm }}
+                  />
+                  <Text>{user.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -300,7 +372,7 @@ const styles = StyleSheet.create({
   chartLabel: {
     textAlign: 'center',
     fontSize: 14,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md, // aumentado para mejor separación del texto explicativo
     color: '#ccc',
   },
   averageLabel: {
@@ -309,15 +381,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFD700',
     marginTop: spacing.md,
-  },
-  studentCard: {
-    backgroundColor: '#eee',
-    padding: spacing.sm,
-    borderRadius: 8,
-    marginRight: spacing.sm,
-  },
-  selectedStudent: {
-    backgroundColor: '#89B9FF',
   },
   dateRow: {
     flexDirection: 'row',
@@ -337,6 +400,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    marginTop: spacing.lg, // agregado para más aire entre el selector y el gráfico
+    alignItems: 'center',
   },
   barLabel: {
     color: '#fff',
