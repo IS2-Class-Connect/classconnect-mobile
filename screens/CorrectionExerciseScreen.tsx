@@ -1,4 +1,3 @@
-// CorrectionExerciseScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -17,20 +16,27 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getAssessmentById,
   getUserSubmissionForAssessment,
+  getCorrection,
   submitCorrection,
   AssessmentExercise,
   Correction,
   Assessment,
-  SubmittedAnswer
+  SubmittedAnswer,
 } from '../services/assessmentsApi';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
 
 export default function CorrectionExerciseScreen() {
-  const { assessmentId, userId } = useLocalSearchParams<{ assessmentId: string; userId: string }>();
+  const { assessmentId, userId, role } = useLocalSearchParams<{
+    assessmentId: string;
+    userId: string;
+    role: string;
+  }>();
   const { user, authToken } = useAuth();
   const theme = useTheme();
   const router = useRouter();
+
+  const isReadonly = role === 'Student';
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [submission, setSubmission] = useState<any | null>(null);
@@ -38,6 +44,7 @@ export default function CorrectionExerciseScreen() {
   const [comments, setComments] = useState<string[]>([]);
   const [finalNote, setFinalNote] = useState<number>(0);
   const [finalComment, setFinalComment] = useState('');
+  const [correctionLoaded, setCorrectionLoaded] = useState(false);
 
   const totalPages = assessment ? assessment.exercises.length + 1 : 0;
   const isLastPage = index === totalPages - 1;
@@ -50,17 +57,26 @@ export default function CorrectionExerciseScreen() {
         const s = await getUserSubmissionForAssessment(assessmentId, userId, authToken);
         setAssessment(a);
         setSubmission(s);
-        const initialComments = a.exercises.map(() => '');
-        setComments(initialComments);
+
+        const correction = await getCorrection(assessmentId, userId, authToken);
+        if (correction) {
+          setComments(correction.corrections ?? a.exercises.map(() => ''));
+          setFinalNote(correction.note ?? 0);
+          setFinalComment(correction.feedback ?? '');
+        } else {
+          setComments(a.exercises.map(() => ''));
+        }
+        setCorrectionLoaded(true);
       } catch (error) {
-        console.error('Error loading correction data:', error);
+        console.error('Error loading data:', error);
         Alert.alert('Error', 'Could not load the assessment or submission.');
       }
     };
     fetchData();
   }, [assessmentId, userId, authToken]);
 
-  const currentExercise: AssessmentExercise | null = !isLastPage && assessment?.exercises?.[index] ? assessment.exercises[index] : null;
+  const currentExercise: AssessmentExercise | null =
+    !isLastPage && assessment?.exercises?.[index] ? assessment.exercises[index] : null;
   const studentAnswer = submission?.answers?.[index]?.answer || '';
 
   const handleSubmitCorrection = async () => {
@@ -71,13 +87,10 @@ export default function CorrectionExerciseScreen() {
       return;
     }
 
-    const trimmedComments = submission.answers.map((_unused: SubmittedAnswer, i: number) => {
-  const ex = assessment.exercises[i];
-  return ex?.type === 'multiple_choice' ? '' : (comments[i] || '');
-});
-
-
-
+    const trimmedComments = submission.answers.map((_: SubmittedAnswer, i: number) => {
+      const ex = assessment.exercises[i];
+      return ex?.type === 'multiple_choice' ? '' : comments[i] || '';
+    });
 
     const correction: Correction = {
       teacherId: user.uuid,
@@ -131,14 +144,13 @@ export default function CorrectionExerciseScreen() {
                   style={{
                     borderWidth: 1.5,
                     borderColor: isSelected ? (isRight ? 'green' : 'red') : theme.border,
-                   backgroundColor: isSelected
-                    ? isRight
-                        ? '#a4f5a4'  
-                        : '#f5a4a4'  
-                    : isRight
-                    ? '#e0ffd6'   
-                    : 'transparent',
-
+                    backgroundColor: isSelected
+                      ? isRight
+                        ? '#a4f5a4'
+                        : '#f5a4a4'
+                      : isRight
+                      ? '#e0ffd6'
+                      : 'transparent',
                     padding: spacing.md,
                     borderRadius: 8,
                     marginVertical: spacing.xs,
@@ -158,7 +170,15 @@ export default function CorrectionExerciseScreen() {
             </Text>
             <Text style={[styles.label, { color: theme.text }]}>Your comment:</Text>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card }]}
+              style={[
+                styles.input,
+                {
+                  color: theme.text,
+                  borderColor: theme.primary,
+                  backgroundColor: theme.card,
+                },
+              ]}
+              editable={!isReadonly}
               multiline
               placeholder="Type your comment here..."
               placeholderTextColor={theme.text + '88'}
@@ -175,7 +195,7 @@ export default function CorrectionExerciseScreen() {
     );
   };
 
-  if (!assessment || !submission) return null;
+  if (!assessment || !submission || !correctionLoaded) return null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -200,6 +220,7 @@ export default function CorrectionExerciseScreen() {
               maximumValue={10}
               step={1}
               value={finalNote}
+              disabled={isReadonly}
               onValueChange={(value) => setFinalNote(value)}
               minimumTrackTintColor={theme.primary}
               maximumTrackTintColor={theme.border}
@@ -210,8 +231,12 @@ export default function CorrectionExerciseScreen() {
 
             <Text style={[styles.label, { color: theme.text }]}>Final comment</Text>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card }]}
+              style={[
+                styles.input,
+                { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card },
+              ]}
               multiline
+              editable={!isReadonly}
               placeholder="Overall feedback..."
               placeholderTextColor={theme.text + '88'}
               value={finalComment}
@@ -232,19 +257,21 @@ export default function CorrectionExerciseScreen() {
             <Text style={styles.navButtonText}>Next →</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              {
-                backgroundColor: '#FFFFFF',
-                borderColor: '#339CFF',
-                borderWidth: 2,
-              },
-            ]}
-            onPress={handleSubmitCorrection}
-          >
-            <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit Correction</Text>
-          </TouchableOpacity>
+          !isReadonly && (
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                {
+                  backgroundColor: '#FFFFFF',
+                  borderColor: '#339CFF',
+                  borderWidth: 2,
+                },
+              ]}
+              onPress={handleSubmitCorrection}
+            >
+              <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit Correction</Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
     </View>

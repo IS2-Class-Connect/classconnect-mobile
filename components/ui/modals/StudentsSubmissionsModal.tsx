@@ -42,7 +42,7 @@ export default function StudentsSubmissionsModal({
   useEffect(() => {
     const fetchUsers = async () => {
       if (!authToken || submissions.length === 0) {
-        setLoading(false); // ✅ Prevent infinite loading
+        setLoading(false);
         return;
       }
 
@@ -70,12 +70,20 @@ export default function StudentsSubmissionsModal({
   }, [visible]);
 
   const handleNavigateToCorrection = (submission: Submission) => {
-    onClose(); // ✅ Close modal before navigating
+    const correction = {
+      corrections: submission.answers.map((a) => a.correction),
+      note: submission.note ?? 0,
+      feedback: submission.feedback ?? '',
+      aiSummary: submission.AIFeedback ?? '',
+    };
+
+    onClose();
     router.push({
       pathname: '/exercises-correction',
       params: {
         assessmentId: submission.assesId,
         userId: submission.userId,
+        correction: JSON.stringify(correction),
       },
     });
   };
@@ -85,6 +93,7 @@ export default function StudentsSubmissionsModal({
     if (!user) return null;
 
     const date = new Date(item.submittedAt).toLocaleString();
+    const wasCorrected = !!item.correctedAt;
 
     return (
       <View style={[styles.item, { backgroundColor: theme.card }]}>
@@ -107,10 +116,9 @@ export default function StudentsSubmissionsModal({
         <TouchableOpacity
           style={[styles.button, { borderColor: theme.primary }]}
           onPress={() => handleNavigateToCorrection(item)}
-          accessibilityLabel={`Correct ${assessmentType === 'Exam' ? 'exam' : 'task'} for ${user.name}`}
         >
           <Text style={[styles.buttonText, { color: theme.primary }]}>
-            Correct {assessmentType === 'Exam' ? 'exam' : 'task'}
+            {wasCorrected ? '✏️ Edit Correction' : `📝 Correct ${assessmentType}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -127,7 +135,7 @@ export default function StudentsSubmissionsModal({
       >
         <View style={[styles.container, { backgroundColor: theme.background }]}>
           <Text style={[styles.title, { color: theme.text }]}>
-            Submissions for {assessmentType === 'Exam' ? 'Exam' : 'Task'}
+            Submissions for {assessmentType}
           </Text>
 
           {loading ? (
