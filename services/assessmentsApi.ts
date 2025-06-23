@@ -37,7 +37,6 @@ export interface AssessmentFilterDto {
   day?: string;
 }
 
-// 🔸 Nueva interfaz: Submission real
 export interface SubmittedAnswer {
   answer: string;
   correction: string;
@@ -54,7 +53,7 @@ export interface Submission {
   correctedAt?: string;
 }
 
-// ✅ GET paginated and filtered assessments
+// 🔹 Get assessments with filters and pagination
 export async function getAssessmentsByCourse(
   courseId: number,
   page: number = 1,
@@ -95,7 +94,7 @@ export async function getAssessmentsByCourse(
   };
 }
 
-// ✅ GET one assessment by ID (mapping _id -> id)
+// 🔹 Get assessment by ID
 export async function getAssessmentById(
   id: string,
   token: string
@@ -111,7 +110,7 @@ export async function getAssessmentById(
   return mapped;
 }
 
-// ✅ CREATE assessment
+// 🔹 Create assessment
 export async function createAssessment(
   data: Omit<Assessment, 'id' | 'createdAt' | 'teacherId' | 'courseId'> & {
     exercises: AssessmentExercise[];
@@ -125,7 +124,7 @@ export async function createAssessment(
   return response.data as Assessment;
 }
 
-// ✅ UPDATE assessment
+// 🔹 Update assessment
 export async function updateAssessment(
   id: string,
   data: Partial<Omit<Assessment, 'id' | 'createdAt'>> & {
@@ -139,7 +138,7 @@ export async function updateAssessment(
   return response.data as Assessment;
 }
 
-// ✅ DELETE assessment
+// 🔹 Delete assessment
 export async function deleteAssessment(
   courseId: number,
   id: string,
@@ -149,7 +148,7 @@ export async function deleteAssessment(
   await deleteFromGateway(`/assessments/${id}?userId=${userId}`, token);
 }
 
-// ✅ SUBMIT assessment (POST /assessments/:id/submissions)
+// 🔹 Submit assessment (student answers)
 export async function submitAssessment(
   assessmentId: string,
   userId: string,
@@ -161,7 +160,7 @@ export async function submitAssessment(
   return response.data as Submission;
 }
 
-// ✅ GET ALL submissions (GET /assessments/:id/submissions)
+// 🔹 Get all submissions
 export async function getSubmissionsForAssessment(
   assessmentId: string,
   token: string
@@ -170,7 +169,7 @@ export async function getSubmissionsForAssessment(
   return response.data as Submission[];
 }
 
-// ✅ GET submission of one user (GET /assessments/:id/submissions/:userId)
+// 🔹 Get user submission for assessment
 export async function getUserSubmissionForAssessment(
   assessmentId: string,
   userId: string,
@@ -179,45 +178,45 @@ export async function getUserSubmissionForAssessment(
   const response = await getFromGateway(`/assessments/${assessmentId}/submissions/${userId}`, token);
   return response.data as Submission;
 }
+
+// 🔹 Manual correction by teacher
 export interface Correction {
-  assessmentId: string;
-  userId: string;
-  commentsPerExercise: string[];
-  finalNote: number;
-  finalComment: string;
-  aiSummary?: string; 
+  teacherId: string;
+  corrections: string[];
+  feedback: string;
+  note: number;
+  aiSummary?: string;
 }
 
-export async function mockSubmitCorrection(
+export async function submitCorrection(
   assessmentId: string,
   userId: string,
   correction: Omit<Correction, 'aiSummary'>,
   token: string
 ): Promise<Correction> {
-  console.log('📤 Mock POST correction:', { assessmentId, userId, correction, token });
-
+  const response = await postToGateway(
+    `/assessments/${assessmentId}/submissions/${userId}/correction`,
+    correction,
+    token
+  );
   return {
     ...correction,
-    assessmentId,
-    userId,
-    aiSummary: 'Mocked AI summary based on correction comments.',
+    aiSummary: response.data?.AIFeedback ?? '',
   };
 }
 
-
-export async function mockGetCorrection(
+// 🔹 Get correction for a submission (mapped from Submission)
+export async function getCorrection(
   assessmentId: string,
   userId: string,
   token: string
 ): Promise<Correction> {
-  console.log('📥 Mock GET correction:', { assessmentId, userId, token });
-
+  const submission = await getUserSubmissionForAssessment(assessmentId, userId, token);
   return {
-    assessmentId,
-    userId,
-    commentsPerExercise: ['Well reasoned', 'Incorrect choice', 'Great explanation'],
-    finalNote: 8.5,
-    finalComment: 'Good performance overall.',
-    aiSummary: 'Student showed good understanding with minor mistakes.',
+    teacherId: '', // optional, since it is not returned
+    corrections: submission.answers.map((a) => a.correction),
+    feedback: submission.feedback ?? '',
+    note: submission.note ?? 0,
+    aiSummary: submission.AIFeedback ?? '',
   };
 }

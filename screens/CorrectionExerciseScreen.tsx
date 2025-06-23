@@ -1,3 +1,4 @@
+// CorrectionExerciseScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,19 +10,21 @@ import {
   TextInput,
   Linking,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   getAssessmentById,
   getUserSubmissionForAssessment,
+  submitCorrection,
   AssessmentExercise,
   Correction,
-  mockSubmitCorrection,
+  Assessment,
+  SubmittedAnswer
 } from '../services/assessmentsApi';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
-import { FileText } from 'lucide-react-native';
 
 export default function CorrectionExerciseScreen() {
   const { assessmentId, userId } = useLocalSearchParams<{ assessmentId: string; userId: string }>();
@@ -29,7 +32,7 @@ export default function CorrectionExerciseScreen() {
   const theme = useTheme();
   const router = useRouter();
 
-  const [assessment, setAssessment] = useState<any | null>(null);
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [submission, setSubmission] = useState<any | null>(null);
   const [index, setIndex] = useState(0);
   const [comments, setComments] = useState<string[]>([]);
@@ -47,7 +50,8 @@ export default function CorrectionExerciseScreen() {
         const s = await getUserSubmissionForAssessment(assessmentId, userId, authToken);
         setAssessment(a);
         setSubmission(s);
-        setComments(Array(a.exercises.length).fill(''));
+        const initialComments = a.exercises.map(() => '');
+        setComments(initialComments);
       } catch (error) {
         console.error('Error loading correction data:', error);
         Alert.alert('Error', 'Could not load the assessment or submission.');
@@ -56,22 +60,34 @@ export default function CorrectionExerciseScreen() {
     fetchData();
   }, [assessmentId, userId, authToken]);
 
-  const currentExercise: AssessmentExercise | null = !isLastPage ? assessment?.exercises?.[index] : null;
+  const currentExercise: AssessmentExercise | null = !isLastPage && assessment?.exercises?.[index] ? assessment.exercises[index] : null;
   const studentAnswer = submission?.answers?.[index]?.answer || '';
 
   const handleSubmitCorrection = async () => {
     if (!assessment || !submission || !user || !authToken) return;
 
-    const correction: Omit<Correction, 'aiSummary'> = {
-      assessmentId: assessment.id,
-      userId: submission.userId,
-      commentsPerExercise: comments,
-      finalNote,
-      finalComment,
+    if (!finalComment.trim()) {
+      Alert.alert('Comment required', 'Please write a final comment before submitting.');
+      return;
+    }
+
+    const trimmedComments = submission.answers.map((_unused: SubmittedAnswer, i: number) => {
+  const ex = assessment.exercises[i];
+  return ex?.type === 'multiple_choice' ? '' : (comments[i] || '');
+});
+
+
+
+
+    const correction: Correction = {
+      teacherId: user.uuid,
+      corrections: trimmedComments,
+      note: finalNote,
+      feedback: finalComment,
     };
 
     try {
-      await mockSubmitCorrection(assessment.id, submission.userId, correction, user.uuid);
+      await submitCorrection(assessment.id, submission.userId, correction, authToken);
       Alert.alert('✅ Correction submitted', 'Feedback was saved.');
       router.back();
     } catch (error) {
@@ -115,18 +131,20 @@ export default function CorrectionExerciseScreen() {
                   style={{
                     borderWidth: 1.5,
                     borderColor: isSelected ? (isRight ? 'green' : 'red') : theme.border,
-                    backgroundColor: isRight ? '#a4f5a4' : isSelected ? '#f5a4a4' : 'transparent',
+                   backgroundColor: isSelected
+                    ? isRight
+                        ? '#a4f5a4'  
+                        : '#f5a4a4'  
+                    : isRight
+                    ? '#e0ffd6'   
+                    : 'transparent',
+
                     padding: spacing.md,
                     borderRadius: 8,
                     marginVertical: spacing.xs,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: isRight ? '#000' : theme.text,
-                      textAlign: 'center',
-                    }}
-                  >
+                  <Text style={{ color: isRight ? '#000' : theme.text, textAlign: 'center' }}>
                     {choice}
                   </Text>
                 </View>
@@ -135,7 +153,7 @@ export default function CorrectionExerciseScreen() {
           </>
         ) : (
           <>
-            <Text style={[styles.answer, { color: theme.text, marginBottom: spacing.lg }]}>  
+            <Text style={[styles.answer, { color: theme.text, marginBottom: spacing.lg }]}>
               {studentAnswer || 'No response'}
             </Text>
             <Text style={[styles.label, { color: theme.text }]}>Your comment:</Text>
@@ -165,7 +183,7 @@ export default function CorrectionExerciseScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backArrow, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
-        <Text style={[styles.counter, { color: theme.text }]}>  
+        <Text style={[styles.counter, { color: theme.text }]}>
           {isLastPage ? 'Final feedback' : `Exercise ${index + 1} of ${assessment.exercises.length}`}
         </Text>
       </View>
@@ -175,15 +193,22 @@ export default function CorrectionExerciseScreen() {
 
         {isLastPage && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={[styles.label, { color: theme.text }]}>Final grade (0–10)</Text>
-            <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card }]}
-              keyboardType="numeric"
-              placeholder="e.g. 8.5"
-              value={String(finalNote)}
-              onChangeText={(t) => setFinalNote(parseFloat(t) || 0)}
+            <Text style={[styles.label, { color: theme.text }]}>Final grade (1–10)</Text>
+            <Slider
+              style={{ width: '100%', height: 40 }}
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              value={finalNote}
+              onValueChange={(value) => setFinalNote(value)}
+              minimumTrackTintColor={theme.primary}
+              maximumTrackTintColor={theme.border}
             />
-            <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>Final comment</Text>
+            <Text style={{ textAlign: 'center', marginBottom: spacing.md, color: theme.text }}>
+              Selected score: {finalNote}
+            </Text>
+
+            <Text style={[styles.label, { color: theme.text }]}>Final comment</Text>
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.primary, backgroundColor: theme.card }]}
               multiline
@@ -208,7 +233,14 @@ export default function CorrectionExerciseScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.navButton, { backgroundColor: '#FFFFFF', borderColor: '#339CFF', borderWidth: 2 }]}
+            style={[
+              styles.navButton,
+              {
+                backgroundColor: '#FFFFFF',
+                borderColor: '#339CFF',
+                borderWidth: 2,
+              },
+            ]}
             onPress={handleSubmitCorrection}
           >
             <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit Correction</Text>
