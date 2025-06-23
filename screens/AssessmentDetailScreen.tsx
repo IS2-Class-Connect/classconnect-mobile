@@ -28,6 +28,7 @@ import {
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
 import StudentsSubmissionsModal from '../components/ui/modals/StudentsSubmissionsModal';
 
+
 export default function AssessmentDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -45,6 +46,8 @@ export default function AssessmentDetailScreen() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [studentSubmission, setStudentSubmission] = useState<Submission | null>(null);
+
 
   const isProfessor = role === 'Professor';
   const isAssistant = role === 'Assistant';
@@ -56,23 +59,27 @@ export default function AssessmentDetailScreen() {
   useEffect(() => {
     if (parsedCourseId && parsedAssessmentId && authToken) {
       getAssessmentById(parsedAssessmentId, authToken)
-        .then((data) => {
-          console.log('🧪 Assessment fetched in DetailScreen:', JSON.stringify(data, null, 2));
-          setAssessment(data);
-        })
+        .then(setAssessment)
         .catch((err) => console.error('Error loading assessment:', err));
     }
   }, [parsedAssessmentId, parsedCourseId, authToken]);
 
-  useFocusEffect(
+    useFocusEffect(
     useCallback(() => {
       if (!parsedAssessmentId || !user?.uuid || !authToken) return;
 
       getUserSubmissionForAssessment(parsedAssessmentId, user.uuid, authToken)
-        .then(() => setHasSubmitted(true))
-        .catch(() => setHasSubmitted(false));
+        .then((submission) => {
+          setHasSubmitted(true);
+          setStudentSubmission(submission);
+        })
+        .catch(() => {
+          setHasSubmitted(false);
+          setStudentSubmission(null);
+        });
     }, [parsedAssessmentId, user?.uuid, authToken])
   );
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
@@ -125,6 +132,14 @@ export default function AssessmentDetailScreen() {
     if (now >= start && now <= end) return 'OPEN';
     return 'CLOSED';
   };
+
+    const getGradeColor = (grade: number) => {
+    if (grade < 4) return '#dc3545'; // rojo
+    if (grade <= 6) return '#f0ad4e'; // naranja
+    if (grade <= 9) return '#28c76f'; // verde claro
+    return '#198754'; // verde oscuro (nota 10)
+  };
+
 
   const renderStatusTag = () => {
     const status = getStatus();
@@ -185,10 +200,7 @@ export default function AssessmentDetailScreen() {
 
   return (
     <>
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xl + 24 }}
-      >
+      <ScrollView style={{ flex: 1, backgroundColor: theme.background }} contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.xl + 24 }}>
         <View style={{ marginBottom: 70 }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={theme.text} />
@@ -218,26 +230,20 @@ export default function AssessmentDetailScreen() {
                 <Text style={styles.buttonText}>Submissions</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: theme.primary }]}
-                onPress={() =>
-                  router.push({
-                    pathname: '/exercises',
-                    params: {
-                      courseId: parsedCourseId,
-                      assessmentId: parsedAssessmentId,
-                      role: role ?? 'Professor',
-                    },
-                  })
-                }
-              >
+              <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() =>
+                router.push({
+                  pathname: '/exercises',
+                  params: {
+                    courseId: parsedCourseId,
+                    assessmentId: parsedAssessmentId,
+                    role: role ?? 'Professor',
+                  },
+                })
+              }>
                 <Text style={styles.buttonText}>View Exercises</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.buttonOutline, { borderColor: theme.primary }]}
-                onPress={() => setEditVisible(true)}
-              >
+              <TouchableOpacity style={[styles.buttonOutline, { borderColor: theme.primary }]} onPress={() => setEditVisible(true)}>
                 <Text style={[styles.buttonText, { color: theme.primary }]}>Edit</Text>
               </TouchableOpacity>
 
@@ -249,74 +255,109 @@ export default function AssessmentDetailScreen() {
             </>
           )}
 
-          {isStudent && (
-            (() => {
-              const status = getStatus();
-              const isTask = assessment.type === 'Task';
-              const isLateTask = isTask && status === 'CLOSED';
-              const canStart = (assessment.type === 'Exam' && status === 'OPEN') || isTask;
+          {isStudent && hasSubmitted && studentSubmission?.note !== undefined && (
+            <>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    fontSize: fonts.size.lg,
+                    marginTop: spacing.lg,
+                    color: theme.text,
+                  },
+                ]}
+              >
+                Final grade:{' '}
+                <Text style={{ fontWeight: 'bold', color: getGradeColor(studentSubmission.note!) }}>
+                  {studentSubmission.note}/10
+                </Text>
+              </Text>
 
-              if (!canStart) return null;
-
-              return (
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
-                  onPress={() => {
-                    if (hasSubmitted) {
-                      Alert.alert('Already submitted', 'You have already submitted this assessment.');
-                      return;
-                    }
-
-                    const params = {
-                      pathname: '/exercises',
-                      params: {
-                        courseId: parsedCourseId,
-                        assessmentId: parsedAssessmentId,
-                        role: 'Student',
-                      },
-                    };
-
-                    if (isLateTask) {
-                      Alert.alert(
-                        'Late Submission',
-                        'You are about to start a task after the deadline. Please check with your professor if this is allowed.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Continue', onPress: () => router.push(params) },
-                        ]
-                      );
-                      return;
-                    }
-
-                    if (hasStarted) {
-                      router.push(params);
-                    } else {
-                      Alert.alert(
-                        'Start Assessment',
-                        'Are you sure? You will have limited time and cannot leave once started.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Start', onPress: () => router.push(params) },
-                        ]
-                      );
-                    }
-                  }}
-                  disabled={hasSubmitted}
-                >
-                  <Text style={styles.buttonText}>
-                    {hasSubmitted
-                      ? 'Already Submitted'
-                      : isLateTask
-                      ? 'Submit (Late)'
-                      : hasStarted
-                      ? 'Continue Assessment'
-                      : 'Start Assessment'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()
+              <TouchableOpacity
+                style={[styles.buttonOutline, { borderColor: theme.primary, marginTop: spacing.sm }]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/exercises-correction',
+                    params: {
+                      assessmentId: parsedAssessmentId,
+                      userId: user!.uuid,
+                      role: 'Student',
+                    },
+                  })
+                }
+              >
+                <Text style={[styles.buttonText, { color: theme.primary }]}>View Correction</Text>
+              </TouchableOpacity>
+            </>
           )}
 
+
+
+          {isStudent && (() => {
+            const status = getStatus();
+            const isTask = assessment.type === 'Task';
+            const isLateTask = isTask && status === 'CLOSED';
+            const canStart = (assessment.type === 'Exam' && status === 'OPEN') || isTask;
+
+            if (!canStart) return null;
+
+            return (
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: hasSubmitted ? '#aaa' : theme.primary }]}
+                onPress={() => {
+                  if (hasSubmitted) {
+                    Alert.alert('Already submitted', 'You have already submitted this assessment.');
+                    return;
+                  }
+
+                  const params = {
+                    pathname: '/exercises',
+                    params: {
+                      courseId: parsedCourseId,
+                      assessmentId: parsedAssessmentId,
+                      role: 'Student',
+                    },
+                  };
+
+                  if (isLateTask) {
+                    Alert.alert(
+                      'Late Submission',
+                      'You are about to start a task after the deadline. Please check with your professor if this is allowed.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Continue', onPress: () => router.push(params) },
+                      ]
+                    );
+                    return;
+                  }
+
+                  if (hasStarted) {
+                    router.push(params);
+                  } else {
+                    Alert.alert(
+                      'Start Assessment',
+                      'Are you sure? You will have limited time and cannot leave once started.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Start', onPress: () => router.push(params) },
+                      ]
+                    );
+                  }
+                }}
+                disabled={hasSubmitted}
+              >
+                <Text style={styles.buttonText}>
+                  {hasSubmitted
+                    ? 'Already Submitted'
+                    : isLateTask
+                    ? 'Submit (Late)'
+                    : hasStarted
+                    ? 'Continue Assessment'
+                    : 'Start Assessment'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
       </ScrollView>
 
@@ -356,6 +397,9 @@ export default function AssessmentDetailScreen() {
     </>
   );
 }
+
+// ...styles idénticos...
+
 
 const styles = StyleSheet.create({
   card: {
