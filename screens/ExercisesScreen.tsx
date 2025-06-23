@@ -45,6 +45,7 @@ export default function ExercisesScreen() {
   const isStudent = role === 'Student';
   const isReadonly = !isStudent;
   const STORAGE_KEY = `startTime_${courseId}_${assessmentId}`;
+  const RESPONSES_KEY = `responses_${user?.uuid}_${courseId}_${assessmentId}`;
 
   useEffect(() => {
     const fetchAssessment = async () => {
@@ -53,6 +54,11 @@ export default function ExercisesScreen() {
       try {
         const res = await getAssessmentById(assessmentId, authToken);
         setAssessment(res);
+
+        const savedResponses = await AsyncStorage.getItem(RESPONSES_KEY);
+        if (savedResponses) {
+          setResponses(JSON.parse(savedResponses));
+        }
 
         const shouldTime = isStudent && res.type === 'Exam' && (res.toleranceTime ?? 0) > 0;
         if (shouldTime) {
@@ -75,6 +81,19 @@ export default function ExercisesScreen() {
 
     fetchAssessment();
   }, [assessmentId, courseId, authToken]);
+
+  useEffect(() => {
+    const saveResponses = async () => {
+      if (!RESPONSES_KEY) return;
+      try {
+        await AsyncStorage.setItem(RESPONSES_KEY, JSON.stringify(responses));
+      } catch (error) {
+        console.error('Error saving partial responses:', error);
+      }
+    };
+
+    saveResponses();
+  }, [responses]);
 
   useEffect(() => {
     const shouldRunTimer =
@@ -111,7 +130,7 @@ export default function ExercisesScreen() {
           onPress: async () => {
             try {
               await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
-              await AsyncStorage.removeItem(STORAGE_KEY);
+              await AsyncStorage.multiRemove([STORAGE_KEY, RESPONSES_KEY]);
               setSubmitted(true);
               Alert.alert('Submitted', 'Your answers have been submitted.');
               router.back();
@@ -130,7 +149,7 @@ export default function ExercisesScreen() {
     if (!assessment || !user || !authToken) return;
     try {
       await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.multiRemove([STORAGE_KEY, RESPONSES_KEY]);
       setSubmitted(true);
       Alert.alert("Time's up", 'Your answers were submitted automatically.');
       router.back();
@@ -140,7 +159,7 @@ export default function ExercisesScreen() {
     }
   };
 
-    const handleExportPdf = async () => {
+  const handleExportPdf = async () => {
     if (!assessment) return;
     try {
       const html = await generateAssessmentHtml(assessment);
