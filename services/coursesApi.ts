@@ -106,6 +106,7 @@ export async function updateEnrollment(
     data,
     token
   );
+  console.log('Enrollment updated:', response.data);
   return response.data as Enrollment;
 }
 

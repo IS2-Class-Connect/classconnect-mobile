@@ -15,7 +15,7 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useAuth } from '../../../context/AuthContext';
 import { getAllUsers, User } from '../../../services/userApi';
-import { enrollInCourse, deleteEnrollment } from '../../../services/coursesApi';
+import { enrollInCourse, deleteEnrollment, updateEnrollment, Enrollment} from '../../../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 import { sendAssistantAssignmentEmail, sendEnrollmentEmail } from '../../../services/emailService';
 
@@ -78,8 +78,12 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
                 (e) => e.userId === selectedUser.uuid && e.role === 'STUDENT'
               );
               if (isStudent) {
-                // await patchEnrollment(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
-              } else {
+                  const data: Partial<Enrollment> = {
+                    role: 'ASSISTANT' as 'STUDENT' | 'ASSISTANT', 
+                  };
+
+                  await updateEnrollment(courseId, selectedUser.uuid, data, authToken);
+                  } else {
                 await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
               }
               await sendAssistantAssignmentEmail(
