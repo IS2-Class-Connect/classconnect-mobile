@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Guide – Mobile App</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 2rem 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1a1a1a;
+      line-height: 1.7;
+    }
+
+    h1, h2, h3 {
+      color: #3b0764;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 2.8rem;
+      border-bottom: 4px solid #3b0764;
+      padding-bottom: 0.5em;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h2 {
+      font-size: 1.9rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+      margin-top: 1.8rem;
+      margin-bottom: 0.8rem;
+    }
+
+    ol, ul {
+      padding-left: 1.8rem;
+      margin-bottom: 1.2rem;
+    }
+
+    a {
+      color: #764ba2;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    a:hover {
+      color: #667eea;
+      text-decoration: underline;
+    }
+
+    code {
+      background: #f0f0f0;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-family: 'Fira Mono', monospace, monospace;
+      font-size: 0.95rem;
+      color: #764ba2;
+    }
+
+    hr {
+      border: none;
+      border-top: 1.5px solid #ddd;
+      margin: 3rem 0;
+    }
+
+    .content-section {
+      background: #fff;
+      padding: 1.8rem 2rem;
+      border-radius: 15px;
+      box-shadow: 0 8px 25px rgba(118, 75, 162, 0.2);
+      margin-bottom: 2.5rem;
+    }
+
+    h1 span, h2 span {
+      font-size: 1.8rem;
+    }
+
+    .success {
+      color: #2d8a49;
+      font-weight: 700;
+    }
+
+    .error {
+      color: #bf2e2e;
+      font-weight: 700;
+    }
+
+    ul ul, ol ul {
+      margin-top: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+        margin: 1rem;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+      }
+
+      h2 {
+        font-size: 1.6rem;
+      }
+
+      h3 {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1><span>🛠️</span> User Guide – Mobile App</h1>
+
+<div class="content-section">
+<h2 id="registration"><span>📌</span> Registration</h2>
+<ol>
+  <li>Go to the registration page where you need to complete the required fields.</li>
+  <img src="imgs/registration-page.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>If the email is not already registered, you will be able to register.</li>
+</ol>
+
+<h2 id="login"><span>🔑</span> Login</h2>
+<ol>
+  <li>Login with either email/password or with Google.</li>
+  <img src="imgs/login-page.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>If you choose to login with Google, a modal will appear where you need to select your Google account.</li>
+  <img src="imgs/google-login-modal.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>If your Google email is already registered, it will ask if you want to link your accounts.</li>
+  <img src="imgs/account-linking.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ol>
+
+<h2 id="tabs"><span>📋</span> Main Tabs</h2>
+<ul>
+  <li>The app has 5 tabs: Home, Courses, Classy IA, Profile, Configuration.</li>
+</ul>
+
+<h3 id="home">Home</h3>
+<ul>
+  <li>In the Home tab, you can see the roles you can have within the app.</li>
+  <img src="imgs/home-screen.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="courses">Courses</h3>
+<ul>
+  <li>You will see your courses divided into 5 sections: My Courses, Public Courses, Enrolled Courses, and Favorites.</li>
+  <img src="imgs/courses-page.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>To create a new course, click the "+" button at the bottom right of the screen.</li>
+  <img src="imgs/create-course.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="course-details">Course Details</h3>
+<ul>
+  <li>If you are a professor, you will be able to view and edit the course details.</li>
+  <img src="imgs/course-details.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>In the "Modules" section, you can see a list of all modules, which can be reordered as needed.</li>
+  <img src="imgs/module-list.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="module-details">Module Details</h3>
+<ul>
+  <li>In each module, you can view detailed information and a list of resources that can also be reordered.</li>
+  <img src="imgs/module-details.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>Click the "+" button to add a resource (image, video, or external link).</li>
+  <img src="imgs/add-resource.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="assessment">Assessment</h3>
+<ul>
+  <li>In the "Assessment" section, you will find a list of all assessments (exams or tasks) that you can filter.</li>
+  <img src="imgs/assessment-list.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>To create a new assessment, click the "+" button at the bottom right of the screen.</li>
+  <img src="imgs/create-assessment.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>Each exercise can be of type "Open" or "Multiple Choice".</li>
+  <img src="imgs/create-open-exercise.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <img src="imgs/create-mc-exercise.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="exercise-view">Exercise View</h3>
+<ul>
+  <li>As a teacher, you can view each exercise's details, edit them, and view student submissions.</li>
+  <img src="imgs/exercise-view.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>You can also export the assessment as a PDF.</li>
+  <img src="imgs/export-pdf.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="feedback">Feedback</h3>
+<ul>
+  <li>In the feedback section, you can view feedback for the course, provide feedback to students, and view AI-generated course feedback.</li>
+  <img src="imgs/view-feedback.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="stats">Statistics</h3>
+<ul>
+  <li>In the "Course Stats" section, you can see the course performance statistics.</li>
+  <img src="imgs/course-stats.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>You can also view statistics for individual students and assessments.</li>
+  <img src="imgs/student-stats.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+  <li>Statistics can be exported as a PDF.</li>
+  <img src="imgs/stats-pdf.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+<h3 id="configuration">Configuration</h3>
+<ul>
+  <li>You can log out or configure your notifications in the Configuration section.</li>
+  <img src="imgs/configuration.png" style="max-width: 100%; border-radius: 12px; margin: 1rem 0;" />
+</ul>
+
+</body>
+</html>
