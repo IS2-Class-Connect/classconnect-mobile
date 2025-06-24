@@ -87,7 +87,7 @@ export default function SettingsScreen() {
         onToggle={() => toggleSetting('pushTaskAssignment')}
       />
       <SettingToggle
-        label="Message Received"
+        label="Student Feedback"
         value={settings.pushMessageReceived}
         onToggle={() => toggleSetting('pushMessageReceived')}
       />
