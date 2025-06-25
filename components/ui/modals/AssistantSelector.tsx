@@ -51,7 +51,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
       setUsers(eligible);
       setFilteredUsers(eligible);
     } catch (e) {
-      console.error('❌ Error loading users:', e);
+      //console.error('❌ Error loading users:', e);
     }
   };
 
@@ -97,7 +97,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
               Alert.alert('✅ Success', `${selectedUser.name} is now an assistant.`);
               onClose();
             } catch (error) {
-              console.error('❌ Error adding assistant:', error);
+              //console.error('❌ Error adding assistant:', error);
               Alert.alert('❌ Error', 'Could not add assistant.');
             }
           },
@@ -122,7 +122,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
               Alert.alert('✅ Removed', `${selectedUser.name} is no longer an assistant.`);
               onClose();
             } catch (error) {
-              console.error('❌ Error removing assistant:', error);
+              //console.error('❌ Error removing assistant:', error);
               Alert.alert('❌ Error', 'Could not remove assistant.');
             }
           },

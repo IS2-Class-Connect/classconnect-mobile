@@ -75,7 +75,7 @@ export default function ExercisesScreen() {
           setRemainingTime(remaining > 0 ? remaining : 0);
         }
       } catch (error) {
-        console.error('Error fetching assessment:', error);
+        //console.error('Error fetching assessment:', error);
       }
     };
 
@@ -88,7 +88,7 @@ export default function ExercisesScreen() {
       try {
         await AsyncStorage.setItem(RESPONSES_KEY, JSON.stringify(responses));
       } catch (error) {
-        console.error('Error saving partial responses:', error);
+        //console.error('Error saving partial responses:', error);
       }
     };
 
@@ -135,7 +135,7 @@ export default function ExercisesScreen() {
               Alert.alert('Submitted', 'Your answers have been submitted.');
               router.back();
             } catch (error) {
-              console.error('Error submitting assessment:', error);
+              //console.error('Error submitting assessment:', error);
               Alert.alert('Error', 'There was a problem submitting your answers.');
             }
           },
@@ -154,7 +154,7 @@ export default function ExercisesScreen() {
       Alert.alert("Time's up", 'Your answers were submitted automatically.');
       router.back();
     } catch (error) {
-      console.error('Error auto-submitting assessment:', error);
+      //console.error('Error auto-submitting assessment:', error);
       Alert.alert('Error', 'Failed to auto-submit your answers.');
     }
   };
@@ -165,7 +165,7 @@ export default function ExercisesScreen() {
       const html = await generateAssessmentHtml(assessment);
       await shareHtmlAsPdf(html);
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      //console.error('Error generating PDF:', error);
       Alert.alert('Error', 'Could not generate PDF.');
     }
   };

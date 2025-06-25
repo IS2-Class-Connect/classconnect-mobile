@@ -85,7 +85,7 @@ export default function ResourceModal({
         onAdded(resource);
         onClose();
       } catch (error) {
-        console.error(error);
+        //console.error(error);
         Alert.alert('Error', 'Something went wrong while uploading the media.');
       } finally {
         setUploading(false);
@@ -117,7 +117,7 @@ export default function ResourceModal({
       onAdded(resource);
       onClose();
     } catch (error) {
-      console.error(error);
+      //console.error(error);
       Alert.alert('Error', 'Failed to add the link.');
     } finally {
       setUploading(false);

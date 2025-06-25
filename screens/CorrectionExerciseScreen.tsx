@@ -73,7 +73,7 @@ export default function CorrectionExerciseScreen() {
         }
         setCorrectionLoaded(true);
       } catch (error) {
-        console.error('Error loading data:', error);
+        //console.error('Error loading data:', error);
         Alert.alert('Error', 'Could not load the assessment or submission.');
       }
     };
@@ -108,96 +108,100 @@ export default function CorrectionExerciseScreen() {
       Alert.alert('✅ Correction submitted', 'Feedback was saved.');
       router.back();
     } catch (error) {
-      console.error('Error submitting correction:', error);
+      //console.error('Error submitting correction:', error);
       Alert.alert('Error', 'Could not submit the correction.');
     }
   };
 
   const renderExercise = (exercise: AssessmentExercise, idx: number) => {
-    const isCorrect = exercise.type === 'multiple_choice' && studentAnswer === exercise.answer;
-    return (
-      <View key={idx} style={{ flex: 1, justifyContent: 'center', minHeight: '100%' }}>
-        <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
+  const isCorrect = exercise.type === 'multiple_choice' && studentAnswer === exercise.answer;
+  return (
+    <View key={idx} style={{ flex: 1, justifyContent: 'center', minHeight: '100%' }}>
+      <Text style={[styles.enunciate, { color: theme.text }]}>{exercise.enunciate}</Text>
 
-        {exercise.link && (
-          <TouchableOpacity onPress={() => Linking.openURL(exercise.link!)}>
-            <Text style={[styles.link, { color: theme.primary }]}>📎 Attached Resource</Text>
-          </TouchableOpacity>
-        )}
+      {exercise.link && (
+        <TouchableOpacity onPress={() => Linking.openURL(exercise.link!)}>
+          <Text style={[styles.link, { color: theme.primary }]}>📎 Attached Resource</Text>
+        </TouchableOpacity>
+      )}
 
-        <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>Student answer:</Text>
+      <Text style={[styles.label, { color: theme.text, marginTop: spacing.lg }]}>Student answer:</Text>
 
-        {exercise.type === 'multiple_choice' ? (
-          <>
-            <Text
-              style={{
-                color: isCorrect ? 'green' : 'red',
-                marginTop: spacing.sm,
-                marginBottom: spacing.sm,
-                textAlign: 'center',
-              }}
-            >
-              {isCorrect ? '✅ The student answered correctly!' : '❌ The student answered incorrectly.'}
-            </Text>
-            {exercise.choices?.map((choice, i) => {
-              const isSelected = studentAnswer === choice;
-              const isRight = choice === exercise.answer;
-              return (
-                <View
-                  key={i}
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: isSelected ? (isRight ? 'green' : 'red') : theme.border,
-                    backgroundColor: isSelected
-                      ? isRight
-                        ? '#a4f5a4'
-                        : '#f5a4a4'
-                      : isRight
-                      ? '#e0ffd6'
-                      : 'transparent',
-                    padding: spacing.md,
-                    borderRadius: 8,
-                    marginVertical: spacing.xs,
-                  }}
-                >
-                  <Text style={{ color: isRight ? '#000' : theme.text, textAlign: 'center' }}>
-                    {choice}
-                  </Text>
-                </View>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            <Text style={[styles.answer, { color: theme.text, marginBottom: spacing.lg }]}>
-              {studentAnswer || 'No response'}
-            </Text>
-            <Text style={[styles.label, { color: theme.text }]}>Your comment:</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: theme.text,
-                  borderColor: theme.primary,
-                  backgroundColor: theme.card,
-                },
-              ]}
-              editable={!isReadonly}
-              multiline
-              placeholder="Type your comment here..."
-              placeholderTextColor={theme.text + '88'}
-              value={comments[idx]}
-              onChangeText={(text) => {
-                const updated = [...comments];
-                updated[idx] = text;
-                setComments(updated);
-              }}
-            />
-          </>
-        )}
-      </View>
-    );
-  };
+      {exercise.type === 'multiple_choice' ? (
+        <>
+          <Text
+            style={{
+              color: isCorrect ? 'green' : 'red',
+              marginTop: spacing.sm,
+              marginBottom: spacing.sm,
+              textAlign: 'center',
+            }}
+          >
+            {isCorrect ? '✅ The student answered correctly!' : '❌ The student answered incorrectly.'}
+          </Text>
+          {exercise.choices?.map((choice, i) => {
+            const isSelected = studentAnswer === choice;
+            const isRight = choice === exercise.answer;
+            return (
+              <View
+                key={i}
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: isSelected ? (isRight ? 'green' : 'red') : theme.border,
+                  backgroundColor: isSelected
+                    ? isRight
+                      ? '#a4f5a4'
+                      : '#f5a4a4'
+                    : isRight
+                    ? '#e0ffd6'
+                    : 'transparent',
+                  padding: spacing.md,
+                  borderRadius: 8,
+                  marginVertical: spacing.xs,
+                }}
+              >
+                <Text style={{ color: isRight ? '#000' : theme.text, textAlign: 'center' }}>
+                  {choice}
+                </Text>
+              </View>
+            );
+          })}
+          <Text style={[styles.label, { color: theme.text, marginTop: spacing.sm }]}>
+            Correct answer: {exercise.answer}
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.answer, { color: theme.text, marginBottom: spacing.lg }]}>
+            {studentAnswer || 'No response'}
+          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Your comment:</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                borderColor: theme.primary,
+                backgroundColor: theme.card,
+              },
+            ]}
+            editable={!isReadonly}
+            multiline
+            placeholder="Type your comment here..."
+            placeholderTextColor={theme.text + '88'}
+            value={comments[idx]}
+            onChangeText={(text) => {
+              const updated = [...comments];
+              updated[idx] = text;
+              setComments(updated);
+            }}
+          />
+        </>
+      )}
+    </View>
+  );
+};
+
 
   if (!assessment || !submission || !correctionLoaded) return null;
 

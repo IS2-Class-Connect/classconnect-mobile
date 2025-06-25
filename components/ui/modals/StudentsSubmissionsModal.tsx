@@ -57,7 +57,7 @@ export default function StudentsSubmissionsModal({
           const user = await findUserByUuid(userId, authToken);
           userMap[userId] = user;
         } catch (error) {
-          console.error('❌ Error fetching user', userId, error);
+          //console.error('❌ Error fetching user', userId, error);
         }
       }
       setUsers((prev) => ({ ...prev, ...userMap }));

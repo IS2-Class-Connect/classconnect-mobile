@@ -57,11 +57,22 @@ export default function AssessmentDetailScreen() {
   const parsedAssessmentId = Array.isArray(assessmentId) ? assessmentId[0] : assessmentId;
 
   useEffect(() => {
-  if (parsedCourseId && parsedAssessmentId && authToken) {
+  if (parsedCourseId && parsedAssessmentId && authToken ) {
     getAssessmentById(parsedAssessmentId, authToken)
-      .then(setAssessment)
+      .then((assessmentData) => {
+        setAssessment(assessmentData);
+
+        getUserSubmissionForAssessment(parsedAssessmentId, user!.uuid,authToken, )
+          .then((submissionData) => {
+            setStudentSubmission(submissionData);
+            setHasSubmitted(!!submissionData);
+          })
+          .catch((err) => {
+            //console.error('Error fetching submission:', err);
+            setHasSubmitted(false);
+          });
+      })
       .catch((err) => {
-        console.error('Error loading assessment:', err);
         if (
           err?.response?.status === 404 ||
           err?.message?.includes('404') ||
@@ -77,7 +88,9 @@ export default function AssessmentDetailScreen() {
         }
       });
   }
-}, [parsedAssessmentId, parsedCourseId, authToken]);
+  
+}, [parsedAssessmentId, parsedCourseId, authToken, isStudent, user?.uuid]);
+
 
 
 
@@ -103,7 +116,7 @@ export default function AssessmentDetailScreen() {
           Alert.alert('Assessment deleted', 'It was removed during the countdown.');
           router.back();
         } else {
-          console.error('Error refreshing assessment during countdown:', err);
+          //console.error('Error refreshing assessment during countdown:', err);
         }
       }
     } else {
@@ -189,7 +202,7 @@ export default function AssessmentDetailScreen() {
             await deleteAssessment(Number(parsedCourseId), parsedAssessmentId, authToken, user.uuid);
             router.back();
           } catch (error) {
-            console.error('Error deleting assessment:', error);
+            //console.error('Error deleting assessment:', error);
             Alert.alert('Error', 'Could not delete assessment.');
           }
         },
@@ -204,7 +217,7 @@ export default function AssessmentDetailScreen() {
       setSubmissions(data);
       setModalVisible(true);
     } catch (error) {
-      console.error('Error loading submissions:', error);
+      //console.error('Error loading submissions:', error);
       Alert.alert('Error', 'Could not load submissions.');
     }
   };
@@ -385,6 +398,7 @@ export default function AssessmentDetailScreen() {
               </TouchableOpacity>
             );
           })()}
+
         </View>
       </ScrollView>
 
@@ -405,7 +419,7 @@ export default function AssessmentDetailScreen() {
                   const updated = await getAssessmentById(parsedAssessmentId, authToken);
                   setAssessment(updated);
                 } catch (error) {
-                  console.error('Error fetching updated assessment:', error);
+                  //console.error('Error fetching updated assessment:', error);
                   Alert.alert('Error', 'Could not refresh assessment.');
                 }
               }}

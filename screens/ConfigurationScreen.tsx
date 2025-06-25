@@ -51,7 +51,7 @@ export default function SettingsScreen() {
       await updateUserNotificationConfiguration(user.uuid, updated, authToken);
       setUser({ ...user, ...updated });
     } catch (e) {
-      console.error('❌ Error setting notification settings:', e);
+      //console.error('❌ Error setting notification settings:', e);
       setUser({ ...user, ...settings });
     } finally {
       setIsLoading(false);

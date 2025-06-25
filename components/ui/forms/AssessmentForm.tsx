@@ -137,10 +137,10 @@ export default function AssessmentForm({ courseId, onClose, initialData }: Asses
       onClose();
     } catch (e: unknown) {
       if (e instanceof Error) {
-        console.error(e.message);
+        //console.error(e.message);
         setErrorMessage(`❌ ${e.message}`);
       } else {
-        console.error(e);
+        //console.error(e);
         setErrorMessage('❌ Something went wrong. Please try again.');
       }
       setErrorVisible(true);

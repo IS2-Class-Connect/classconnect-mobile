@@ -18,7 +18,7 @@ export async function shareHtmlAsPdf(html: string) {
       UTI: 'com.adobe.pdf',
     });
   } catch (error) {
-    console.error('Failed to share PDF:', error);
+    //console.error('Failed to share PDF:', error);
     throw error;
   }
 }

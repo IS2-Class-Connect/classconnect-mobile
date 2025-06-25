@@ -39,7 +39,7 @@ export default function ModuleDetailScreen() {
       const resources = await getResourcesByModule(current.id, Number(courseId), authToken);
       setCurrentModule({ ...current, resources });
     } catch (error) {
-      console.error('Error loading module data:', error);
+      //console.error('Error loading module data:', error);
     }
   };
 

@@ -1,5 +1,4 @@
-// AssessmentScreen.tsx
-import React, { useEffect, useState , useCallback} from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
@@ -16,7 +15,6 @@ import {
   getAssessmentsByCourse,
   deleteAssessment,
   Assessment,
-  AssessmentFilterDto,
 } from '../services/assessmentsApi';
 import AssessmentForm from '../components/ui/forms/AssessmentForm';
 
@@ -34,8 +32,13 @@ export default function AssessmentScreen() {
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState<AssessmentFilterDto>({ type: 'Exam' });
-  const [tempFilters, setTempFilters] = useState<AssessmentFilterDto>({});
+
+  // Define filters with both 'type' and 'day'
+  const [filters, setFilters] = useState<{ type: 'Exam' | 'Task' }>({ type: 'Exam' });
+  const [tempFilters, setTempFilters] = useState<{ type: 'Exam' | 'Task'; day?: string }>({
+    type: 'Exam',
+  });
+  
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -51,68 +54,67 @@ export default function AssessmentScreen() {
   }, [selectedTab]);
 
   const fetchAssessments = async () => {
-  if (!authToken || !courseId) return;
-  try {
-    const res = await getAssessmentsByCourse(
-      Number(courseId),
-      page,
-      filters,
-      authToken
-    );
-    console.log('Fetched assessments:', res);
-    setAssessments(res.assessments);
-    setTotal(res.total);
+    if (!authToken || !courseId) return;
+    try {
+      const res = await getAssessmentsByCourse(
+        Number(courseId),
+        page,
+        authToken,
+        tempFilters.day,  // Pass the selected day for the filter
+        selectedTab
+      );
+      console.log('Fetched assessments:', res);
+      setAssessments(res.assessments);
+      setTotal(res.total);
 
-    if (
-      editingAssessment &&
-      !res.assessments.some((a) => a.id === editingAssessment.id)
-    ) {
-      setEditingAssessment(null);
-      setFormVisible(false);
-    }
-
-  } catch (e) {
-    console.error('Error loading assessments:', e);
-  }
-};
-
-
-  useFocusEffect(
-  useCallback(() => {
-    const refresh = async () => {
-
-      if (!authToken || !courseId) return;
-
-      try {
-        const res = await getAssessmentsByCourse(
-          Number(courseId),
-          1, 
-          { ...filters, type: selectedTab },
-          authToken
-        );
-        setAssessments(res.assessments);
-        setTotal(res.total);
-        setPage(1);
-
-        if (
-          editingAssessment &&
-          !res.assessments.some((a) => a.id === editingAssessment.id)
-        ) {
-          setEditingAssessment(null);
-          setFormVisible(false);
-        }
-      } catch (err) {
-        console.error('Error refreshing assessment:', err);
-        setEditingAssessment(null);     
+      if (
+        editingAssessment &&
+        !res.assessments.some((a) => a.id === editingAssessment.id)
+      ) {
+        setEditingAssessment(null);
         setFormVisible(false);
       }
-    };
 
-    refresh();
-  }, [filters, selectedTab])
-);
+    } catch (e) {
+      console.error('Error loading assessments:', e);
+    }
+  };
 
+  useFocusEffect(
+    useCallback(() => {
+      const refresh = async () => {
 
+        if (!authToken || !courseId) return;
+
+        try {
+          const res = await getAssessmentsByCourse(
+            Number(courseId),
+            1, 
+            authToken,
+            tempFilters.day,  // Pass the selected day for the filter
+            selectedTab
+          );
+          setAssessments(res.assessments);
+          setTotal(res.total);
+          setPage(1);
+
+          if (
+            editingAssessment &&
+            !res.assessments.some((a) => a.id === editingAssessment.id)
+          ) {
+            setEditingAssessment(null);
+            setFormVisible(false);
+          }
+        } catch (err) {
+          console.error('Error refreshing assessment:', err);
+          setEditingAssessment(null);     
+          setFormVisible(false);
+        }
+      };
+
+      refresh();
+    }, [filters, selectedTab])
+  );
 
   const getStatus = (a: Assessment): 'UPCOMING' | 'OPEN' | 'CLOSED' => {
     const now = new Date();
@@ -130,7 +132,7 @@ export default function AssessmentScreen() {
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const filterButtonColor = filters.day ? theme.primary : '#888';
+  const filterButtonColor = tempFilters.day ? theme.primary : '#888';
 
   if (!authToken || !user || !courseId) return null;
 
@@ -218,7 +220,6 @@ export default function AssessmentScreen() {
                     </TouchableOpacity>
                   )}
 
-
                     {isProfessor && (
                       <TouchableOpacity onPress={() => {
                         Alert.alert('Confirm Delete', 'Are you sure?', [
@@ -287,7 +288,6 @@ export default function AssessmentScreen() {
         </View>
       </Modal>
 
-
       {/* Modal de filtros */}
       <Modal visible={filterModalVisible} transparent animationType="fade">
         <View style={styles.overlay}>
@@ -317,7 +317,7 @@ export default function AssessmentScreen() {
                 onPress={() => setTempFilters({ ...tempFilters, day: undefined })}
                 style={{ marginTop: spacing.md }}
               >
-                <Text style={{ color: '#dc3545', fontWeight: '600' }}>Clear selected day</Text>
+              
               </TouchableOpacity>
             )}
 

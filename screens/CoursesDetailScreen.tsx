@@ -115,7 +115,7 @@ export default function CourseDetailScreen() {
         const teacher = resUsers.find((u) => u.uuid === parsedCourse.teacherId) ?? null;
         setTeacherInfo(teacher);
       } catch (e) {
-        console.error(e);
+        //console.error(e);
       }
     };
     fetchData();
@@ -167,7 +167,7 @@ export default function CourseDetailScreen() {
         ToastAndroid.show(`⭐ ${!isFavorite ? 'Added to' : 'Removed from'} favorites`, ToastAndroid.SHORT);
       }
     } catch (e) {
-      console.error('❌ Error updating favorite status:', e);
+      //console.error('❌ Error updating favorite status:', e);
     }
   };
 
@@ -179,7 +179,7 @@ export default function CourseDetailScreen() {
       await sendEnrollmentEmail(user.uuid, user.name, parsedCourse.title, user.email);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
-      console.error('❌ Error enrolling:', e);
+      //console.error('❌ Error enrolling:', e);
     }
   };
 
@@ -195,7 +195,7 @@ export default function CourseDetailScreen() {
             await deleteEnrollment(parsedCourse.id, user.uuid, authToken);
             setIsEnrolled(false);
           } catch (e) {
-            console.error('❌ Error unenrolling:', e);
+            //console.error('❌ Error unenrolling:', e);
           }
         },
       },
@@ -213,7 +213,7 @@ export default function CourseDetailScreen() {
             await deleteCourse(parsedCourse.id, authToken!);
             router.replace('/(tabs)/courses');
           } catch (e) {
-            console.error('❌ Error deleting course:', e);
+            //console.error('❌ Error deleting course:', e);
           }
         },
       },
@@ -257,7 +257,7 @@ export default function CourseDetailScreen() {
     }
     setFeedbackModalVisible(false);
   } catch (error) {
-    console.error('❌ Error sending feedback:', error);
+    //console.error('❌ Error sending feedback:', error);
     Alert.alert('Error', 'Failed to send feedback.');
   }
 };

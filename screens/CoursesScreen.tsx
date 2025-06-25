@@ -50,7 +50,7 @@ export default function CoursesScreen() {
             console.log(`✅ Enrollments for course ID ${course.id} fetched`);
             return enrollments;
           } catch (err) {
-            console.error(`❌ Error fetching enrollments for course ID ${course.id}`, err);
+            //console.error(`❌ Error fetching enrollments for course ID ${course.id}`, err);
             console.log('🔎 Problematic course data:', course);
             return []; // Previene romper todo el flujo
           }
@@ -61,7 +61,7 @@ export default function CoursesScreen() {
       setCourses(allCourses);
       setEnrollments(flatEnrollments);
     } catch (e) {
-      console.error('❌ Error fetching courses:', e);
+      //console.error('❌ Error fetching courses:', e);
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function CoursesScreen() {
     // Validación: Aseguramos que `title` nunca sea undefined
     const validatedTitle = data.title?.trim() || ''; // Si `title` es undefined o vacío, lo convertimos a una cadena vacía
     if (!validatedTitle) {
-      console.error("❌ Title is required");
+      //console.error("❌ Title is required");
       return;
     }
 
@@ -97,7 +97,7 @@ export default function CoursesScreen() {
       setModalVisible(false);
       await fetchCourses();
     } catch (e) {
-      console.error('❌ Error creating course:', e);
+      //console.error('❌ Error creating course:', e);
     }
   };
 

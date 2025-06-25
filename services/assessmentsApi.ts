@@ -30,11 +30,14 @@ export interface Assessment {
   exercises: AssessmentExercise[];
 }
 
-export interface AssessmentFilterDto {
+export interface AssessmentQueryDto {
   type?: AssessmentType;
   startTimeBegin?: string;
   startTimeEnd?: string;
-  day?: string;
+  deadlineBegin?: string;
+  deadlineEnd?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface SubmittedAnswer {
@@ -54,22 +57,30 @@ export interface Submission {
 }
 
 // 🔹 Get assessments with filters and pagination
+// 🔹 Get assessments with filters and pagination
 export async function getAssessmentsByCourse(
   courseId: number,
   page: number = 1,
-  filters: AssessmentFilterDto = {},
   token: string,
+  day?: string,
+  type: 'Exam' | 'Task' = 'Exam',
 ): Promise<{ assessments: Assessment[]; total: number; page: number }> {
   const params = new URLSearchParams();
 
-  if (filters.day) {
-    const start = new Date(`${filters.day}T00:00:00.000Z`).toISOString();
-    const end = new Date(`${filters.day}T23:59:59.999Z`).toISOString();
+  // Add day filter if provided
+  if (day) {
+    const start = new Date(`${day}T00:00:00.000Z`).toISOString();
+    const end = new Date(`${day}T23:59:59.999Z`).toISOString();
     params.append('startTimeBegin', start);
     params.append('startTimeEnd', end);
   }
 
-  if (filters.type) params.append('type', filters.type);
+  // Add type filter (Exam/Task)
+  params.append('type', type);
+
+  // Add pagination filters
+  params.append('page', String(page));
+  params.append('limit', String(10)); // default limit is 10, adjust as necessary
 
   const queryString = params.toString();
   const response = await getFromGateway(
@@ -82,8 +93,8 @@ export async function getAssessmentsByCourse(
     id: a._id,
   })) as Assessment[];
 
-  const PAGE_SIZE = 10;
   const total = allAssessments.length;
+  const PAGE_SIZE = 10; // Default to 10 items per page
   const startIndex = (page - 1) * PAGE_SIZE;
   const endIndex = startIndex + PAGE_SIZE;
 
@@ -93,6 +104,7 @@ export async function getAssessmentsByCourse(
     page,
   };
 }
+
 
 // 🔹 Get assessment by ID
 export async function getAssessmentById(

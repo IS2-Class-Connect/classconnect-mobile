@@ -124,7 +124,7 @@ const handleExportPdf = async () => {
 
     await shareHtmlAsPdf(html);
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    //console.error('Error generating PDF:', error);
     Alert.alert('Error', 'Could not generate PDF.');
   }
 };
