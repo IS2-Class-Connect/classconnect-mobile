@@ -135,7 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const methods = await fetchSignInMethodsForEmail(auth, email);
       return methods;
     } catch (error) {
-      console.error('Error checking email existence:', error);
+      //console.error('Error checking email existence:', error);
       return [];
     }
   }, []);

@@ -77,7 +77,7 @@ export default function ModuleForm({ initialValues, courseId, defaultOrder = 0, 
 
       onClose();
     } catch (error) {
-      console.error(error);
+      //console.error(error);
       setErrorMessage('Something went wrong. Please try again.');
       setErrorVisible(true);
     }

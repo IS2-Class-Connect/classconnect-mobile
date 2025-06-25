@@ -143,7 +143,7 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
       const res = await getAllCourseFeedbacks(courseId, authToken);
       setCourseFeedbacks(res.feedbacks);
     } catch (err) {
-      console.error('Error loading feedbacks:', err);
+      //console.error('Error loading feedbacks:', err);
     } finally {
       setLoadingFeedbacks(false);
     }
@@ -178,6 +178,10 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
       Alert.alert('Validation', 'Please select a rating (1-5 stars).');
       return;
     }
+
+    // If no feedback was entered, set it to an empty string
+  const feedbackToSend = feedbackText.trim() === '' ? '' : feedbackText;
+  
     try {
       if (mode === 'self') {
         if (!user?.uuid || !authToken || !courseId) return;
@@ -206,8 +210,9 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
         setFeedbackText('');
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to send feedback.');
       console.error(e);
+      Alert.alert('Error', 'Failed to send feedback.');
+
     }
   };
 
@@ -253,7 +258,7 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
       }
 
       // Unexpected error – log it
-      console.error(`Unexpected error for user ${enrollment.userId}:`, e);
+      ////console.error(`Unexpected error for user ${enrollment.userId}:`, e);
       return null;
     }
   });
@@ -263,7 +268,7 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
   // Filter out nulls and save the list of users who already received feedback
   setStudentsWithFeedback(result.filter(Boolean) as string[]);
 } catch (e) {
-  console.error('Error checking student feedbacks:', e);
+  //console.error('Error checking student feedbacks:', e);
 } finally {
   setCheckingStudentFeedbacks(false);
 }
@@ -281,7 +286,7 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
       const res = await getAllCourseFeedbacks(courseId, authToken);
       setClassySummary(res?.summary ?? 'No summary available yet.');
     } catch (err) {
-      console.error('Error loading summary:', err);
+      //console.error('Error loading summary:', err);
       setClassySummary('Failed to load summary.');
     } finally {
       setLoadingClassy(false);

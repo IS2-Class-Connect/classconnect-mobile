@@ -43,7 +43,7 @@ export default function ModulesScreen() {
       const all = await getModulesByCourse(Number(courseId), authToken);
       setModules(all);
     } catch (err) {
-      console.error('Failed to fetch modules:', err);
+      //console.error('Failed to fetch modules:', err);
     }
   };
 
@@ -63,7 +63,7 @@ export default function ModulesScreen() {
             await deleteModule(id, Number(courseId), user.uuid, authToken);
             await fetchModules();
           } catch (err) {
-            console.error('Failed to delete module:', err);
+            //console.error('Failed to delete module:', err);
           }
         },
       },

@@ -22,7 +22,7 @@ export async function sendEnrollmentEmail(
     );
     console.log('📧 Enrollment email request sent successfully');
   } catch (error) {
-    console.error('❌ Error sending enrollment email:', error);
+    //console.error('❌ Error sending enrollment email:', error);
   }
 }
 
@@ -48,6 +48,6 @@ export async function sendAssistantAssignmentEmail(
     );
     console.log('📧 Assistant assignment email request sent successfully');
   } catch (error) {
-    console.error('❌ Error sending assistant assignment email:', error);
+    //console.error('❌ Error sending assistant assignment email:', error);
   }
 }

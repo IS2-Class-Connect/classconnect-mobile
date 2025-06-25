@@ -115,7 +115,7 @@ export default function CourseDetailScreen() {
         const teacher = resUsers.find((u) => u.uuid === parsedCourse.teacherId) ?? null;
         setTeacherInfo(teacher);
       } catch (e) {
-        console.error(e);
+        //console.error(e);
       }
     };
     fetchData();
@@ -167,7 +167,7 @@ export default function CourseDetailScreen() {
         ToastAndroid.show(`⭐ ${!isFavorite ? 'Added to' : 'Removed from'} favorites`, ToastAndroid.SHORT);
       }
     } catch (e) {
-      console.error('❌ Error updating favorite status:', e);
+      //console.error('❌ Error updating favorite status:', e);
     }
   };
 
@@ -179,7 +179,7 @@ export default function CourseDetailScreen() {
       await sendEnrollmentEmail(user.uuid, user.name, parsedCourse.title, user.email);
       Alert.alert('✅ Enrolled successfully');
     } catch (e) {
-      console.error('❌ Error enrolling:', e);
+      //console.error('❌ Error enrolling:', e);
     }
   };
 
@@ -195,7 +195,7 @@ export default function CourseDetailScreen() {
             await deleteEnrollment(parsedCourse.id, user.uuid, authToken);
             setIsEnrolled(false);
           } catch (e) {
-            console.error('❌ Error unenrolling:', e);
+            //console.error('❌ Error unenrolling:', e);
           }
         },
       },
@@ -213,7 +213,7 @@ export default function CourseDetailScreen() {
             await deleteCourse(parsedCourse.id, authToken!);
             router.replace('/(tabs)/courses');
           } catch (e) {
-            console.error('❌ Error deleting course:', e);
+            //console.error('❌ Error deleting course:', e);
           }
         },
       },
@@ -257,7 +257,7 @@ export default function CourseDetailScreen() {
     }
     setFeedbackModalVisible(false);
   } catch (error) {
-    console.error('❌ Error sending feedback:', error);
+    //console.error('❌ Error sending feedback:', error);
     Alert.alert('Error', 'Failed to send feedback.');
   }
 };
@@ -364,6 +364,20 @@ export default function CourseDetailScreen() {
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>Modules</Text>
                     </TouchableOpacity>
 
+                    <TouchableOpacity
+                      style={styles.iconAction}
+                      onPress={() => router.push({
+                        pathname: '/assessments',
+                        params: {
+                          courseId: String(parsedCourse.id),
+                          role,
+                        },
+                      })}
+                    >
+                      <Ionicons name="clipboard-outline" size={36} color={theme.primary} />
+                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Assessments</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.iconAction} onPress={handleOpenFeedbackModal}>
                       <Ionicons name="chatbubble-ellipses-outline" size={36} color={theme.primary} />
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>Feedback</Text>
@@ -372,15 +386,32 @@ export default function CourseDetailScreen() {
                 )}
 
 
-                {(isTeacher || isAssistant) && (
-                  <>
+                  {(isTeacher || isAssistant) && (
+                    <>
+                      <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
+                        <Ionicons name="create-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Edit</Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.iconAction} onPress={() => setEditing(true)}>
-                      <Ionicons name="create-outline" size={36} color={theme.primary} />
-                      <Text style={[styles.iconActionText, { color: theme.primary }]}>Edit</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
+                      <TouchableOpacity
+                        style={styles.iconAction}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/course-stats',
+                            params: {
+                              courseId: String(parsedCourse.id),
+                              courseName: parsedCourse.title,
+                              role,
+                            },
+                          })
+                        }
+                      >
+                        <Ionicons name="stats-chart-outline" size={36} color={theme.primary} />
+                        <Text style={[styles.iconActionText, { color: theme.primary }]}>Stats</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
 
                 {isTeacher && (
                   <>
@@ -393,7 +424,7 @@ export default function CourseDetailScreen() {
                       <MaterialIcons name="assignment" size={36} color={theme.primary} />
                       <Text style={[styles.iconActionText, { color: theme.primary }]}>View Log</Text>
                     </TouchableOpacity>
-
+                    
                     <TouchableOpacity style={styles.iconAction} onPress={handleDelete}>
                       <Ionicons name="trash-outline" size={36} color={theme.error} />
                       <Text style={[styles.iconActionText, { color: theme.error }]}>Delete</Text>
@@ -417,6 +448,19 @@ export default function CourseDetailScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+                {!isTeacher && !isAssistant && isEnrolled && (
+                <TouchableOpacity
+                  style={[styles.iconAction]} // Sin borde ni fondo
+                  onPress={handleUnenroll}
+                >
+                  <Ionicons name="remove-circle-outline" size={36} color={theme.error} />
+                  <Text style={[styles.iconActionText, { color: theme.error }]}>Unenroll</Text>
+                </TouchableOpacity>
+              )}
+
+
+
               </View>
             </View>
           </>

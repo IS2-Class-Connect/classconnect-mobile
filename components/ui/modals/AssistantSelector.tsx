@@ -15,7 +15,7 @@ import { spacing } from '../../../constants/spacing';
 import { fonts } from '../../../constants/fonts';
 import { useAuth } from '../../../context/AuthContext';
 import { getAllUsers, User } from '../../../services/userApi';
-import { enrollInCourse, deleteEnrollment } from '../../../services/coursesApi';
+import { enrollInCourse, deleteEnrollment, updateEnrollment, Enrollment} from '../../../services/coursesApi';
 import { Ionicons } from '@expo/vector-icons';
 import { sendAssistantAssignmentEmail, sendEnrollmentEmail } from '../../../services/emailService';
 
@@ -51,7 +51,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
       setUsers(eligible);
       setFilteredUsers(eligible);
     } catch (e) {
-      console.error('❌ Error loading users:', e);
+      //console.error('❌ Error loading users:', e);
     }
   };
 
@@ -78,8 +78,12 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
                 (e) => e.userId === selectedUser.uuid && e.role === 'STUDENT'
               );
               if (isStudent) {
-                // await patchEnrollment(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
-              } else {
+                  const data: Partial<Enrollment> = {
+                    role: 'ASSISTANT' as 'STUDENT' | 'ASSISTANT', 
+                  };
+
+                  await updateEnrollment(courseId, selectedUser.uuid, data, authToken);
+                  } else {
                 await enrollInCourse(courseId, selectedUser.uuid, authToken, 'ASSISTANT');
               }
               await sendAssistantAssignmentEmail(
@@ -93,7 +97,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
               Alert.alert('✅ Success', `${selectedUser.name} is now an assistant.`);
               onClose();
             } catch (error) {
-              console.error('❌ Error adding assistant:', error);
+              //console.error('❌ Error adding assistant:', error);
               Alert.alert('❌ Error', 'Could not add assistant.');
             }
           },
@@ -118,7 +122,7 @@ export default function AssistantSelector({ visible, onClose, courseId, courseNa
               Alert.alert('✅ Removed', `${selectedUser.name} is no longer an assistant.`);
               onClose();
             } catch (error) {
-              console.error('❌ Error removing assistant:', error);
+              //console.error('❌ Error removing assistant:', error);
               Alert.alert('❌ Error', 'Could not remove assistant.');
             }
           },
