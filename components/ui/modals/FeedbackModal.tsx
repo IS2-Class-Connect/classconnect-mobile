@@ -178,6 +178,10 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
       Alert.alert('Validation', 'Please select a rating (1-5 stars).');
       return;
     }
+
+    // If no feedback was entered, set it to an empty string
+  const feedbackToSend = feedbackText.trim() === '' ? '' : feedbackText;
+  
     try {
       if (mode === 'self') {
         if (!user?.uuid || !authToken || !courseId) return;
@@ -206,8 +210,9 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
         setFeedbackText('');
       }
     } catch (e) {
+      console.error(e);
       Alert.alert('Error', 'Failed to send feedback.');
-      //console.error(e);
+
     }
   };
 
