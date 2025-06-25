@@ -175,7 +175,7 @@ export default function CorrectionExerciseScreen() {
           <Text style={[styles.answer, { color: theme.text, marginBottom: spacing.lg }]}>
             {studentAnswer || 'No response'}
           </Text>
-          <Text style={[styles.label, { color: theme.text }]}>Your comment:</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Exercise comment:</Text>
           <TextInput
             style={[
               styles.input,
