@@ -10,6 +10,7 @@ import {
   Linking,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -50,6 +51,7 @@ export default function CorrectionExerciseScreen() {
   const [finalComment, setFinalComment] = useState('');
   const [correctionLoaded, setCorrectionLoaded] = useState(false);
   const [showClassyModal, setShowClassyModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const totalPages = assessment ? assessment.exercises.length + 1 : 0;
   const isLastPage = index === totalPages - 1;
@@ -85,33 +87,36 @@ export default function CorrectionExerciseScreen() {
   const studentAnswer = submission?.answers?.[index]?.answer || '';
 
   const handleSubmitCorrection = async () => {
-    if (!assessment || !submission || !user || !authToken) return;
-    if (!finalComment.trim()) {
-      Alert.alert('Comment required', 'Please write a final comment before submitting.');
-      return;
-    }
+  if (!assessment || !submission || !user || !authToken) return;
+  if (!finalComment.trim()) {
+    Alert.alert('Comment required', 'Please write a final comment before submitting.');
+    return;
+  }
 
-    const trimmedComments = submission.answers.map((_: SubmittedAnswer, i: number) => {
-      const ex = assessment.exercises[i];
-      return ex?.type === 'multiple_choice' ? '' : comments[i] || '';
-    });
+  const trimmedComments = submission.answers.map((_: SubmittedAnswer, i: number) => {
+    const ex = assessment.exercises[i];
+    return ex?.type === 'multiple_choice' ? '' : comments[i] || '';
+  });
 
-    const correction: Correction = {
-      teacherId: user.uuid,
-      corrections: trimmedComments,
-      note: finalNote,
-      feedback: finalComment,
-    };
-
-    try {
-      await submitCorrection(assessment.id, submission.userId, correction, authToken);
-      Alert.alert('✅ Correction submitted', 'Feedback was saved.');
-      router.back();
-    } catch (error) {
-      //console.error('Error submitting correction:', error);
-      Alert.alert('Error', 'Could not submit the correction.');
-    }
+  const correction: Correction = {
+    teacherId: user.uuid,
+    corrections: trimmedComments,
+    note: finalNote,
+    feedback: finalComment,
   };
+
+  setLoading(true);  
+  try {
+    await submitCorrection(assessment.id, submission.userId, correction, authToken);
+    Alert.alert('✅ Correction submitted', 'Feedback was saved.');
+    router.back();
+  } catch (error) {
+    Alert.alert('Error', 'Could not submit the correction.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const renderExercise = (exercise: AssessmentExercise, idx: number) => {
   const isCorrect = exercise.type === 'multiple_choice' && studentAnswer === exercise.answer;
@@ -270,26 +275,32 @@ export default function CorrectionExerciseScreen() {
           </TouchableOpacity>
         )}
         {!isLastPage ? (
-          <TouchableOpacity style={styles.navButton} onPress={() => setIndex(index + 1)}>
-            <Text style={styles.navButtonText}>Next →</Text>
-          </TouchableOpacity>
-        ) : (
-          !isReadonly && (
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                {
-                  backgroundColor: '#FFFFFF',
-                  borderColor: '#339CFF',
-                  borderWidth: 2,
-                },
-              ]}
-              onPress={handleSubmitCorrection}
-            >
-              <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit Correction</Text>
+            <TouchableOpacity style={styles.navButton} onPress={() => setIndex(index + 1)}>
+              <Text style={styles.navButtonText}>Next →</Text>
             </TouchableOpacity>
-          )
-        )}
+          ) : (
+            !isReadonly && (
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  {
+                    backgroundColor: '#FFFFFF',
+                    borderColor: '#339CFF',
+                    borderWidth: 2,
+                  },
+                ]}
+                onPress={handleSubmitCorrection}
+                disabled={loading}  // Desactiva el botón mientras está en carga
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#339CFF" />  // Muestra la ruedita cuando está en carga
+                ) : (
+                  <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit Correction</Text>
+                )}
+              </TouchableOpacity>
+            )
+          )}
+
       </View>
 
       {isReadonly && (

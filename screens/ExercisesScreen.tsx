@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -40,6 +41,7 @@ export default function ExercisesScreen() {
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const isStudent = role === 'Student';
@@ -119,8 +121,11 @@ export default function ExercisesScreen() {
     return () => clearInterval(timerRef.current!);
   }, [remainingTime, isStudent, submitted, assessment]);
 
-  const handleSubmit = () => {
+    const handleSubmit = () => {
     if (!assessment || !user || !authToken) return;
+    
+    setLoading(true); 
+
     Alert.alert(
       'Confirm submission',
       'This is final. Are you sure you want to submit?',
@@ -135,8 +140,9 @@ export default function ExercisesScreen() {
               Alert.alert('Submitted', 'Your answers have been submitted.');
               router.back();
             } catch (error) {
-              //console.error('Error submitting assessment:', error);
               Alert.alert('Error', 'There was a problem submitting your answers.');
+            } finally {
+              setLoading(false);  
             }
           },
         },
@@ -145,19 +151,25 @@ export default function ExercisesScreen() {
     );
   };
 
+
   const handleAutoSubmit = async () => {
-    if (!assessment || !user || !authToken) return;
-    try {
-      await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
-      await AsyncStorage.multiRemove([STORAGE_KEY, RESPONSES_KEY]);
-      setSubmitted(true);
-      Alert.alert("Time's up", 'Your answers were submitted automatically.');
-      router.back();
-    } catch (error) {
-      //console.error('Error auto-submitting assessment:', error);
-      Alert.alert('Error', 'Failed to auto-submit your answers.');
-    }
-  };
+  if (!assessment || !user || !authToken) return;
+
+  setLoading(true);  
+
+  try {
+    await submitAssessment(assessment.id, user.uuid, Object.values(responses), authToken);
+    await AsyncStorage.multiRemove([STORAGE_KEY, RESPONSES_KEY]);
+    setSubmitted(true);
+    Alert.alert("Time's up", 'Your answers were submitted automatically.');
+    router.back();
+  } catch (error) {
+    Alert.alert('Error', 'Failed to auto-submit your answers.');
+  } finally {
+    setLoading(false);  
+  }
+};
+
 
   const handleExportPdf = async () => {
     if (!assessment) return;
@@ -273,22 +285,28 @@ export default function ExercisesScreen() {
           </TouchableOpacity>
         )}
         {index < assessment.exercises.length - 1 ? (
-          <TouchableOpacity style={styles.navButton} onPress={() => setIndex(index + 1)}>
-            <Text style={styles.navButtonText}>Next →</Text>
-          </TouchableOpacity>
-        ) : (
-          isStudent && (
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                { backgroundColor: '#FFFFFF', borderColor: '#339CFF', borderWidth: 2 },
-              ]}
-              onPress={handleSubmit}
-            >
+        <TouchableOpacity style={styles.navButton} onPress={() => setIndex(index + 1)}>
+          <Text style={styles.navButtonText}>Next →</Text>
+        </TouchableOpacity>
+      ) : (
+        isStudent && (
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              { backgroundColor: '#FFFFFF', borderColor: '#339CFF', borderWidth: 2 },
+            ]}
+            onPress={handleSubmit}
+            disabled={loading}  
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#339CFF" />  
+            ) : (
               <Text style={[styles.navButtonText, { color: '#339CFF' }]}>Submit</Text>
-            </TouchableOpacity>
-          )
-        )}
+            )}
+          </TouchableOpacity>
+        )
+      )}
+
       </View>
     </View>
   );

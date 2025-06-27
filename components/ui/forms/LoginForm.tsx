@@ -221,6 +221,8 @@ const getErrorMessage = (errorType: AuthError): string => {
       return 'Network error. Please check your internet connection and try again.';
     case 'server-error':
       return 'Could not retrieve your account information. Please try again or contact support.';
+    case 'account-locked-by-admins':
+      return 'Your account has been disabled by an administrator. Please contact support for assistance.';
     default:
       return 'Something went wrong. Please try again later.';
   }

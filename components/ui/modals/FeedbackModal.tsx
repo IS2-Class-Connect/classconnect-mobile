@@ -210,7 +210,6 @@ const [checkingStudentFeedbacks, setCheckingStudentFeedbacks] = useState(false);
         setFeedbackText('');
       }
     } catch (e) {
-      console.error(e);
       Alert.alert('Error', 'Failed to send feedback.');
 
     }
