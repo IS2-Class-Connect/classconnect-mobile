@@ -12,10 +12,11 @@ import {
   Text,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../hooks/useTheme'; // No es necesario importar colors directamente
 import { sendToAI, addFeedback } from '../services/chatIA';
 import { spacing } from '../constants/spacing';
 import { fonts } from '../constants/fonts';
+
 import Markdown from 'react-native-markdown-display';
 
 type Message = {
@@ -37,7 +38,7 @@ export default function ChatScreen() {
   const [feedbackConfirmed, setFeedbackConfirmed] = useState<Set<string>>(new Set());
 
   const { user, authToken } = useAuth();
-  const theme = useTheme();
+  const theme = useTheme(); // Usar el hook para obtener el tema
   const flatListRef = useRef<FlatList>(null);
 
   const onSend = async () => {
@@ -156,7 +157,7 @@ export default function ChatScreen() {
                       borderRadius: 16,
                     }}
                   >
-                    <Markdown style={markdownStyles}>{item.text}</Markdown>
+                    <Markdown style={markdownStyles(theme)}>{item.text}</Markdown>
                   </View>
 
                   {isBot && !feedbackSent && (
@@ -250,6 +251,23 @@ export default function ChatScreen() {
   );
 }
 
+// Adjusted markdown styles to handle dark and light theme text color
+const markdownStyles = (theme: any) => ({
+  body: {
+    color: theme.text,  // Use theme.text for dynamic color change
+    fontSize: 15,
+    flexWrap: 'wrap' as const,
+    margin: 0,
+    padding: 0,
+    lineHeight: 20,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+});
+
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: {
@@ -336,17 +354,3 @@ const styles = StyleSheet.create({
   },
 });
 
-const markdownStyles = {
-  body: {
-    color: 'white',
-    fontSize: 15,
-    flexWrap: 'wrap' as const,
-    margin: 0,
-    padding: 0,
-    lineHeight: 20,
-  },
-  paragraph: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-};
