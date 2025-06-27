@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   TextInput,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -34,6 +35,8 @@ export default function CoursesScreen() {
   const [tab, setTab] = useState<'my' | 'public' | 'enrolled' | 'favorites'>('my');
   const [searchTerm, setSearchTerm] = useState('');
   const [enrolledSubtab, setEnrolledSubtab] = useState<'active' | 'finished'>('active');
+  const [refreshing, setRefreshing] = useState(false); // Estado para controlar si la lista se está recargando
+
 
   const fetchCourses = async () => {
     if (!authToken || !user) return;
@@ -71,11 +74,10 @@ export default function CoursesScreen() {
     fetchCourses();
   }, [authToken]);
 
-  // Cambiar la firma de `handleCreateCourse` para que sea compatible con el tipo que espera el CourseForm
   const handleCreateCourse = async (data: Partial<Omit<Course, 'id' | 'createdAt'>> & { teacherId?: string }) => {
     if (!authToken || !user) return;
 
-    // Validación: Aseguramos que `title` nunca sea undefined
+   
     const validatedTitle = data.title?.trim() || ''; // Si `title` es undefined o vacío, lo convertimos a una cadena vacía
     if (!validatedTitle) {
       //console.error("❌ Title is required");
@@ -100,6 +102,14 @@ export default function CoursesScreen() {
       //console.error('❌ Error creating course:', e);
     }
   };
+
+
+  const handleRefresh = async () => {
+  setRefreshing(true); 
+  await fetchCourses();
+  setRefreshing(false); 
+};
+
 
   const enrolledCourseIds = new Set(
     enrollments
@@ -223,24 +233,31 @@ export default function CoursesScreen() {
         )}
 
         <FlatList
-          data={filteredCourses}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={() =>
-            loading ? null : (
-              <Text
-                style={{
-                  color: theme.text,
-                  textAlign: 'center',
-                  marginTop: spacing.md,
-                }}
-              >
-                No courses found.
-              </Text>
-            )
-          }
-        />
+  data={filteredCourses}
+  keyExtractor={(item) => item.id.toString()}
+  renderItem={renderItem}
+  contentContainerStyle={styles.list}
+  ListEmptyComponent={() =>
+    loading ? null : (
+      <Text
+        style={{
+          color: theme.text,
+          textAlign: 'center',
+          marginTop: spacing.md,
+        }}
+      >
+        No courses found.
+      </Text>
+    )
+  }
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing} // Si está activado, muestra el estado de carga
+      onRefresh={handleRefresh} // Al hacer pull-to-refresh, se ejecuta la función
+    />
+  }
+/>
+
 
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: theme.buttonPrimary }]}
