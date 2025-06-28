@@ -2,7 +2,7 @@ import {
   GoogleSignin,
   GoogleSigninButton,
   statusCodes,
-  isErrorWithCode,isSuccessResponse
+  isErrorWithCode, isSuccessResponse
 } from '@react-native-google-signin/google-signin';
 import { useEffect, useState } from 'react';
 
@@ -66,7 +66,7 @@ const GoogleAuth = () => {
             // operation (eg. sign in) already in progress
             break;
           case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-              console.log("PLAY_SERVICES_NOT_AVAILABLE")
+            console.log("PLAY_SERVICES_NOT_AVAILABLE")
             // Android only, play services not available or outdated
             break;
           default:

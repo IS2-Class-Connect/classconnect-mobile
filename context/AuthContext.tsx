@@ -146,6 +146,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const auth = getAuth();
       const result = await signInWithEmailAndPassword(auth, email, password);
+      if (!result.user.emailVerified) {
+        return { success: false, error: 'email-not-verified' as AuthError };
+      }
+
       const token = await result.user.getIdToken();
       setAuthToken(token);
 
