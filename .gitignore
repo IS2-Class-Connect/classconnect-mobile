@@ -39,8 +39,6 @@ app-example
 
 prompt.txt
 
-google-services.json
-
 # Env files
 .env
 .env.local
