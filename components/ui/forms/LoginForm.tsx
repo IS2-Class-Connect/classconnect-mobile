@@ -270,8 +270,7 @@ export default function LoginForm({
       <IconButton
         title="Continue with Google"
         icon={require('../../../assets/icons/google-blue.png')}
-        onPress={async () => { }}
-        //onPress={handleGoogleLogin}
+        onPress={handleGoogleLogin}
         disabled={isLoading}
         loading={isLoading}
       />
