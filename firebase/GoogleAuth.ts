@@ -18,7 +18,7 @@ type User = {
 };
 
 GoogleSignin.configure({
-  webClientId: '737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
+  webClientId: '278336937854-pots3anfn9ops568409sn276v4moqnre.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   scopes: ['https://www.googleapis.com/auth/drive.readonly'], // what API you want to access on behalf of the user, default is email and profile
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
   hostedDomain: '', // specifies a hosted domain restriction
