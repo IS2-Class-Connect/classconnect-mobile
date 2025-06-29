@@ -15,22 +15,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "737983419302-kmrjsfqj30t3pk8dmijjhhj1en1tv474.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.classconnect.mobile",
-            "certificate_hash": "b0e0332f4810915c74ea93c30ea131c1dc8cf9aa"
-          }
-        },
-        {
-          "client_id": "737983419302-r38ianoq87iidmnmg46jpugajg1tbebh.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.classconnect.mobile",
-            "certificate_hash": "d40d81050d73ce86db76d88d8cac9545ea65ba7d"
-          }
-        },
-        {
           "client_id": "737983419302-8eaahr34d13ah39n87f353p7pedk1psj.apps.googleusercontent.com",
           "client_type": 3
         }
